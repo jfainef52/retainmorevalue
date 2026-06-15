@@ -398,7 +398,11 @@ table.sc-ldg tfoot td.gold-col { color:var(--gold); }
           </div>
           <div class="fg fr">
             <div class="field"><label class="fl">Federal Tax Rate (%)</label><input type="number" id="fedRate" value="32" step="0.25" oninput="recalcAll()"/><div class="hint">Use marginal rate — typically 22–37% for this profile.</div></div>
-            <div class="field"><label class="fl">State Tax Rate (% — override)</label><input type="number" id="stateRate" step="0.25" oninput="recalcAll()"/></div>
+            <div class="field">
+  <label class="fl">State Tax Rate (% — override)</label>
+  <input type="number" id="stateRate" step="0.25" oninput="recalcAll()"/>
+  <div id="stateNote" class="hint" style="display:none"></div>
+</div>
           </div>
           <div class="chk-row">
             <input type="checkbox" id="penaltyChk" onchange="recalcAll()"/>
@@ -513,14 +517,65 @@ table.sc-ldg tfoot td.gold-col { color:var(--gold); }
 // ══════════════════════════════════════════════════════════
 // STATE TAX TABLE
 // ══════════════════════════════════════════════════════════
-const STATE_RATES = {
-  AL:5.00,AK:0,AZ:2.50,AR:4.40,CA:13.30,CO:4.40,CT:6.99,DE:6.60,FL:0,
-  GA:5.39,HI:11.00,ID:5.80,IL:4.95,IN:3.05,IA:5.70,KS:5.70,KY:4.50,
-  LA:4.25,ME:7.15,MD:5.75,MA:5.00,MI:4.25,MN:9.85,MS:4.70,MO:4.80,
-  MT:6.75,NE:6.84,NV:0,NH:0,NJ:10.75,NM:5.90,NY:10.90,NC:4.50,ND:2.50,
-  OH:3.75,OK:4.75,OR:9.90,PA:3.07,RI:5.99,SC:6.40,SD:0,TN:0,TX:0,
-  UT:4.65,VT:8.75,VA:5.75,WA:0,WV:5.12,WI:7.65,WY:0
+// ── State Tax Data for Qualified Plan Distributions ──
+// treatment: 'none'=no income tax | 'exempt'=fully exempts QP/retirement income
+//            'partial'=partial exemption (rate reflects effective after-exemption rate)
+//            'full'=fully taxed at marginal rate
+// rate: effective state rate to apply to QP distributions
+const STATE_TAX_DATA = {
+  AL:{ rate:0.00,  treatment:'exempt',  note:'Alabama exempts all pension & retirement plan distributions' },
+  AK:{ rate:0.00,  treatment:'none',    note:'Alaska has no state income tax' },
+  AZ:{ rate:2.50,  treatment:'full',    note:'Arizona flat 2.50%; QP distributions fully taxable' },
+  AR:{ rate:3.90,  treatment:'partial', note:'Arkansas: $6,000 retirement income exemption; rate reflects net exposure' },
+  CA:{ rate:9.30,  treatment:'full',    note:'California fully taxes QP distributions; top rate 13.3%' },
+  CO:{ rate:4.40,  treatment:'partial', note:'Colorado: $24,000 exemption age 65+, $20,000 age 55–64; verify by age' },
+  CT:{ rate:6.99,  treatment:'full',    note:'Connecticut fully taxes QP/IRA distributions' },
+  DE:{ rate:6.60,  treatment:'partial', note:'Delaware: $12,500 pension exclusion age 60+' },
+  FL:{ rate:0.00,  treatment:'none',    note:'Florida has no state income tax' },
+  GA:{ rate:5.39,  treatment:'partial', note:'Georgia: $65,000 retirement exclusion age 65+ ($35,000 age 62–64)' },
+  HI:{ rate:8.25,  treatment:'partial', note:'Hawaii: most employer pensions exempt; IRA/401(k) distributions taxable' },
+  ID:{ rate:5.80,  treatment:'full',    note:'Idaho fully taxes QP distributions' },
+  IL:{ rate:0.00,  treatment:'exempt',  note:'Illinois exempts all retirement income including 401(k) and IRA distributions' },
+  IN:{ rate:3.05,  treatment:'full',    note:'Indiana fully taxes QP distributions; flat 3.05%' },
+  IA:{ rate:3.80,  treatment:'partial', note:'Iowa: retirement income exempt for those 55+' },
+  KS:{ rate:5.70,  treatment:'full',    note:'Kansas fully taxes QP distributions' },
+  KY:{ rate:4.50,  treatment:'partial', note:'Kentucky: $31,110 pension income exclusion' },
+  LA:{ rate:4.25,  treatment:'partial', note:'Louisiana: $6,000 retirement income exclusion age 65+' },
+  ME:{ rate:7.15,  treatment:'full',    note:'Maine fully taxes QP distributions' },
+  MD:{ rate:5.75,  treatment:'full',    note:'Maryland fully taxes QP distributions; local taxes additional' },
+  MA:{ rate:5.00,  treatment:'partial', note:'Massachusetts: public pension exempt; 401(k)/IRA taxable at 5.00%' },
+  MI:{ rate:4.25,  treatment:'partial', note:'Michigan: partial pension exemption based on birth year; verify' },
+  MN:{ rate:9.85,  treatment:'full',    note:'Minnesota fully taxes QP distributions' },
+  MS:{ rate:0.00,  treatment:'exempt',  note:'Mississippi exempts all retirement income including QP distributions' },
+  MO:{ rate:4.80,  treatment:'partial', note:'Missouri: up to $6,000 public pension deduction; private QP fully taxed' },
+  MT:{ rate:6.75,  treatment:'full',    note:'Montana fully taxes QP distributions' },
+  NE:{ rate:6.84,  treatment:'full',    note:'Nebraska fully taxes QP distributions' },
+  NV:{ rate:0.00,  treatment:'none',    note:'Nevada has no state income tax' },
+  NH:{ rate:0.00,  treatment:'none',    note:'New Hampshire taxes only interest and dividends; no tax on QP distributions' },
+  NJ:{ rate:6.37,  treatment:'partial', note:'New Jersey: pension/IRA exclusion up to $75,000 (income-tested); rate reflects net' },
+  NM:{ rate:5.90,  treatment:'full',    note:'New Mexico fully taxes QP distributions' },
+  NY:{ rate:6.85,  treatment:'partial', note:'New York: $20,000 pension exclusion; QP distributions above threshold taxable' },
+  NC:{ rate:4.50,  treatment:'full',    note:'North Carolina fully taxes QP distributions' },
+  ND:{ rate:2.50,  treatment:'full',    note:'North Dakota fully taxes QP distributions; flat 2.50%' },
+  OH:{ rate:3.75,  treatment:'full',    note:'Ohio fully taxes QP distributions' },
+  OK:{ rate:4.75,  treatment:'partial', note:'Oklahoma: $10,000 retirement income deduction' },
+  OR:{ rate:9.90,  treatment:'full',    note:'Oregon fully taxes QP distributions; top rate 9.9%' },
+  PA:{ rate:0.00,  treatment:'exempt',  note:'Pennsylvania exempts all retirement income including 401(k) and IRA distributions after age 59½' },
+  RI:{ rate:5.99,  treatment:'full',    note:'Rhode Island fully taxes QP distributions' },
+  SC:{ rate:6.40,  treatment:'partial', note:'South Carolina: up to $15,000 retirement deduction age 65+ ($3,000 under 65)' },
+  SD:{ rate:0.00,  treatment:'none',    note:'South Dakota has no state income tax' },
+  TN:{ rate:0.00,  treatment:'none',    note:'Tennessee has no state income tax' },
+  TX:{ rate:0.00,  treatment:'none',    note:'Texas has no state income tax' },
+  UT:{ rate:4.65,  treatment:'full',    note:'Utah fully taxes QP distributions' },
+  VT:{ rate:8.75,  treatment:'full',    note:'Vermont fully taxes QP distributions' },
+  VA:{ rate:5.75,  treatment:'partial', note:'Virginia: $12,000 age deduction age 65+ ($6,000 age 62–64); QP otherwise fully taxed' },
+  WA:{ rate:0.00,  treatment:'none',    note:'Washington has no state income tax' },
+  WV:{ rate:5.12,  treatment:'full',    note:'West Virginia fully taxes QP distributions' },
+  WI:{ rate:7.65,  treatment:'full',    note:'Wisconsin fully taxes QP distributions' },
+  WY:{ rate:0.00,  treatment:'none',    note:'Wyoming has no state income tax' }
 };
+// Backwards-compatible rate lookup
+const STATE_RATES = Object.fromEntries(Object.entries(STATE_TAX_DATA).map(([k,v])=>[k,v.rate]));
 
 // ══════════════════════════════════════════════════════════
 // CARRIER CHARGE TABLES
@@ -699,7 +754,23 @@ function onCarrierChange() {
 // ══════════════════════════════════════════════════════════
 function onStateChange() {
   const state = document.getElementById('stateRes').value;
-  document.getElementById('stateRate').value = (STATE_RATES[state]||0).toFixed(2);
+  const data = STATE_TAX_DATA[state] || { rate:0, treatment:'none', note:'' };
+  document.getElementById('stateRate').value = data.rate.toFixed(2);
+  const noteEl = document.getElementById('stateNote');
+  if (data.note) {
+    noteEl.textContent = data.note;
+    noteEl.style.display = 'block';
+    // Color-code by treatment
+    if (data.treatment === 'none' || data.treatment === 'exempt') {
+      noteEl.style.color = 'var(--green)';
+    } else if (data.treatment === 'partial') {
+      noteEl.style.color = 'var(--gold)';
+    } else {
+      noteEl.style.color = 'var(--muted)';
+    }
+  } else {
+    noteEl.style.display = 'none';
+  }
   recalcAll();
 }
 function formatCurrency(el) {
@@ -2090,8 +2161,7 @@ function buildChart(ageRange,etaPct,qpPct,d,bandIncome){
 // INIT
 // ══════════════════════════════════════════════════════════
 window.addEventListener('DOMContentLoaded',()=>{
-  const state=document.getElementById('stateRes').value;
-  document.getElementById('stateRate').value=(STATE_RATES[state]||0).toFixed(2);
+  onStateChange();
   fetchSOFR();
   recalcAll();
   rebuildPayoffDropdown();
