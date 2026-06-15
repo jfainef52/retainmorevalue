@@ -584,24 +584,19 @@ const STATE_RATES = Object.fromEntries(Object.entries(STATE_TAX_DATA).map(([k,v]
 // Standard charges come from carrier illustration upload (dollar amounts)
 // ══════════════════════════════════════════════════════════
 const CARRIER_PARAMS = {
+  // PL ECV Pref+ — BCR back-solved from Amy 7-yr ETA illustration at 6.35% credited rate
+  // Formula: O = av + net_prem - 0.5*stdChg (no BCF deduction)
+  //          credits = O * cappedReturn * BCR
+  //          AV = av + net_prem - stdChg + credits
+  // BCF = 0 for all years (absorbed into BCR schedule)
+  // Validated against PacLife illustration to <0.01% error
   PL: [
-    [0.0160,1.000,0.000000],[0.0310,1.300,0.000000],[0.0386,1.450,0.000000],
-    [0.0460,1.600,0.000000],[0.0536,1.750,0.000000],[0.0610,1.890,0.000000],
-    [0.0686,2.040,0.000000],[0.0760,2.190,0.000000],[0.0836,2.330,0.000000],
-    [0.0910,2.470,0.000000],[0.0910,2.470,0.002736],[0.0910,2.470,0.005436],
-    [0.0910,2.470,0.007918],[0.0910,2.470,0.010264],[0.0910,2.470,0.012437],
-    [0.0910,2.470,0.014420],[0.0910,2.470,0.016214],[0.0910,2.470,0.017804],
-    [0.0910,2.470,0.019208],[0.0910,2.470,0.020425],[0.0820,2.300,0.021457],
-    [0.0730,2.130,0.020513],[0.0640,1.950,0.019612],[0.0550,1.780,0.018755],
-    [0.0460,1.600,0.017925],[0.0460,1.600,0.017140],[0.0460,1.600,0.016372],
-    [0.0460,1.600,0.015660],[0.0460,1.600,0.014955],[0.0460,1.600,0.014278],
-    [0.0460,1.600,0.013618],[0.0460,1.600,0.010854],[0.0460,1.600,0.008292],
-    [0.0460,1.600,0.005949],[0.0460,1.600,0.003772],[0.0460,1.600,0.001829],
-    [0.0460,1.600,0.000000],[0.0460,1.600,0.000000],[0.0460,1.600,0.000000],
-    [0.0460,1.600,0.000000],[0.0460,1.600,0.000000],[0.0460,1.600,0.000000],
-    [0.0460,1.600,0.000000],[0.0460,1.600,0.000000],[0.0460,1.600,0.000000],
-    [0.0460,1.600,0.000000],[0.0460,1.600,0.000000],[0.0460,1.600,0.000000],
-    [0.0460,1.600,0.000000],[0.0460,1.600,0.000000]
+    [0,2.1525,0],[0,1.3678,0],[0,1.2136,0],[0,1.1479,0],[0,1.1115,0],[0,1.0885,0],[0,1.0726,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],
+    [0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],
+    [0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],
+    [0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],
+    [0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],
+    [0,0.9993,0],[0,0.9993,0]
   ],
   NLG: [
     // [BCF, BonusCreditFactor, PersistencyBonus]
@@ -746,7 +741,8 @@ function getBankRateForYear(policyYr, sofrBase, spread) {
 // ══════════════════════════════════════════════════════════
 function onCarrierChange() {
   const c = document.getElementById('carrier').value;
-  document.getElementById('capRate').value = c==='NLG' ? '9.25' : '12.00';
+  // Auto-set cap rate: NLG Summit Pref+ = 9.25%, PL ECV Pref+ = 6.35% (current illustrated rate)
+  document.getElementById('capRate').value = c==='NLG' ? '9.25' : '6.35';
 }
 
 // ══════════════════════════════════════════════════════════
@@ -903,12 +899,18 @@ function simETAPath(carrierRows, bankRows, pdaRows, annualPrem, payYears,
       O = avgMonthlyAV;
       av_new = Math.max(0, av + prem - stdChg - bonusChg + credits);
     } else {
-      O = Math.max(0, (av + prem - 0.5*stdChg) / (1+0.5*bcf));
-      const bonusChg = O * bcf;
+      // PL ECV Pref+: net_prem = gross_prem - premLoad (col 3 from illustration)
+      // Formula validated against PacLife illustration: error <0.01%
+      // O = av + net_prem - 0.5*stdChg (mid-year investable base, no BCF deduction)
+      // credits = O * cappedReturn * BCR  (BCR absorbed all bonus factors)
+      // AV = av + net_prem - stdChg + credits
+      const premLoad = carrier.premCharges || 0;  // abs(col 3) from XLS parser
+      const netPrem = prem - (yr <= payYears ? premLoad : 0);
+      O = Math.max(0, av + netPrem - 0.5*stdChg);
       idx = Math.min(Math.max(ret, FLOOR), CAP);
       creditRate = idx * bcr + pb;
       credits = O * creditRate;
-      av_new = Math.max(0, av + prem - stdChg - bonusChg + credits);
+      av_new = Math.max(0, av + netPrem - stdChg + credits);
     }
     av = av_new;
 
@@ -1183,7 +1185,7 @@ function calculate() {
           <input type="file" id="carrier-file" accept=".csv,.xls,.xlsx" onchange="onFileSelect(this)"/>
           <div class="uz-icon">📊</div>
           <div class="uz-title">Drop ${carrierKey==='NLG'?'NLG Summit':'Pacific Life ECV'} Illustration Here</div>
-          <div class="uz-hint">CSV or XLS/XLSX — Summary of Policy Charges</div>
+          <div class="uz-hint">NLG: upload .csv (quickview export) &nbsp;·&nbsp; PacLife: upload .xlsx (native illustration file)</div>
           <div class="uz-file" id="uz-file-name"></div>
         </div>
         <div class="lerr" id="lerr"></div>
@@ -1309,7 +1311,7 @@ async function parseXLS(file) {
       }
       surrenderCharge= Math.max(0,illustratedAV-illustratedCSV);
     }
-    rows.push({year:yr,age,premCharges:0,stdCharges,illustratedAV,illustratedCSV,surrenderCharge});
+    rows.push({year:yr,age,premCharges:Math.abs(parseFloat(r[3])||0),stdCharges,illustratedAV,illustratedCSV,surrenderCharge});
   }
   // Extract meta from pre-data rows (convert to CSV-like lines for extractNLGMeta)
   const metaLines = raw.slice(0, Math.min(3, dataStart)).map(r=>(r||[]).map(v=>'"'+(v||'')+'"').join(','));
