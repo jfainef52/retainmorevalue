@@ -5,31 +5,21 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ETA Modeler — RetainMoreValue.com</title>
 <!-- ── AUTH GATE ── -->
-<style>body{visibility:hidden}</style>
 <script>
-// Read Supabase session from localStorage without any CDN dependency
-// Supabase v2 stores session under keys matching 'sb-*-auth-token'
 (function() {
   var found = false;
   try {
     for (var i = 0; i < localStorage.length; i++) {
       var k = localStorage.key(i);
       if (k && k.match(/^sb-.*-auth-token$/)) {
-        var v = localStorage.getItem(k);
-        if (v) {
-          var p = JSON.parse(v);
-          // Supabase v2 may nest under 'session' key
-          var tok = (p && p.access_token) || (p && p.session && p.session.access_token);
-          if (tok) { found = true; break; }
-        }
+        var p = JSON.parse(localStorage.getItem(k));
+        var tok = (p && p.access_token) || (p && p.session && p.session.access_token);
+        if (tok) { found = true; break; }
       }
     }
   } catch(e) {}
   if (!found) {
     window.location.replace('/advisor-login.html');
-  } else {
-    // body may not exist yet — reveal on DOMContentLoaded
-    document.addEventListener('DOMContentLoaded', function() { document.body.style.visibility = 'visible'; });
   }
 })();
 </script>
