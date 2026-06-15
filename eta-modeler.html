@@ -7,21 +7,30 @@
 <!-- ── AUTH GATE ── -->
 <style>body{visibility:hidden}</style>
 <script>
-try {
-  var PROJECT = 'fcuveztmmefgntoekqze';
-  var raw = localStorage.getItem('sb-' + PROJECT + '-auth-token');
-  var ok = false;
-  if (raw) {
-    var p = JSON.parse(raw);
-    if (p && p.access_token) ok = true;
+(function() {
+  try {
+    var found = false;
+    for (var i = 0; i < localStorage.length; i++) {
+      var key = localStorage.key(i);
+      if (key && (key.indexOf('supabase') > -1 || key.indexOf('sb-') > -1 || key.indexOf('auth-token') > -1)) {
+        var val = localStorage.getItem(key);
+        if (val) {
+          try {
+            var p = JSON.parse(val);
+            if (p && p.access_token) { found = true; break; }
+          } catch(e) {}
+        }
+      }
+    }
+    if (!found) {
+      window.location.replace('/advisor-login.html');
+    } else {
+      document.body.style.visibility = 'visible';
+    }
+  } catch(e) {
+    window.location.replace('/advisor-login.html');
   }
-  if (!ok) {
-    document.write('<style>body{display:none}</style>');
-    window.location.href = 'https://retainmorevalue-gvfyags93-integrated-planning-partners.vercel.app/advisor-login.html';
-  }
-} catch(e) {
-  window.location.href = 'https://retainmorevalue-gvfyags93-integrated-planning-partners.vercel.app/advisor-login.html';
-}
+})();
 </script>
 <!-- ── END AUTH GATE ── -->
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@300;400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
