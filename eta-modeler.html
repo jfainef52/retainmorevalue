@@ -6,26 +6,21 @@
 <title>ETA Modeler — RetainMoreValue.com</title>
 <!-- ── AUTH GATE ── -->
 <style>body{visibility:hidden}</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
-(function() {
+(async function() {
   try {
-    var found = false;
-    for (var i = 0; i < localStorage.length; i++) {
-      var key = localStorage.key(i);
-      if (key && (key.indexOf('supabase') > -1 || key.indexOf('sb-') > -1 || key.indexOf('auth-token') > -1)) {
-        var val = localStorage.getItem(key);
-        if (val) {
-          try {
-            var p = JSON.parse(val);
-            if (p && p.access_token) { found = true; break; }
-          } catch(e) {}
-        }
-      }
-    }
-    if (!found) {
+    var sb = supabase.createClient(
+      'https://fcuveztmmefgntoekqze.supabase.co',
+      'sb_publishable_TACe4ULWiMWdz8NhkF1gNA_0PSjITAz'
+    );
+    var result = await sb.auth.getSession();
+    var session = result.data && result.data.session;
+    if (!session) {
       window.location.replace('/advisor-login.html');
     } else {
       document.body.style.visibility = 'visible';
+      window._sb = sb;
     }
   } catch(e) {
     window.location.replace('/advisor-login.html');
