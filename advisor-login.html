@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Advisor Login — RetainMoreValue.com</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+
 <style>
 :root {
   --navy: #0D1B2E; --navy-2: #152640;
@@ -214,33 +214,35 @@ body::after {
 </div>
 
 <script>
-// ── SUPABASE CONFIG ──────────────────────────────────────────
-// Replace these two values with your actual Supabase project credentials
 const SUPABASE_URL  = 'https://fcuveztmmefgntoekqze.supabase.co';
 const SUPABASE_ANON = 'sb_publishable_TACe4ULWiMWdz8NhkF1gNA_0PSjITAz';
-// ────────────────────────────────────────────────────────────
 
-const { createClient } = supabase;
-const sb = createClient(SUPABASE_URL, SUPABASE_ANON);
-
-// If already logged in, go straight to the modeler
-(async () => {
-  const { data: { session } } = await sb.auth.getSession();
-  if (session) window.location.href = 'eta-modeler.html';
+// Check if already logged in via localStorage
+(function() {
+  try {
+    for (var i = 0; i < localStorage.length; i++) {
+      var k = localStorage.key(i);
+      if (k && k.match(/^sb-.*-auth-token$/)) {
+        var p = JSON.parse(localStorage.getItem(k));
+        var tok = (p && p.access_token) || (p && p.session && p.session.access_token);
+        if (tok) { window.location.replace('eta-modeler.html'); break; }
+      }
+    }
+  } catch(e) {}
 })();
 
 // Handle Enter key
-['email','password'].forEach(id => {
-  document.getElementById(id).addEventListener('keydown', e => {
+['email','password'].forEach(function(id) {
+  document.getElementById(id).addEventListener('keydown', function(e) {
     if (e.key === 'Enter') handleSignIn();
   });
 });
 
 async function handleSignIn() {
-  const email    = document.getElementById('email').value.trim();
-  const password = document.getElementById('password').value;
-  const btn      = document.getElementById('sign-in-btn');
-  const errBox   = document.getElementById('error-msg');
+  var email    = document.getElementById('email').value.trim();
+  var password = document.getElementById('password').value;
+  var btn      = document.getElementById('sign-in-btn');
+  var errBox   = document.getElementById('error-msg');
 
   errBox.classList.remove('visible');
 
@@ -252,32 +254,49 @@ async function handleSignIn() {
   btn.classList.add('loading');
   btn.disabled = true;
 
-  const { error } = await sb.auth.signInWithPassword({ email, password });
+  try {
+    // Direct REST call — no CDN needed
+    var resp = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=password', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_ANON,
+        'Authorization': 'Bearer ' + SUPABASE_ANON
+      },
+      body: JSON.stringify({ email: email, password: password })
+    });
 
-  btn.classList.remove('loading');
-  btn.disabled = false;
+    var data = await resp.json();
 
-  if (error) {
-    showError('Invalid email or password. Contact support@enhancedFunding.com if you need access.');
-  } else {
-    // Confirm session is actually set before redirecting
-    var check = await sb.auth.getSession();
-    if (check.data && check.data.session) {
-      window.location.replace('eta-modeler.html');
-    } else {
-      // Fallback: wait and retry
-      setTimeout(async function() {
-        var retry = await sb.auth.getSession();
-        if (retry.data && retry.data.session) {
-          window.location.replace('eta-modeler.html');
-        }
-      }, 1000);
+    if (!resp.ok || data.error) {
+      btn.classList.remove('loading');
+      btn.disabled = false;
+      showError('Invalid email or password. Contact support@enhancedFunding.com if you need access.');
+      return;
     }
+
+    // Manually write session to localStorage in Supabase v2 format
+    var storageKey = 'sb-fcuveztmmefgntoekqze-auth-token';
+    var session = {
+      access_token: data.access_token,
+      refresh_token: data.refresh_token,
+      expires_at: Math.floor(Date.now() / 1000) + (data.expires_in || 3600),
+      token_type: data.token_type || 'bearer',
+      user: data.user
+    };
+    localStorage.setItem(storageKey, JSON.stringify(session));
+
+    window.location.replace('eta-modeler.html');
+
+  } catch(e) {
+    btn.classList.remove('loading');
+    btn.disabled = false;
+    showError('Connection error. Please try again.');
   }
 }
 
 function showError(msg) {
-  const el = document.getElementById('error-msg');
+  var el = document.getElementById('error-msg');
   el.textContent = msg;
   el.classList.add('visible');
 }
