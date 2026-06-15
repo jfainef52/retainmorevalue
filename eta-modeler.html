@@ -23,6 +23,7 @@
       }
     }
     if (!found) {
+      alert('AUTH GATE FIRED — no session found. Will redirect.');
       window.location.replace('/advisor-login.html');
     } else {
       document.body.style.visibility = 'visible';
