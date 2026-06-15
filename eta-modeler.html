@@ -4,15 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ETA Modeler — RetainMoreValue.com</title>
-<!-- ── AUTH GATE ── hides body until session confirmed ── -->
+<!-- ── AUTH GATE ── -->
 <style>body{visibility:hidden}</style>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script>
-(async () => {
-  const SUPABASE_URL  = 'https://fcuveztmmefgntoekqze.supabase.co';
-  const SUPABASE_ANON = 'sb_publishable_TACe4ULWiMWdz8NhkF1gNA_0PSjITAz';
-  const { createClient } = supabase;
-  const sb = createClient(SUPABASE_URL, SUPABASE_ANON);
+<script type="module">
+  import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+  const sb = createClient(
+    'https://fcuveztmmefgntoekqze.supabase.co',
+    'sb_publishable_TACe4ULWiMWdz8NhkF1gNA_0PSjITAz'
+  );
   const { data: { session } } = await sb.auth.getSession();
   if (!session) {
     window.location.replace('advisor-login.html');
@@ -20,7 +19,6 @@
     document.body.style.visibility = 'visible';
     window._sb = sb;
   }
-})();
 </script>
 <!-- ── END AUTH GATE ── -->
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@300;400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
