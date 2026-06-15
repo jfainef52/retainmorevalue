@@ -584,14 +584,15 @@ const STATE_RATES = Object.fromEntries(Object.entries(STATE_TAX_DATA).map(([k,v]
 // Standard charges come from carrier illustration upload (dollar amounts)
 // ══════════════════════════════════════════════════════════
 const CARRIER_PARAMS = {
-  // PL ECV Pref+ — BCR back-solved from Amy 7-yr ETA illustration at 6.35% credited rate
+  // PL ECV Pref+ — validated against M60 ETA7 1M illustration
   // Formula: O = av + net_prem - 0.5*stdChg (no BCF deduction)
-  //          credits = O * cappedReturn * BCR
+  //          credits = O * cappedReturn * BCR  (cap = 12%)
   //          AV = av + net_prem - stdChg + credits
-  // BCF = 0 for all years (absorbed into BCR schedule)
-  // Validated against PacLife illustration to <0.01% error
+  // BCR ≈ 1.000 throughout (no bonus credit enhancement on this product)
+  // Error vs illustration: <0.01% per year
+  // [BCF, BCR, PersistencyBonus]
   PL: [
-    [0,2.1525,0],[0,1.3678,0],[0,1.2136,0],[0,1.1479,0],[0,1.1115,0],[0,1.0885,0],[0,1.0726,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],
+    [0,0.9936,0],[0,0.9967,0],[0,0.9978,0],[0,0.9983,0],[0,0.9986,0],[0,0.9989,0],[0,0.9990,0],[0,0.9992,0],[0,0.9993,0],[0,0.9993,0],
     [0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],
     [0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],
     [0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],
@@ -741,8 +742,8 @@ function getBankRateForYear(policyYr, sofrBase, spread) {
 // ══════════════════════════════════════════════════════════
 function onCarrierChange() {
   const c = document.getElementById('carrier').value;
-  // Auto-set cap rate: NLG Summit Pref+ = 9.25%, PL ECV Pref+ = 6.35% (current illustrated rate)
-  document.getElementById('capRate').value = c==='NLG' ? '9.25' : '6.35';
+  // Auto-set cap rate: NLG Summit Pref+ = 9.25%, PL ECV Pref+ = 12.00%
+  document.getElementById('capRate').value = c==='NLG' ? '9.25' : '12.00';
 }
 
 // ══════════════════════════════════════════════════════════
