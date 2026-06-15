@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Advisor Login — RetainMoreValue.com</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root {
+  --navy: #0D1B2E; --navy-2: #152640;
+  --gold: #C9A84C; --gold-lt: #DFC278; --gold-pale: #F7F0E0;
+  --white: #FFFFFF; --off: #F5F3EE; --border: #DDD8CE;
+  --muted: #8A8070; --red: #8B2020; --red-lt: #FDF0F0; --text: #1A1A2A;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: 'IBM Plex Sans', sans-serif;
+  background: var(--navy);
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Background texture */
+body::before {
+  content: '';
+  position: absolute; inset: 0; pointer-events: none;
+  background-image:
+    linear-gradient(rgba(201,168,76,.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(201,168,76,.03) 1px, transparent 1px);
+  background-size: 64px 64px;
+}
+body::after {
+  content: '';
+  position: absolute; inset: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse 50% 50% at 20% 20%, rgba(201,168,76,.06) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 60% at 80% 80%, rgba(42,110,69,.04) 0%, transparent 55%);
+}
+
+.login-wrap {
+  position: relative; z-index: 1;
+  width: 100%; max-width: 400px;
+  padding: 0 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+}
+
+/* Logo */
+.logo-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 40px;
+}
+.logo-block svg { display: block; margin-bottom: 14px; }
+.logo-tag {
+  font-size: 9px; letter-spacing: 3.5px; text-transform: uppercase;
+  color: rgba(255,255,255,.3);
+}
+
+/* Card */
+.login-card {
+  width: 100%;
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(201,168,76,.18);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.card-hdr {
+  background: var(--navy-2);
+  border-bottom: 1px solid rgba(201,168,76,.12);
+  padding: 20px 28px;
+}
+.card-hdr h1 {
+  font-family: 'Playfair Display', serif;
+  font-size: 18px; font-weight: 600;
+  color: var(--white); letter-spacing: .3px;
+}
+.card-hdr p {
+  font-size: 11px; color: rgba(255,255,255,.35);
+  margin-top: 4px; letter-spacing: .3px;
+}
+.card-body { padding: 28px; }
+
+.field { margin-bottom: 18px; }
+.field:last-of-type { margin-bottom: 0; }
+.field label {
+  display: block;
+  font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase;
+  color: rgba(255,255,255,.4); margin-bottom: 7px;
+}
+.field input {
+  width: 100%;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 3px;
+  color: var(--white);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 13px;
+  padding: 11px 14px;
+  outline: none;
+  transition: border-color .15s, background .15s;
+}
+.field input::placeholder { color: rgba(255,255,255,.2); }
+.field input:focus {
+  border-color: rgba(201,168,76,.5);
+  background: rgba(201,168,76,.04);
+}
+
+.sep { height: 1px; background: rgba(255,255,255,.07); margin: 22px 0; }
+
+.btn-sign-in {
+  width: 100%;
+  background: var(--gold); color: var(--navy); border: none;
+  border-radius: 3px; padding: 13px;
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 11.5px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase;
+  cursor: pointer; transition: background .15s;
+}
+.btn-sign-in:hover { background: var(--gold-lt); }
+.btn-sign-in:disabled { opacity: .5; cursor: default; }
+
+.error-msg {
+  display: none;
+  background: var(--red-lt); border: 1px solid rgba(139,32,32,.25);
+  color: var(--red); border-radius: 3px;
+  padding: 10px 14px; font-size: 12px; line-height: 1.5;
+  margin-top: 14px;
+}
+.error-msg.visible { display: block; }
+
+.card-foot {
+  padding: 16px 28px;
+  border-top: 1px solid rgba(255,255,255,.06);
+  text-align: center;
+}
+.card-foot a {
+  font-size: 11px; color: rgba(255,255,255,.28);
+  text-decoration: none; transition: color .15s;
+  letter-spacing: .3px;
+}
+.card-foot a:hover { color: var(--gold); }
+
+.back-link {
+  margin-top: 24px;
+  font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase;
+  color: rgba(255,255,255,.2); text-decoration: none;
+  transition: color .15s;
+}
+.back-link:hover { color: rgba(255,255,255,.45); }
+
+/* Spinner */
+.spinner {
+  display: none;
+  width: 14px; height: 14px;
+  border: 2px solid rgba(13,27,46,.3);
+  border-top-color: var(--navy);
+  border-radius: 50%;
+  animation: spin .6s linear infinite;
+  margin: 0 auto;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.btn-sign-in.loading .btn-txt { display: none; }
+.btn-sign-in.loading .spinner { display: block; }
+</style>
+</head>
+<body>
+
+<div class="login-wrap">
+  <div class="logo-block">
+    <svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="120" height="31" viewBox="0 0 1417 368" xml:space="preserve">
+      <g><path fill="#FFFFFF" d="M356.718,51.895H107.804v248.914h124.335c-3.1,6.239-8.797,14.516-10.488,18.127l-0.266,0.604H89.074V33.165h286.375l0,64.698c-4.035,3.044-8.566,5.883-13.666,8.604c-1.651,0.882-3.356,1.645-5.064,2.357V51.895z M257.101,300.809h22.341c-14.024,0.813-21.681,7.254-24.268,14.115c-0.104-5.474-0.37-10.386,1.112-12.794L257.101,300.809z M317.209,300.809h39.509v-83.955c5.178-5.954,8.698-10.725,9.054-10.648c3.285,0.712,6.488,1.438,9.676,1.961l0,111.373h-77.993c3.602-1.962,6.725-3.637,8.958-4.545C311.832,312.791,315.76,305.381,317.209,300.809z"/><path fill-rule="evenodd" clip-rule="evenodd" fill="#FFFFFF" d="M182.381,324.222c3.701,3.545,5.984,6.317,3.814,6.438c-5.52,0.307-14.096,1.673-17.469,0.753s-5.83-6.825-5.83-6.825L182.381,324.222z M84.392,314.414c-8.056,1.693-27.078,5.802-29.85,9.329c-3.373,4.292-11.495,2.978-12.265-0.307c-1.208-5.148,1.772-14.872,8.585-18.705c8.25-4.64,24.374-3.006,26.827-4.232c0.853-0.427,3.52-3.112,6.703-6.603V314.414z M84.392,219.194c-11.831,0.147-23.829-0.765-23.829-0.765s-3.585,12.397-11.801,12.696c-8.216,0.299-24.349-6.871-24.349-6.871s11.502,4.631,16.581,0.747s4.78-8.066,8.963-9.561s11.353-0.447,11.353-0.447s12.141,0.222,23.082-0.533V219.194z M135.644,289.767c-9.205,1.975-17.08,2.889-23.157,6.242v-41.895c4.325-4.195,9.52-8.924,13.038-16.168c5.092-10.482,9.013-23.305,11.765-29.039c-8.35-4.014-18.359-8.063-24.803-8.082v-6.397c9.81,0.647,21.874,4.464,30.787,7.787c5.496-4.642,12.802-9.236,13.835-9.649c1.533-0.613,12.879-1.227,16.559-3.066s13.416-13.568,20.392-16.788s11.882-4.829,16.559-4.829c2.637,0,14.29,0.39,25.08,1.472c12.319-4.688,23.968-8.972,27.574-11.312c8.327-5.401,19.784-10.374,26.615-14.495c6.832-4.122,10.037-9.455,23.271-13.359c7.114-2.099,16.859-2.407,24.35-2.244c1.706,3.941,3.741,7.61,5.902,9.33c5.849,4.655,20.19,7.965,20.19,7.965s-11.25-5.115-17.225-10.585c-2.104-1.926-3.051-4.638-3.395-7.344c-0.296-3.643,0.782-7.225,3.403-8.533c4.839-2.416,27.776-10.292,42.981-27.307c16.168-18.094,16.642-34.156,17.637-34.502c2-0.696-1.752,23.748-12.379,40.381c-6.003,9.395-12.737,15.903-19.214,20.238c-2.707,1.812-4.567,3.201-5.818,4.206c2.096-0.108,4.284-0.044,6.53,0.255c6.183,0.825,26.711,18.773,30.338,25.46c7.129-1.77,15.903-4.851,22.589-12.762c12.848-15.202,6.701-34.215,8.548-31.653c1.848,2.562,6.247,21.779-4.054,37.77c-6.195,9.616-14.924,16.221-22.168,19.335c1.997,4.657,4.282,9.53,6.259,13.166c3.908,7.188,11.305,8.971,10.731,16.368c-0.574,7.398-0.864,15.935-8.974,16.143s-20.294-4.923-27.035-2.871c-7.983,2.43-13.186,1.227-27.096-1.696l-2.346-1.046c-6.746-3.066-19.318-10.886-19.318-10.886s9.353,10.732,16.405,15.485l0.672,0.449c-2.866,4.201-7.382,10.415-11.791,14.818c-7.261,7.251-15.087,8.598-16.444,17.702c-1.357,9.105-0.365,14.299-4.137,17.355c-3.772,3.057-7.83,6.184-7.83,6.184s0.632,13.445-1.222,19.349s-5.344,13.726-6.2,17.566c-0.856,3.841-4.56,10.811-8.402,12.373s-14.944,7.958-20.566,10.87c-5.622,2.913-16.437,6.819-19.994,5.893c-3.556-0.928-8.675-6.906-2.196-14.869c6.479-7.964,18.572-6.746,20.848-7.314c2.277-0.567,11.102-5.186,14.162-7.46c3.061-2.274-1.202-12.094-1.202-12.094s-9.174-4.062-11.664-4.348c-0.703,0.523-1.248,0.998-1.819,1.38c-1.885,1.256-7.417-0.458-14.14-3.188c0.498-3.154,1.007-6.797,1.316-10.139c0.767-8.279,5.366-8.586,6.899-14.719s1.38-18.091,1.38-18.091s-1.84,11.192-3.22,14.104c-1.38,2.913-2.913,6.593-5.673,9.659s-4.14,12.879-5.06,15.792l-2.026,6.325c-1.593,3.911-3.964,9.482-5.339,11.521c-2.208,3.271-6.55,7.678-6.197,12.729c0.353,5.051,3.896,26.536-9.764,27.523c-13.659,0.987-17.068-7.836-14.504-13.312c2.564-5.477,12.533-18.844,12.964-25.602c0.318-4.988-2.537-19.399-4.767-28.979c-0.573-2.17-1.078-4.351-1.337-5.386c-0.613-2.453-1.993-6.286-2.453-10.732c-0.46-4.445-0.307-12.571,0.767-15.178s0.767-16.558,0.767-16.558s-0.916,9.896-3.148,15.256c-1.746,4.19-3.751,14.334-3.138,18.166c0.551,3.441,2.461,11.703,2.845,15.686c-7.629,1.561-21.082,3.953-30.928,5.668l-16.738,1.936l11.493,1.226c-5.783,5.634-17.139,16.572-21.321,19.702h-17.225c1.222-2.224,2.29-4.47,2.474-5.942c0.13-1.038-0.4-4.493-1.053-8.134c3.29-3.622,3.659-5.769,8.975-9.689c6.243-4.605,10.414-5.629,13.796-11.851c-3.22,3.373-13.798,6.578-18.858,11.178c-5.06,4.599-10.732,9.352-10.732,9.352C143.538,284.958,137.796,289.305,135.644,289.767z M369.055,143.649c0,0-1.073,7.206,4.063,11.422c5.137,4.216,12.956,3.066,12.956,3.066L369.055,143.649z"/><polygon fill-rule="evenodd" clip-rule="evenodd" fill="#FFFFFF" points="609.536,135.78 609.536,94.658 478.023,94.658 478.023,258.046 609.536,258.046 609.536,216.924 524.141,216.924 524.141,195.248 601.924,195.248 601.924,154.126 524.141,154.126 524.141,135.78"/><polygon fill-rule="evenodd" clip-rule="evenodd" fill="#FFFFFF" points="769.819,135.78 769.819,94.658 638.307,94.658 638.307,258.046 684.424,258.046 684.424,200.005 762.208,200.005 762.208,158.883 684.424,158.883 684.424,135.78"/><path fill-rule="evenodd" clip-rule="evenodd" fill="#FFFFFF" d="M858.892,260.9c20.705-0.124,37.036-4.928,48.994-14.412s18.061-22.909,18.308-40.273c-0.197-15.194-5.745-26.328-16.643-33.402c-10.897-7.074-25.959-12.438-45.184-16.091c-11.416-2.33-19.172-4.571-23.268-6.722c-4.097-2.151-6.021-5.225-5.772-9.22c-0.005-3.153,1.374-5.711,4.136-7.674c2.762-1.963,6.938-2.975,12.526-3.034c7.448,0,15.163,1.368,23.144,4.104s15.809,6.841,23.485,12.314l23.059-32.581c-8.987-7.264-19.122-12.761-30.402-16.49c-11.28-3.729-23.979-5.6-38.095-5.615c-19.648,0.203-35.235,5.086-46.763,14.649c-11.526,9.564-17.421,22.592-17.683,39.085c0.118,11.197,2.918,20.08,8.4,26.65c5.48,6.57,12.932,11.699,22.351,15.387s20.095,6.808,32.027,9.359c11.073,2.395,18.621,4.446,22.643,6.157c4.022,1.71,5.916,4.416,5.683,8.119c-0.015,3.6-1.65,6.395-4.908,8.388c-3.259,1.993-8.049,3.004-14.371,3.034c-9.646-0.015-18.975-1.711-27.988-5.086c-9.014-3.376-17.683-8.344-26.008-14.901l-25.678,30.683c10.456,9.156,22.354,16.039,35.695,20.649S844.024,260.896,858.892,260.9z"/><polygon fill-rule="evenodd" clip-rule="evenodd" fill="#FFFFFF" points="995.344,245.142 1087.753,245.142 1087.753,258.061 982.187,258.061 982.187,93.228 995.344,93.228"/><rect x="1109.227" y="93.228" fill-rule="evenodd" clip-rule="evenodd" fill="#FFFFFF" width="13.157" height="164.833"/><polygon fill-rule="evenodd" clip-rule="evenodd" fill="#FFFFFF" points="1263.484,106.15 1161.978,106.15 1161.978,167.666 1253.918,167.666 1253.918,180.589 1161.978,180.589 1161.978,258.061 1148.82,258.061 1148.82,93.228 1263.484,93.228"/><polygon fill-rule="evenodd" clip-rule="evenodd" fill="#FFFFFF" points="1391.019,106.15 1294.18,106.15 1294.18,167.666 1383.785,167.666 1383.785,180.589 1294.18,180.589 1294.18,245.142 1391.019,245.142 1391.019,258.061 1281.021,258.061 1281.021,93.228 1391.019,93.228"/></g>
+    </svg>
+    <span class="logo-tag">Enhanced Tax Advantage · Advisor Portal</span>
+  </div>
+
+  <div class="login-card">
+    <div class="card-hdr">
+      <h1>Advisor Login</h1>
+      <p>RetainMoreValue.com · Internal Use Only</p>
+    </div>
+    <div class="card-body">
+      <div class="field">
+        <label for="email">Email Address</label>
+        <input type="email" id="email" placeholder="you@yourfirm.com" autocomplete="email">
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input type="password" id="password" placeholder="••••••••••" autocomplete="current-password">
+      </div>
+      <div class="sep"></div>
+      <button class="btn-sign-in" id="sign-in-btn" onclick="handleSignIn()">
+        <span class="btn-txt">Sign In</span>
+        <div class="spinner"></div>
+      </button>
+      <div class="error-msg" id="error-msg"></div>
+    </div>
+    <div class="card-foot">
+      <a href="mailto:support@enhancedFunding.com?subject=RetainMoreValue Access Request">Need access? Contact support@enhancedFunding.com</a>
+    </div>
+  </div>
+
+  <a href="/" class="back-link">← RetainMoreValue.com</a>
+</div>
+
+<script>
+// ── SUPABASE CONFIG ──────────────────────────────────────────
+// Replace these two values with your actual Supabase project credentials
+const SUPABASE_URL  = 'https://fcuveztmmefgntoekqze.supabase.co';
+const SUPABASE_ANON = 'sb_publishable_TACe4ULWiMWdz8NhkF1gNA_0PSjITAz';
+// ────────────────────────────────────────────────────────────
+
+const { createClient } = supabase;
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON);
+
+// If already logged in, go straight to the modeler
+(async () => {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) window.location.href = 'eta-modeler.html';
+})();
+
+// Handle Enter key
+['email','password'].forEach(id => {
+  document.getElementById(id).addEventListener('keydown', e => {
+    if (e.key === 'Enter') handleSignIn();
+  });
+});
+
+async function handleSignIn() {
+  const email    = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+  const btn      = document.getElementById('sign-in-btn');
+  const errBox   = document.getElementById('error-msg');
+
+  errBox.classList.remove('visible');
+
+  if (!email || !password) {
+    showError('Please enter your email address and password.');
+    return;
+  }
+
+  btn.classList.add('loading');
+  btn.disabled = true;
+
+  const { error } = await sb.auth.signInWithPassword({ email, password });
+
+  btn.classList.remove('loading');
+  btn.disabled = false;
+
+  if (error) {
+    showError('Invalid email or password. Contact support@enhancedFunding.com if you need access.');
+  } else {
+    window.location.href = 'eta-modeler.html';
+  }
+}
+
+function showError(msg) {
+  const el = document.getElementById('error-msg');
+  el.textContent = msg;
+  el.classList.add('visible');
+}
+</script>
+</body>
+</html>
