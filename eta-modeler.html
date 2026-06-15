@@ -584,20 +584,31 @@ const STATE_RATES = Object.fromEntries(Object.entries(STATE_TAX_DATA).map(([k,v]
 // Standard charges come from carrier illustration upload (dollar amounts)
 // ══════════════════════════════════════════════════════════
 const CARRIER_PARAMS = {
-  // PL ECV Pref+ — Annual Point-to-Point, no BCF/BCR enhancement
-  // Formula validated against M60 ETA7 1M NoPay illustration (<0.06% error per year):
-  //   net_prem = gross_prem - premLoad (col 3 abs value from XLSX)
-  //   base = av + net_prem - 0.5*stdChg  (mid-year investable balance)
-  //   credits = base * cappedReturn
-  //   AV = av + net_prem - stdChg + credits
-  // [BCF, BCR, PB] all unused for PL (BCF=0, BCR=1, PB=0)
+  // PL ECV Pref+ — [BCF, BonusCreditFactor, PersistencyBonus]
+  // Enhancement Rider overlaid on base illustration (same approach as DynamicFunding)
+  // BCF values confirmed from Sayner Charges Ledger PDF
+  // Formula: O = (av + net_prem - 0.5*stdChg) / (1 + 0.5*BCF)
+  //          C = O * BCF  (bonus charge)
+  //          credits = O * (cappedReturn * BCR + PB)
+  //          AV = av + net_prem - stdChg - C + credits
   PL: [
-    [0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],
-    [0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],
-    [0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],
-    [0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],
-    [0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],
-    [0,1,0],[0,1,0]
+    [0.0160,1.000,0.000000],[0.0310,1.300,0.000000],[0.0386,1.450,0.000000],
+    [0.0460,1.600,0.000000],[0.0536,1.750,0.000000],[0.0610,1.890,0.000000],
+    [0.0686,2.040,0.000000],[0.0760,2.190,0.000000],[0.0836,2.330,0.000000],
+    [0.0910,2.470,0.000000],[0.0910,2.470,0.002736],[0.0910,2.470,0.005436],
+    [0.0910,2.470,0.007918],[0.0910,2.470,0.010264],[0.0910,2.470,0.012437],
+    [0.0910,2.470,0.014420],[0.0910,2.470,0.016214],[0.0910,2.470,0.017804],
+    [0.0910,2.470,0.019208],[0.0910,2.470,0.020425],[0.0820,2.300,0.021457],
+    [0.0730,2.130,0.020513],[0.0640,1.950,0.019612],[0.0550,1.780,0.018755],
+    [0.0460,1.600,0.017925],[0.0460,1.600,0.017140],[0.0460,1.600,0.016372],
+    [0.0460,1.600,0.015660],[0.0460,1.600,0.014955],[0.0460,1.600,0.014278],
+    [0.0460,1.600,0.013618],[0.0460,1.600,0.010854],[0.0460,1.600,0.008292],
+    [0.0460,1.600,0.005949],[0.0460,1.600,0.003772],[0.0460,1.600,0.001829],
+    [0.0460,1.600,0.000000],[0.0460,1.600,0.000000],[0.0460,1.600,0.000000],
+    [0.0460,1.600,0.000000],[0.0460,1.600,0.000000],[0.0460,1.600,0.000000],
+    [0.0460,1.600,0.000000],[0.0460,1.600,0.000000],[0.0460,1.600,0.000000],
+    [0.0460,1.600,0.000000],[0.0460,1.600,0.000000],[0.0460,1.600,0.000000],
+    [0.0460,1.600,0.000000],[0.0460,1.600,0.000000]
   ],
   NLG: [
     // [BCF, BonusCreditFactor, PersistencyBonus]
@@ -900,18 +911,21 @@ function simETAPath(carrierRows, bankRows, pdaRows, annualPrem, payYears,
       O = avgMonthlyAV;
       av_new = Math.max(0, av + prem - stdChg - bonusChg + credits);
     } else {
-      // PL ECV Pref+ — Annual Point-to-Point, validated against M60 ETA7 1M illustration (<0.06% error)
-      // net_prem = gross_prem - premLoad (premCharges from col 3 of XLSX, abs value)
-      // base = av + net_prem - 0.5*stdChg  (mid-year investable balance, BCF=0 so no bonus charge)
-      // credits = base * cappedReturn
-      // AV = av + net_prem - stdChg + credits
+      // PL ECV Pref+ — Enhancement Rider overlaid on base illustration
+      // Same formula as DynamicFunding simPath (confirmed against Sayner Charges Ledger):
+      //   net_prem = gross_prem - premLoad (col 3 abs from XLSX)
+      //   O = (av + net_prem - 0.5*stdChg) / (1 + 0.5*BCF)
+      //   C = O * BCF  (bonus charge)
+      //   credits = O * (cappedReturn * BCR + PB)
+      //   AV = av + net_prem - stdChg - C + credits
       const premLoad = carrier.premCharges || 0;
       const netPrem = yr <= payYears ? Math.max(0, prem - premLoad) : prem;
-      O = Math.max(0, av + netPrem - 0.5*stdChg);
+      O = Math.max(0, (av + netPrem - 0.5*stdChg) / (1 + 0.5*bcf));
+      const bonusChg = O * bcf;
       idx = Math.min(Math.max(ret, FLOOR), CAP);
-      creditRate = idx;  // BCR=1, no multiplier
+      creditRate = idx * bcr + pb;
       credits = O * creditRate;
-      av_new = Math.max(0, av + netPrem - stdChg + credits);
+      av_new = Math.max(0, av + netPrem - stdChg - bonusChg + credits);
     }
     av = av_new;
 
