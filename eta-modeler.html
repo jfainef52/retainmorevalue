@@ -584,20 +584,20 @@ const STATE_RATES = Object.fromEntries(Object.entries(STATE_TAX_DATA).map(([k,v]
 // Standard charges come from carrier illustration upload (dollar amounts)
 // ══════════════════════════════════════════════════════════
 const CARRIER_PARAMS = {
-  // PL ECV Pref+ — validated against M60 ETA7 1M illustration
-  // Formula: O = av + net_prem - 0.5*stdChg (no BCF deduction)
-  //          credits = O * cappedReturn * BCR  (cap = 12%)
-  //          AV = av + net_prem - stdChg + credits
-  // BCR ≈ 1.000 throughout (no bonus credit enhancement on this product)
-  // Error vs illustration: <0.01% per year
-  // [BCF, BCR, PersistencyBonus]
+  // PL ECV Pref+ — Annual Point-to-Point, no BCF/BCR enhancement
+  // Formula validated against M60 ETA7 1M NoPay illustration (<0.06% error per year):
+  //   net_prem = gross_prem - premLoad (col 3 abs value from XLSX)
+  //   base = av + net_prem - 0.5*stdChg  (mid-year investable balance)
+  //   credits = base * cappedReturn
+  //   AV = av + net_prem - stdChg + credits
+  // [BCF, BCR, PB] all unused for PL (BCF=0, BCR=1, PB=0)
   PL: [
-    [0,0.9936,0],[0,0.9967,0],[0,0.9978,0],[0,0.9983,0],[0,0.9986,0],[0,0.9989,0],[0,0.9990,0],[0,0.9992,0],[0,0.9993,0],[0,0.9993,0],
-    [0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],
-    [0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],
-    [0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],
-    [0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],[0,0.9993,0],
-    [0,0.9993,0],[0,0.9993,0]
+    [0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],
+    [0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],
+    [0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],
+    [0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],
+    [0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],
+    [0,1,0],[0,1,0]
   ],
   NLG: [
     // [BCF, BonusCreditFactor, PersistencyBonus]
@@ -900,16 +900,16 @@ function simETAPath(carrierRows, bankRows, pdaRows, annualPrem, payYears,
       O = avgMonthlyAV;
       av_new = Math.max(0, av + prem - stdChg - bonusChg + credits);
     } else {
-      // PL ECV Pref+: net_prem = gross_prem - premLoad (col 3 from illustration)
-      // Formula validated against PacLife illustration: error <0.01%
-      // O = av + net_prem - 0.5*stdChg (mid-year investable base, no BCF deduction)
-      // credits = O * cappedReturn * BCR  (BCR absorbed all bonus factors)
+      // PL ECV Pref+ — Annual Point-to-Point, validated against M60 ETA7 1M illustration (<0.06% error)
+      // net_prem = gross_prem - premLoad (premCharges from col 3 of XLSX, abs value)
+      // base = av + net_prem - 0.5*stdChg  (mid-year investable balance, BCF=0 so no bonus charge)
+      // credits = base * cappedReturn
       // AV = av + net_prem - stdChg + credits
-      const premLoad = carrier.premCharges || 0;  // abs(col 3) from XLS parser
-      const netPrem = prem - (yr <= payYears ? premLoad : 0);
+      const premLoad = carrier.premCharges || 0;
+      const netPrem = yr <= payYears ? Math.max(0, prem - premLoad) : prem;
       O = Math.max(0, av + netPrem - 0.5*stdChg);
       idx = Math.min(Math.max(ret, FLOOR), CAP);
-      creditRate = idx * bcr + pb;
+      creditRate = idx;  // BCR=1, no multiplier
       credits = O * creditRate;
       av_new = Math.max(0, av + netPrem - stdChg + credits);
     }
