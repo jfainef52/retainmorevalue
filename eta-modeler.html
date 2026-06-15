@@ -6,24 +6,29 @@
 <title>ETA Modeler — RetainMoreValue.com</title>
 <!-- ── AUTH GATE ── -->
 <style>body{visibility:hidden}</style>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
-(async function() {
+// Read Supabase session from localStorage without any CDN dependency
+// Supabase v2 stores session under keys matching 'sb-*-auth-token'
+(function() {
+  var found = false;
   try {
-    var sb = supabase.createClient(
-      'https://fcuveztmmefgntoekqze.supabase.co',
-      'sb_publishable_TACe4ULWiMWdz8NhkF1gNA_0PSjITAz'
-    );
-    var result = await sb.auth.getSession();
-    var session = result.data && result.data.session;
-    if (!session) {
-      window.location.replace('/advisor-login.html');
-    } else {
-      document.body.style.visibility = 'visible';
-      window._sb = sb;
+    for (var i = 0; i < localStorage.length; i++) {
+      var k = localStorage.key(i);
+      if (k && k.match(/^sb-.*-auth-token$/)) {
+        var v = localStorage.getItem(k);
+        if (v) {
+          var p = JSON.parse(v);
+          // Supabase v2 may nest under 'session' key
+          var tok = (p && p.access_token) || (p && p.session && p.session.access_token);
+          if (tok) { found = true; break; }
+        }
+      }
     }
-  } catch(e) {
+  } catch(e) {}
+  if (!found) {
     window.location.replace('/advisor-login.html');
+  } else {
+    document.body.style.visibility = 'visible';
   }
 })();
 </script>
