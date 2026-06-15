@@ -260,7 +260,10 @@ async function handleSignIn() {
   if (error) {
     showError('Invalid email or password. Contact support@enhancedFunding.com if you need access.');
   } else {
-    window.location.href = 'eta-modeler.html';
+    // Small delay to ensure Supabase session is written to localStorage before redirect
+    setTimeout(function() {
+      window.location.href = 'eta-modeler.html';
+    }, 800);
   }
 }
 
