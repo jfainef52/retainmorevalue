@@ -28,7 +28,8 @@
   if (!found) {
     window.location.replace('/advisor-login.html');
   } else {
-    document.body.style.visibility = 'visible';
+    // body may not exist yet — reveal on DOMContentLoaded
+    document.addEventListener('DOMContentLoaded', function() { document.body.style.visibility = 'visible'; });
   }
 })();
 </script>
