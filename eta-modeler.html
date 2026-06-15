@@ -6,21 +6,44 @@
 <title>ETA Modeler — RetainMoreValue.com</title>
 <!-- ── AUTH GATE ── -->
 <style>body{visibility:hidden}</style>
-<script type="module">
-  import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-  const sb = createClient(
-    'https://fcuveztmmefgntoekqze.supabase.co',
-    'sb_publishable_TACe4ULWiMWdz8NhkF1gNA_0PSjITAz'
-  );
-  const { data: { session } } = await sb.auth.getSession();
+<script>
+(function() {
+  // Read the Supabase session from localStorage — no CDN needed
+  const PROJECT_REF = 'fcuveztmmefgntoekqze';
+  const STORAGE_KEY = 'sb-' + PROJECT_REF + '-auth-token';
+  var raw = localStorage.getItem(STORAGE_KEY);
+  var session = null;
+  if (raw) {
+    try {
+      var parsed = JSON.parse(raw);
+      var expires = parsed.expires_at || 0;
+      if (parsed.access_token && (expires === 0 || Date.now() / 1000 < expires)) {
+        session = parsed;
+      }
+    } catch(e) {}
+  }
   if (!session) {
     window.location.replace('advisor-login.html');
   } else {
-    document.body.style.visibility = 'visible';
-    window._sb = sb;
+    document.addEventListener('DOMContentLoaded', function() {
+      document.body.style.visibility = 'visible';
+    });
   }
+})();
 </script>
 <!-- ── END AUTH GATE ── -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+window.addEventListener('DOMContentLoaded', function() {
+  if (typeof supabase !== 'undefined') {
+    var sb = supabase.createClient(
+      'https://fcuveztmmefgntoekqze.supabase.co',
+      'sb_publishable_TACe4ULWiMWdz8NhkF1gNA_0PSjITAz'
+    );
+    window._sb = sb;
+  }
+});
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@300;400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 :root {
