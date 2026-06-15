@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RetainMoreValue.com — Enhanced Tax Advantage</title>
+<meta name="description" content="Your retirement account has a silent partner — the IRS. ETA refinances that obligation on better terms, so the full balance compounds tax-free for life.">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,600&family=IBM+Plex+Mono:wght@300;400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --navy:      #0D1B2E;
+  --navy-2:    #152640;
+  --navy-3:    #1e3558;
+  --gold:      #C9A84C;
+  --gold-lt:   #DFC278;
+  --gold-pale: #F7F0E0;
+  --white:     #FFFFFF;
+  --off:       #F5F3EE;
+  --border:    #DDD8CE;
+  --muted:     #8A8070;
+  --green:     #2A6E45;
+  --green-lt:  #E6F2EC;
+  --text:      #1A1A2A;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body { font-family: 'IBM Plex Sans', sans-serif; background: var(--off); color: var(--text); line-height: 1.6; }
+
+/* ── NAV ── */
+nav {
+  position: sticky; top: 0; z-index: 100;
+  background: var(--navy);
+  border-bottom: 1px solid rgba(201,168,76,.18);
+  padding: 0 48px;
+  display: flex; align-items: center; height: 68px;
+}
+.nav-logo { display: flex; align-items: center; gap: 14px; text-decoration: none; flex-shrink: 0; }
+.nav-logo svg { display: block; }
+.nav-links { display: flex; align-items: center; gap: 30px; margin-left: auto; list-style: none; }
+.nav-links a { font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: rgba(255,255,255,.5); text-decoration: none; transition: color .15s; }
+.nav-links a:hover { color: var(--gold); }
+.nav-links .cta-link a { color: var(--gold); border: 1px solid rgba(201,168,76,.4); padding: 7px 20px; border-radius: 2px; transition: all .15s; }
+.nav-links .cta-link a:hover { background: var(--gold); color: var(--navy); }
+
+/* ── HERO ── */
+.hero { background: var(--navy); padding: 108px 48px 96px; position: relative; overflow: hidden; }
+.hero::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(ellipse 55% 60% at 78% 45%, rgba(201,168,76,.07) 0%, transparent 65%),
+              radial-gradient(ellipse 35% 50% at 15% 75%, rgba(42,110,69,.05) 0%, transparent 55%);
+}
+.hero::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background-image: linear-gradient(rgba(201,168,76,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(201,168,76,.035) 1px, transparent 1px);
+  background-size: 64px 64px;
+}
+.hero-inner {
+  position: relative; z-index: 1; max-width: 1080px; margin: 0 auto;
+  display: grid; grid-template-columns: 1fr 400px; gap: 72px; align-items: center;
+}
+.hero-eyebrow { font-size: 9.5px; letter-spacing: 3.5px; text-transform: uppercase; color: var(--gold); margin-bottom: 24px; display: flex; align-items: center; gap: 12px; }
+.hero-eyebrow::before { content: ''; display: block; width: 24px; height: 1px; background: var(--gold); opacity: .55; }
+.hero h1 { font-family: 'Playfair Display', serif; font-size: clamp(32px, 4vw, 54px); font-weight: 600; color: var(--white); line-height: 1.12; letter-spacing: -.5px; margin-bottom: 28px; }
+.hero h1 em { font-style: italic; color: var(--gold); }
+.hero-sub { font-size: 15.5px; color: rgba(255,255,255,.58); max-width: 480px; line-height: 1.78; margin-bottom: 40px; }
+.hero-btns { display: flex; gap: 14px; flex-wrap: wrap; }
+.btn-primary { background: var(--gold); color: var(--navy); border: none; padding: 14px 30px; font-family: 'IBM Plex Sans', sans-serif; font-size: 11px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; cursor: pointer; text-decoration: none; border-radius: 2px; transition: background .15s; display: inline-block; }
+.btn-primary:hover { background: var(--gold-lt); }
+.btn-ghost { background: transparent; color: rgba(255,255,255,.65); border: 1px solid rgba(255,255,255,.18); padding: 14px 30px; font-family: 'IBM Plex Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 2px; text-transform: uppercase; cursor: pointer; text-decoration: none; border-radius: 2px; transition: all .15s; display: inline-block; }
+.btn-ghost:hover { border-color: rgba(255,255,255,.4); color: var(--white); }
+
+/* Hero stat card */
+.hero-stat-card { background: rgba(255,255,255,.04); border: 1px solid rgba(201,168,76,.2); border-radius: 6px; padding: 30px 26px; }
+.hsc-tag { font-size: 9px; letter-spacing: 3px; text-transform: uppercase; color: var(--gold); margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid rgba(201,168,76,.15); display: block; }
+.stat-row { display: flex; justify-content: space-between; align-items: baseline; padding: 9px 0; border-bottom: 1px solid rgba(255,255,255,.055); }
+.stat-row:last-of-type { border-bottom: none; padding-bottom: 0; }
+.sl { font-size: 11px; color: rgba(255,255,255,.42); }
+.sv { font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: var(--white); font-weight: 500; }
+.sv.gold { color: var(--gold); }
+.sv.green { color: #5CB888; }
+.stat-divider { height: 1px; background: rgba(201,168,76,.12); margin: 12px 0; }
+.hsc-foot { font-size: 9.5px; color: rgba(255,255,255,.22); line-height: 1.55; margin-top: 16px; font-style: italic; }
+
+/* ── SHARED ── */
+section { padding: 96px 48px; }
+.section-inner { max-width: 1080px; margin: 0 auto; }
+.eyebrow { font-size: 9px; letter-spacing: 3px; text-transform: uppercase; color: var(--gold); margin-bottom: 16px; display: block; }
+.section-title { font-family: 'Playfair Display', serif; font-size: clamp(26px, 2.8vw, 40px); font-weight: 600; color: var(--navy); line-height: 1.2; margin-bottom: 18px; }
+.section-title em { font-style: italic; color: var(--gold); }
+.section-title.light { color: var(--white); }
+.section-lead { font-size: 15.5px; color: var(--muted); max-width: 600px; line-height: 1.8; margin-bottom: 52px; }
+.section-lead.light { color: rgba(255,255,255,.45); }
+
+/* ── IRS AS LENDER (new section) ── */
+#irs-lender { background: var(--white); }
+
+.lender-intro {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: start; margin-bottom: 60px;
+}
+.lender-intro-text h2 { font-family: 'Playfair Display', serif; font-size: clamp(26px, 2.8vw, 40px); font-weight: 600; color: var(--navy); line-height: 1.2; margin-bottom: 20px; }
+.lender-intro-text h2 em { font-style: italic; color: var(--gold); }
+.lender-intro-text p { font-size: 15px; color: var(--muted); line-height: 1.8; margin-bottom: 16px; }
+.lender-intro-text p:last-child { margin-bottom: 0; }
+.lender-intro-text strong { color: var(--navy); font-weight: 600; }
+
+.irs-loan-card {
+  background: var(--off); border: 1px solid var(--border); border-radius: 6px; overflow: hidden;
+}
+.ilc-hdr { background: var(--navy-2); padding: 16px 22px; display: flex; align-items: center; justify-content: space-between; }
+.ilc-hdr-left { font-family: 'Playfair Display', serif; font-size: 15px; color: var(--white); font-weight: 500; }
+.ilc-hdr-tag { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--gold); background: rgba(201,168,76,.15); border: 1px solid rgba(201,168,76,.3); padding: 3px 10px; border-radius: 2px; }
+.ilc-body { padding: 22px; }
+.ilc-row { display: flex; justify-content: space-between; align-items: flex-start; padding: 11px 0; border-bottom: 1px solid var(--border); gap: 16px; }
+.ilc-row:last-child { border-bottom: none; padding-bottom: 0; }
+.ilc-label { font-size: 11.5px; color: var(--muted); flex-shrink: 0; width: 140px; }
+.ilc-val { font-size: 12.5px; color: var(--navy); font-weight: 500; text-align: right; line-height: 1.45; }
+.ilc-val.bad { color: #8B2020; }
+.ilc-val.good { color: var(--green); font-weight: 600; }
+
+/* Three-lender comparison */
+.lender-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; margin-top: 0; }
+.lender-card { background: var(--off); padding: 30px 26px; }
+.lender-card.eta-card { background: var(--navy); }
+.lender-card:nth-child(2) { background: var(--white); }
+.lc-tag { font-size: 9px; letter-spacing: 2.5px; text-transform: uppercase; margin-bottom: 16px; display: block; padding-bottom: 12px; border-bottom: 1px solid rgba(0,0,0,.07); }
+.lender-card.eta-card .lc-tag { color: var(--gold); border-bottom-color: rgba(201,168,76,.2); }
+.lender-card:not(.eta-card) .lc-tag { color: var(--muted); }
+.lc-lender { font-family: 'Playfair Display', serif; font-size: 21px; font-weight: 600; color: var(--navy); margin-bottom: 6px; line-height: 1.15; }
+.lender-card.eta-card .lc-lender { color: var(--white); }
+.lc-rate { font-family: 'IBM Plex Mono', monospace; font-size: 28px; font-weight: 500; margin-bottom: 20px; line-height: 1; }
+.lender-card:not(.eta-card) .lc-rate { color: #8B2020; }
+.lender-card.eta-card .lc-rate { color: var(--gold); }
+.lc-terms { display: flex; flex-direction: column; gap: 10px; }
+.lc-term { font-size: 12.5px; line-height: 1.5; display: flex; gap: 10px; align-items: flex-start; }
+.lender-card:not(.eta-card) .lc-term { color: var(--muted); }
+.lender-card.eta-card .lc-term { color: rgba(255,255,255,.65); }
+.lc-term::before { content: '–'; flex-shrink: 0; opacity: .4; margin-top: 1px; }
+.lender-card.eta-card .lc-term::before { color: var(--gold); opacity: .6; }
+.lc-footer { margin-top: 20px; padding-top: 14px; border-top: 1px solid rgba(0,0,0,.07); font-size: 11px; font-style: italic; }
+.lender-card:not(.eta-card) .lc-footer { color: var(--muted); border-top-color: rgba(0,0,0,.07); }
+.lender-card.eta-card .lc-footer { color: rgba(255,255,255,.35); border-top-color: rgba(255,255,255,.1); }
+
+.refi-callout { margin-top: 48px; background: var(--gold-pale); border: 1px solid rgba(201,168,76,.35); border-radius: 6px; padding: 28px 32px; display: flex; gap: 24px; align-items: flex-start; }
+.refi-icon { font-size: 26px; flex-shrink: 0; margin-top: 2px; }
+.refi-text h4 { font-family: 'Playfair Display', serif; font-size: 17px; color: var(--navy); font-weight: 600; margin-bottom: 8px; line-height: 1.3; }
+.refi-text p { font-size: 13.5px; color: var(--muted); line-height: 1.7; }
+
+/* ── PROBLEM ── */
+#problem { background: var(--off); }
+.problem-grid { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+.problem-card { background: var(--white); padding: 34px 28px; }
+.problem-card:not(:last-child) { border-right: 1px solid var(--border); }
+.problem-num { font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: var(--gold); letter-spacing: 2px; margin-bottom: 16px; display: block; }
+.problem-card h3 { font-family: 'Playfair Display', serif; font-size: 18px; color: var(--navy); font-weight: 500; margin-bottom: 10px; line-height: 1.25; }
+.problem-card p { font-size: 13.5px; color: var(--muted); line-height: 1.7; }
+.pull-quote { margin-top: 52px; border-left: 3px solid var(--gold); padding: 20px 0 20px 30px; display: flex; align-items: center; gap: 32px; }
+.pull-quote blockquote { font-family: 'Playfair Display', serif; font-size: 19px; color: var(--navy); font-style: italic; line-height: 1.55; }
+.pq-aside { flex-shrink: 0; text-align: center; }
+.pq-stat { font-family: 'IBM Plex Mono', monospace; font-size: 44px; font-weight: 500; color: var(--green); line-height: 1; display: block; }
+.pq-unit { font-size: 9.5px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-top: 6px; display: block; max-width: 120px; line-height: 1.5; }
+
+/* ── COMPARISON ── */
+#comparison { background: var(--navy); }
+.comp-note { font-size: 11px; color: rgba(255,255,255,.28); font-style: italic; margin-bottom: 32px; margin-top: -38px; }
+.comp-table { width: 100%; border-collapse: collapse; border: 1px solid rgba(255,255,255,.07); border-radius: 5px; overflow: hidden; }
+.comp-table th { padding: 18px 22px; text-align: left; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; font-weight: 600; border-bottom: 1px solid rgba(255,255,255,.07); }
+.comp-table th:first-child { color: rgba(255,255,255,.35); background: rgba(255,255,255,.02); width: 22%; }
+.comp-table th.col-qp { background: rgba(255,255,255,.03); color: rgba(255,255,255,.45); }
+.comp-table th.col-eta { background: rgba(201,168,76,.1); color: var(--gold); }
+.comp-table td { padding: 15px 22px; font-size: 13px; border-bottom: 1px solid rgba(255,255,255,.045); vertical-align: top; line-height: 1.5; }
+.comp-table tr:last-child td { border-bottom: none; }
+.comp-table td:first-child { color: rgba(255,255,255,.4); font-size: 11.5px; background: rgba(255,255,255,.02); }
+.comp-table td.col-qp { background: rgba(255,255,255,.015); color: rgba(255,255,255,.6); }
+.comp-table td.col-eta { background: rgba(201,168,76,.05); color: var(--white); font-weight: 500; }
+.win { color: #5CB888; font-family: 'IBM Plex Mono', monospace; }
+.tag-eta { display: inline-block; background: rgba(42,110,69,.28); color: #7DDBA8; font-size: 10px; letter-spacing: 1.5px; padding: 2px 8px; border-radius: 2px; margin-top: 5px; }
+
+/* ── HOW IT WORKS ── */
+#how { background: var(--white); }
+.phases { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+.phase { background: var(--off); padding: 30px 22px; position: relative; }
+.phase:not(:last-child) { border-right: 1px solid var(--border); }
+.phase-num { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 2px; color: var(--gold); margin-bottom: 12px; display: block; }
+.phase h3 { font-family: 'Playfair Display', serif; font-size: 16px; color: var(--navy); font-weight: 500; margin-bottom: 10px; line-height: 1.3; }
+.phase p { font-size: 13px; color: var(--muted); line-height: 1.65; }
+.phase-arrow { position: absolute; right: -11px; top: 50%; transform: translateY(-50%); width: 22px; height: 22px; background: var(--gold-pale); border: 1px solid var(--border); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 9px; color: var(--gold); z-index: 2; }
+.phase:last-child .phase-arrow { display: none; }
+.advantage-strip { margin-top: 44px; background: var(--navy); border-radius: 4px; padding: 32px 36px; display: grid; grid-template-columns: repeat(5, 1fr); }
+.adv-item { text-align: center; padding: 0 14px; border-right: 1px solid rgba(255,255,255,.07); }
+.adv-item:last-child { border-right: none; }
+.adv-icon { font-size: 20px; margin-bottom: 10px; display: block; }
+.adv-label { font-size: 11px; color: rgba(255,255,255,.5); line-height: 1.5; }
+.adv-label strong { display: block; color: var(--gold); font-size: 9.5px; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 5px; font-weight: 600; }
+
+/* ── ADVISORS ── */
+#advisors { background: var(--off); }
+.advisor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 56px; align-items: start; }
+.advisor-left h2 { font-family: 'Playfair Display', serif; font-size: clamp(24px, 2.6vw, 36px); font-weight: 600; color: var(--navy); line-height: 1.2; margin-bottom: 18px; }
+.advisor-left h2 em { font-style: italic; color: var(--gold); }
+.advisor-left p { font-size: 15px; color: var(--muted); line-height: 1.78; margin-bottom: 30px; }
+.advisor-left .btns { display: flex; gap: 14px; flex-wrap: wrap; }
+.btn-navy { background: var(--navy); color: var(--white); border: none; padding: 13px 26px; font-family: 'IBM Plex Sans', sans-serif; font-size: 11px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; cursor: pointer; text-decoration: none; border-radius: 2px; transition: background .15s; display: inline-block; }
+.btn-navy:hover { background: var(--navy-2); }
+.btn-outline { background: transparent; color: var(--navy); border: 1px solid var(--border); padding: 13px 26px; font-family: 'IBM Plex Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 2px; text-transform: uppercase; cursor: pointer; text-decoration: none; border-radius: 2px; transition: all .15s; display: inline-block; }
+.btn-outline:hover { border-color: var(--navy); }
+.feature-list { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+.feature-item { display: flex; gap: 18px; padding: 20px 22px; border-bottom: 1px solid var(--border); align-items: flex-start; }
+.feature-item:last-child { border-bottom: none; }
+.feature-icon { width: 34px; height: 34px; background: var(--gold-pale); border: 1px solid rgba(201,168,76,.3); border-radius: 3px; display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; margin-top: 2px; }
+.feature-body h4 { font-size: 13px; font-weight: 600; color: var(--navy); margin-bottom: 4px; }
+.feature-body p { font-size: 12.5px; color: var(--muted); line-height: 1.6; }
+
+/* ── FOOTER ── */
+footer { background: var(--navy); border-top: 1px solid rgba(201,168,76,.12); padding: 48px 48px 32px; }
+.footer-inner { max-width: 1080px; margin: 0 auto; }
+.footer-top { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 28px; border-bottom: 1px solid rgba(255,255,255,.06); margin-bottom: 24px; gap: 40px; }
+.footer-nav { display: flex; gap: 26px; flex-wrap: wrap; align-items: center; }
+.footer-nav a { font-size: 10.5px; letter-spacing: 1.5px; text-transform: uppercase; color: rgba(255,255,255,.3); text-decoration: none; transition: color .15s; }
+.footer-nav a:hover { color: var(--gold); }
+.footer-disc { font-size: 10.5px; color: rgba(255,255,255,.2); line-height: 1.72; max-width: 880px; }
+.footer-copy { font-size: 10.5px; color: rgba(255,255,255,.2); margin-top: 16px; }
+.footer-copy a { color: inherit; text-decoration: none; }
+
+/* ── EFS LIFE SVG (reusable) ── */
+.efs-svg { display: block; }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 960px) {
+  nav { padding: 0 24px; }
+  section { padding: 64px 24px; }
+  .hero { padding: 64px 24px 56px; }
+  .hero-inner { grid-template-columns: 1fr; gap: 44px; }
+  .lender-intro { grid-template-columns: 1fr; gap: 36px; }
+  .lender-cards { grid-template-columns: 1fr; }
+  .lender-card:not(:last-child) { border-right: none; border-bottom: 1px solid var(--border); }
+  .lender-card.eta-card { border-right: none; }
+  .problem-grid { grid-template-columns: 1fr; }
+  .problem-card:not(:last-child) { border-right: none; border-bottom: 1px solid var(--border); }
+  .phases { grid-template-columns: 1fr 1fr; }
+  .phase:nth-child(2) { border-right: none; }
+  .phase:nth-child(1),.phase:nth-child(3) { border-right: 1px solid var(--border); }
+  .advantage-strip { grid-template-columns: repeat(3,1fr); gap: 20px; padding: 26px 22px; }
+  .adv-item { border-right: none !important; }
+  .advisor-grid { grid-template-columns: 1fr; }
+  footer { padding: 36px 24px 28px; }
+  .footer-top { flex-direction: column; }
+}
+@media (max-width: 600px) {
+  .nav-links { display: none; }
+  .hero h1 { font-size: 28px; }
+  .phases { grid-template-columns: 1fr; }
+  .phase:not(:last-child) { border-right: none; border-bottom: 1px solid var(--border); }
+  .advantage-strip { grid-template-columns: 1fr 1fr; }
+  .pull-quote { flex-direction: column; gap: 16px; }
+  .refi-callout { flex-direction: column; }
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="/" class="nav-logo">
+    <svg class="efs-svg" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="112" height="29" viewBox="0 0 1417 368" xml:space="preserve"><g><path fill="#FFFFFF" d="M356.718,51.895H107.804v248.914h124.335c-3.1,6.239-8.797,14.516-10.488,18.127l-0.266,0.604H89.074V33.165h286.375l0,64.698c-4.035,3.044-8.566,5.883-13.666,8.604c-1.651,0.882-3.356,1.645-5.064,2.357V51.895z M257.101,300.809h22.341c-14.024,0.813-21.681,7.254-24.268,14.115c-0.104-5.474-0.37-10.386,1.112-12.794L257.101,300.809z M317.209,300.809h39.509v-83.955c5.178-5.954,8.698-10.725,9.054-10.648c3.285,0.712,6.488,1.438,9.676,1.961l0,111.373h-77.993c3.602-1.962,6.725-3.637,8.958-4.545C311.832,312.791,315.76,305.381,317.209,300.809z"/><path fill-rule="evenodd" clip-rule="evenodd" fill="#FFFFFF" d="M182.381,324.222c3.701,3.545,5.984,6.317,3.814,6.438c-5.52,0.307-14.096,1.673-17.469,0.753s-5.83-6.825-5.83-6.825L182.381,324.222z M84.392,314.414c-8.056,1.693-27.078,5.802-29.85,9.329c-3.373,4.292-11.495,2.978-12.265-0.307c-1.208-5.148,1.772-14.872,8.585-18.705c8.25-4.64,24.374-3.006,26.827-4.232c0.853-0.427,3.52-3.112,6.703-6.603V314.414z M84.392,219.194c-11.831,0.147-23.829-0.765-23.829-0.765s-3.585,12.397-11.801,12.696c-8.216,0.299-24.349-6.871-24.349-6.871s11.502,4.631,16.581,0.747s4.78-8.066,8.963-9.561s11.353-0.447,11.353-0.447s12.141,0.222,23.082-0.533V219.194z M135.644,289.767c-9.205,1.975-17.08,2.889-23.157,6.242v-41.895c4.325-4.195,9.52-8.924,13.038-16.168c5.092-10.482,9.013-23.305,11.765-29.039c-8.35-4.014-18.359-8.063-24.803-8.082v-6.397c9.81,0.647,21.874,4.464,30.787,7.787c5.496-4.642,12.802-9.236,13.835-9.649c1.533-0.613,12.879-1.227,16.559-3.066s13.416-13.568,20.392-16.788s11.882-4.829,16.559-4.829c2.637,0,14.29,0.39,25.08,1.472c12.319-4.688,23.968-8.972,27.574-11.312c8.327-5.401,19.784-10.374,26.615-14.495c6.832-4.122,10.037-9.455,23.271-13.359c7.114-2.099,16.859-2.407,24.35-2.244c1.706,3.941,3.741,7.61,5.902,9.33c5.849,4.655,20.19,7.965,20.19,7.965s-11.25-5.115-17.225-10.585c-2.104-1.926-3.051-4.638-3.395-7.344c-0.296-3.643,0.782-7.225,3.403-8.533c4.839-2.416,27.776-10.292,42.981-27.307c16.168-18.094,16.642-34.156,17.637-34.502c2-0.696-1.752,23.748-12.379,40.381c-6.003,9.395-12.737,15.903-19.214,20.238c-2.707,1.812-4.567,3.201-5.818,4.206c2.096-0.108,4.284-0.044,6.53,0.255c6.183,0.825,26.711,18.773,30.338,25.46c7.129-1.77,15.903-4.851,22.589-12.762c12.848-15.202,6.701-34.215,8.548-31.653c1.848,2.562,6.247,21.779-4.054,37.77c-6.195,9.616-14.924,16.221-22.168,19.335c1.997,4.657,4.282,9.53,6.259,13.166c3.908,7.188,11.305,8.971,10.731,16.368c-0.574,7.398-0.864,15.935-8.974,16.143s-20.294-4.923-27.035-2.871c-7.983,2.43-13.186,1.227-27.096-1.696l-2.346-1.046c-6.746-3.066-19.318-10.886-19.318-10.886s9.353,10.732,16.405,15.485l0.672,0.449c-2.866,4.201-7.382,10.415-11.791,14.818c-7.261,7.251-15.087,8.598-16.444,17.702c-1.357,9.105-0.365,14.299-4.137,17.355c-3.772,3.057-7.83,6.184-7.83,6.184s0.632,13.445-1.222,19.349s-5.344,13.726-6.2,17.566c-0.856,3.841-4.56,10.811-8.402,12.373s-14.944,7.958-20.566,10.87c-5.622,2.913-16.437,6.819-19.994,5.893c-3.556-0.928-8.675-6.906-2.196-14.869c6.479-7.964,18.572-6.746,20.848-7.314c2.277-0.567,11.102-5.186,14.162-7.46c3.061-2.274-1.202-12.094-1.202-12.094s-9.174-4.062-11.664-4.348c-0.703,0.523-1.248,0.998-1.819,1.38c-1.885,1.256-7.417-0.458-14.14-3.188c0.498-3.154,1.007-6.797,1.316-10.139c0.767-8.279,5.366-8.586,6.899-14.719s1.38-18.091,1.38-18.091s-1.84,11.192-3.22,14.104c-1.38,2.913-2.913,6.593-5.673,9.659s-4.14,12.879-5.06,15.792l-2.026,6.325c-1.593,3.911-3.964,9.482-5.339,11.521c-2.208,3.271-6.55,7.678-6.197,12.729c0.353,5.051,3.896,26.536-9.764,27.523c-13.659,0.987-17.068-7.836-14.504-13.312c2.564-5.477,12.533-18.844,12.964-25.602c0.318-4.988-2.537-19.399-4.767-28.979c-0.573-2.17-1.078-4.351-1.337-5.386c-0.613-2.453-1.993-6.286-2.453-10.732c-0.46-4.445-0.307-12.571,0.767-15.178s0.767-16.558,0.767-16.558s-0.916,9.896-3.148,15.256c-1.746,4.19-3.751,14.334-3.138,18.166c0.551,3.441,2.461,11.703,2.845,15.686c-7.629,1.561-21.082,3.953-30.928,5.668l-16.738,1.936l11.493,1.226c-5.783,5.634-17.139,16.572-21.321,19.702h-17.225c1.222-2.224,2.29-4.47,2.474-5.942c0.13-1.038-0.4-4.493-1.053-8.134c3.29-3.622,3.659-5.769,8.975-9.689c6.243-4.605,10.414-5.629,13.796-11.851c-3.22,3.373-13.798,6.578-18.858,11.178c-5.06,4.599-10.732,9.352-10.732,9.352C143.538,284.958,137.796,289.305,135.644,289.767z M369.055,143.649c0,0-1.073,7.206,4.063,11.422c5.137,4.216,12.956,3.066,12.956,3.066L369.055,143.649z"/><polygon fill-rule="evenodd" clip-rule="evenodd" fill="#FFFFFF" points="609.536,135.78 609.536,94.658 478.023,94.658 478.023,258.046 609.536,258.046 609.536,216.924 524.141,216.924 524.141,195.248 601.924,195.248 601.924,154.126 524.141,154.126 524.141,135.78"/><polygon fill-rule="evenodd" clip-rule="evenodd" fill="#FFFFFF" points="769.819,135.78 769.819,94.658 638.307,94.658 638.307,258.046 684.424,258.046 684.424,200.005 762.208,200.005 762.208,158.883 684.424,158.883 684.424,135.78"/><path fill-rule="evenodd" clip-rule="evenodd" fill="#FFFFFF" d="M858.892,260.9c20.705-0.124,37.036-4.928,48.994-14.412s18.061-22.909,18.308-40.273c-0.197-15.194-5.745-26.328-16.643-33.402c-10.897-7.074-25.959-12.438-45.184-16.091c-11.416-2.33-19.172-4.571-23.268-6.722c-4.097-2.151-6.021-5.225-5.772-9.22c-0.005-3.153,1.374-5.711,4.136-7.674c2.762-1.963,6.938-2.975,12.526-3.034c7.448,0,15.163,1.368,23.144,4.104s15.809,6.841,23.485,12.314l23.059-32.581c-8.987-7.264-19.122-12.761-30.402-16.49c-11.28-3.729-23.979-5.6-38.095-5.615c-19.648,0.203-35.235,5.086-46.763,14.649c-11.526,9.564-17.421,22.592-17.683,39.085c0.118,11.197,2.918,20.08,8.4,26.65c5.48,6.57,12.932,11.699,22.351,15.387s20.095,6.808,32.027,9.359c11.073,2.395,18.621,4.446,22.643,6.157c4.022,1.71,5.916,4.416,5.683,8.119c-0.015,3.6-1.65,6.395-4.908,8.388c-3.259,1.993-8.049,3.004-14.371,3.034c-9.646-0.015-18.975-1.711-27.988-5.086c-9.014-3.376-17.683-8.344-26.008-14.901l-25.678,30.683c10.456,9.156,22.354,16.039,35.695,20.649S844.024,260.896,858.892,260.9z"/><polygon fill-rule="evenodd" clip-rule="evenodd" fill="#FFFFFF" points="995.344,245.142 1087.753,245.142 1087.753,258.061 982.187,258.061 982.187,93.228 995.344,93.228"/><rect x="1109.227" y="93.228" fill-rule="evenodd" clip-rule="evenodd" fill="#FFFFFF" width="13.157" height="164.833"/><polygon fill-rule="evenodd" clip-rule="evenodd" fill="#FFFFFF" points="1263.484,106.15 1161.978,106.15 1161.978,167.666 1253.918,167.666 1253.918,180.589 1161.978,180.589 1161.978,258.061 1148.82,258.061 1148.82,93.228 1263.484,93.228"/><polygon fill-rule="evenodd" clip-rule="evenodd" fill="#FFFFFF" points="1391.019,106.15 1294.18,106.15 1294.18,167.666 1383.785,167.666 1383.785,180.589 1294.18,180.589 1294.18,245.142 1391.019,245.142 1391.019,258.061 1281.021,258.061 1281.021,93.228 1391.019,93.228"/></g></svg>
+  </a>
+  <ul class="nav-links">
+    <li><a href="#irs-lender">The Concept</a></li>
+    <li><a href="#problem">What's at Stake</a></li>
+    <li><a href="#comparison">Side by Side</a></li>
+    <li><a href="#how">How It Works</a></li>
+    <li><a href="#advisors">For Advisors</a></li>
+    <li class="cta-link"><a href="advisor-login.html">Advisor Login</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-inner">
+    <div>
+      <div class="hero-eyebrow">Enhanced Tax Advantage</div>
+      <h1>Your retirement account<br>has a <em>silent partner.</em><br>It's time to renegotiate.</h1>
+      <p class="hero-sub">
+        When you contributed to your 401(k) or IRA, the IRS made a quiet deal: defer your tax now, collect it later — in cash, on their terms. The Enhanced Tax Advantage refinances that obligation with a bank, on better terms, so your full balance compounds for life instead of being divided at the moment of distribution.
+      </p>
+      <div class="hero-btns">
+        <a href="#irs-lender" class="btn-primary">See How It Works</a>
+        <a href="#advisors" class="btn-ghost">For Financial Advisors</a>
+      </div>
+    </div>
+
+    <div class="hero-stat-card">
+      <span class="hsc-tag">Illustrative Case · $1,200,000 Qualified Plan Distribution</span>
+      <div class="stat-row">
+        <span class="sl">Distribution Amount</span>
+        <span class="sv">$1,200,000</span>
+      </div>
+      <div class="stat-row">
+        <span class="sl">IRS Collects at Distribution</span>
+        <span class="sv">~$444,000</span>
+      </div>
+      <div class="stat-row">
+        <span class="sl">Left to Compound — Standard Path</span>
+        <span class="sv">$756,000</span>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-row">
+        <span class="sl">Left to Compound — ETA Path</span>
+        <span class="sv gold">$1,200,000</span>
+      </div>
+      <div class="stat-row">
+        <span class="sl">Standard Lifetime Income (50th pctile)</span>
+        <span class="sv">~$3,800,000</span>
+      </div>
+      <div class="stat-row">
+        <span class="sl">ETA Lifetime Income (50th pctile)</span>
+        <span class="sv gold">~$7,900,000</span>
+      </div>
+      <div class="stat-row">
+        <span class="sl">ETA Advantage</span>
+        <span class="sv green">+$4,100,000 · ~2.1×</span>
+      </div>
+      <p class="hsc-foot">Hypothetical model. 10,000 Monte Carlo simulations. Income ages 67–95, 3% COLA. Not valid without complete carrier illustration. Results will vary.</p>
+    </div>
+  </div>
+</section>
+
+<!-- IRS AS LENDER -->
+<section id="irs-lender">
+  <div class="section-inner">
+
+    <div class="lender-intro">
+      <div class="lender-intro-text">
+        <h2>The IRS has always been<br>your <em>silent lender.</em></h2>
+        <p>
+          Every dollar you contributed to your qualified retirement plan came with an implicit arrangement. The IRS said: <strong>contribute pre-tax today, and we will collect our share when you take the money out.</strong> That is not a gift — it is a loan. The IRS deferred their claim in exchange for a future payment in cash, calculated at whatever tax rate applies at the time of distribution.
+        </p>
+        <p>
+          The problem is the terms. The IRS sets the rate unilaterally. They determine the repayment schedule through Required Minimum Distributions. They collect in cash, regardless of market conditions. And they take their share off the top, before a single dollar has the opportunity to compound in your hands.
+        </p>
+        <p>
+          <strong>ETA does not eliminate the tax obligation. It refinances it.</strong> A bank steps in, advances the tax payment to the IRS, and the full distribution — 100% of it — flows into a participating index life insurance policy to compound on your behalf. The bank is eventually repaid from the policy. The IRS receives exactly what it was owed. You keep the difference in lifetime income.
+        </p>
+      </div>
+
+      <div class="irs-loan-card">
+        <div class="ilc-hdr">
+          <span class="ilc-hdr-left">The IRS Loan — Original Terms</span>
+          <span class="ilc-hdr-tag">Implicit Agreement</span>
+        </div>
+        <div class="ilc-body">
+          <div class="ilc-row">
+            <span class="ilc-label">Lender</span>
+            <span class="ilc-val bad">U.S. Treasury / IRS</span>
+          </div>
+          <div class="ilc-row">
+            <span class="ilc-label">What they financed</span>
+            <span class="ilc-val">Your pre-tax contributions — every dollar went in before tax was paid</span>
+          </div>
+          <div class="ilc-row">
+            <span class="ilc-label">Rate</span>
+            <span class="ilc-val bad">Set by Congress. Changes without notice. Currently 22–37% federal + state.</span>
+          </div>
+          <div class="ilc-row">
+            <span class="ilc-label">Repayment schedule</span>
+            <span class="ilc-val bad">Mandatory — RMDs begin at 73 whether you need income or not</span>
+          </div>
+          <div class="ilc-row">
+            <span class="ilc-label">Repayment method</span>
+            <span class="ilc-val bad">Cash only — collected at the moment of distribution, before you invest</span>
+          </div>
+          <div class="ilc-row">
+            <span class="ilc-label">Can you negotiate?</span>
+            <span class="ilc-val bad">No</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Three-lender cards -->
+    <div class="lender-cards">
+      <div class="lender-card">
+        <span class="lc-tag">Original Lender</span>
+        <div class="lc-lender">The IRS</div>
+        <div class="lc-rate">22–37%+</div>
+        <div class="lc-terms">
+          <div class="lc-term">Rate set by Congress — you have no input</div>
+          <div class="lc-term">Collected in cash at the moment of distribution</div>
+          <div class="lc-term">Repayment forced by RMD schedule starting at 73</div>
+          <div class="lc-term">Reduces the balance available to compound for you</div>
+          <div class="lc-term">Heirs pay ordinary income tax on inherited balances</div>
+        </div>
+        <div class="lc-footer">Every qualified plan has these terms by default.</div>
+      </div>
+
+      <div class="lender-card">
+        <span class="lc-tag">ETA Lender</span>
+        <div class="lc-lender">The Bank</div>
+        <div class="lc-rate">~5–6%</div>
+        <div class="lc-terms">
+          <div class="lc-term">Rate negotiated at market — structured in advance</div>
+          <div class="lc-term">Advances the tax, so your full balance enters the policy</div>
+          <div class="lc-term">Repaid on a structured schedule from policy value — not your cash flow</div>
+          <div class="lc-term">No personal recourse — the policy provides the collateral</div>
+          <div class="lc-term">Loan retires from death benefit; net transfers to your estate tax-free</div>
+        </div>
+        <div class="lc-footer">The bank pays the IRS. You keep compounding.</div>
+      </div>
+
+      <div class="lender-card eta-card">
+        <span class="lc-tag">The Result</span>
+        <div class="lc-lender" style="color:#C9A84C">You Win</div>
+        <div class="lc-rate" style="color:#5CB888">~2×</div>
+        <div class="lc-terms">
+          <div class="lc-term">100% of your distribution compounds from day one</div>
+          <div class="lc-term">0% floor on the policy — no negative years, sequence risk structurally eliminated</div>
+          <div class="lc-term">Income taken as tax-free policy loans — no bracket compression</div>
+          <div class="lc-term">No RMDs — income is entirely at your discretion</div>
+          <div class="lc-term">Death benefit retires the bank loan and transfers a net legacy tax-free</div>
+        </div>
+        <div class="lc-footer">The IRS gets paid in full. The difference is that your entire balance was working for you the whole time.</div>
+      </div>
+    </div>
+
+    <div class="refi-callout">
+      <div class="refi-icon">⇌</div>
+      <div class="refi-text">
+        <h4>"The interest rate will never be as high as the tax rate."</h4>
+        <p>You would refinance a mortgage if you could cut your rate in half. This is the same decision — applied to the largest implicit loan most people carry. The IRS charges 30–40%. The bank charges 5–6%. The IRS gets paid in full. The difference is that your entire balance was working for you the whole time.</p>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- WHAT'S AT STAKE -->
+<section id="problem">
+  <div class="section-inner">
+    <span class="eyebrow">What's at Stake</span>
+    <h2 class="section-title">Every year you wait, the IRS<br>remains your <em>largest creditor.</em></h2>
+    <p class="section-lead">The tax obligation does not go away with time — it grows alongside the account balance. And three structural forces compound the cost of leaving it unaddressed.</p>
+
+    <div class="problem-grid">
+      <div class="problem-card">
+        <span class="problem-num">01</span>
+        <h3>You Start from a Smaller Base</h3>
+        <p>A $1.2M distribution at a 37% combined rate leaves $756,000 to invest. The difference — $444,000 — is not lost to spending. It was never given the chance to compound for you. That gap, invested at modest returns over 25 years, represents the majority of the ETA lifetime income advantage.</p>
+      </div>
+      <div class="problem-card">
+        <span class="problem-num">02</span>
+        <h3>Sequence Risk Has No Off Switch</h3>
+        <p>Once you begin drawing income from a taxable portfolio, a down market in the early years permanently reduces what you can take for life. There is no floor. A 20% loss in year two of income can reduce your lifetime draw by far more than 20%. The ETA policy's 0% floor eliminates this risk by design.</p>
+      </div>
+      <div class="problem-card">
+        <span class="problem-num">03</span>
+        <h3>RMDs Arrive Whether You're Ready or Not</h3>
+        <p>At 73, the IRS requires distributions regardless of whether you need income — stacking taxable dollars on top of Social Security, triggering IRMAA Medicare surcharges, and pushing you into higher brackets at exactly the moment you have the least flexibility to respond.</p>
+      </div>
+    </div>
+
+    <div class="pull-quote">
+      <blockquote>"The money was already spoken for.<br>We're just changing who it speaks for."</blockquote>
+      <div class="pq-aside">
+        <span class="pq-stat">0%</span>
+        <span class="pq-unit">Federal income tax on life insurance policy loan income</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- COMPARISON -->
+<section id="comparison">
+  <div class="section-inner">
+    <span class="eyebrow" style="color:var(--gold)">Side by Side</span>
+    <h2 class="section-title light">Same distribution.<br><em>Two very different outcomes.</em></h2>
+    <p class="section-lead light">Same starting balance. Same historical market returns. The only difference is who covers the tax obligation at distribution.</p>
+    <p class="comp-note">Illustrative case. $1,200,000 distribution, 37% combined tax rate. Income ages 67–95, 3% COLA. 50th percentile of 10,000 Monte Carlo simulations. QP: 60/40 blended portfolio. ETA: participating index universal life, 0% floor, bank-financed tax obligation. Not valid without complete carrier illustration. Results will vary.</p>
+
+    <table class="comp-table">
+      <thead>
+        <tr>
+          <th></th>
+          <th class="col-qp">Standard Path — Pay Tax, Invest the Rest</th>
+          <th class="col-eta">ETA Path — Refinance the Tax</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Balance That Compounds</td>
+          <td class="col-qp">$756,000 — after the IRS takes 37%</td>
+          <td class="col-eta"><span class="win">$1,200,000</span> — the full distribution compounds from day one</td>
+        </tr>
+        <tr>
+          <td>Market Downside</td>
+          <td class="col-qp">No floor — losses during income phase are permanent</td>
+          <td class="col-eta"><span class="win">0% floor</span> — the policy cannot credit a negative return</td>
+        </tr>
+        <tr>
+          <td>Sequence of Returns Risk</td>
+          <td class="col-qp">Structurally present — early losses permanently reduce lifetime income</td>
+          <td class="col-eta"><span class="win">Structurally eliminated</span> — 0% floor absorbs every down market</td>
+        </tr>
+        <tr>
+          <td>Income Tax on Withdrawals</td>
+          <td class="col-qp">Fully taxable as ordinary income — every dollar you take out</td>
+          <td class="col-eta"><span class="win">Tax-free</span> — income is taken as participating policy loans</td>
+        </tr>
+        <tr>
+          <td>Required Minimum Distributions</td>
+          <td class="col-qp">Mandatory at 73 — taxable income whether you need it or not</td>
+          <td class="col-eta"><span class="win">None</span> — income is entirely at your discretion</td>
+        </tr>
+        <tr>
+          <td>Lifetime Income (50th pctile)</td>
+          <td class="col-qp">~$3,800,000 after income tax</td>
+          <td class="col-eta">
+            <span class="win">~$7,900,000 tax-free</span>
+            <span class="tag-eta">~2.1× More Income</span>
+          </td>
+        </tr>
+        <tr>
+          <td>What Your Family Inherits</td>
+          <td class="col-qp">Taxable — heirs pay ordinary income tax on every inherited dollar</td>
+          <td class="col-eta"><span class="win">Tax-free death benefit</span> — retires the bank loan, transfers net legacy income-tax-free</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="how">
+  <div class="section-inner">
+    <span class="eyebrow">How It Works</span>
+    <h2 class="section-title">Four phases.<br><em>One refinancing.</em></h2>
+    <p class="section-lead">ETA is a structured four-phase process. It is not a product you buy — it is an architecture that changes the sequence of who pays, when, and from what source.</p>
+
+    <div class="phases">
+      <div class="phase">
+        <span class="phase-num">Phase 01</span>
+        <h3>Calculate the IRS Obligation</h3>
+        <p>You take a distribution from your qualified plan. Your federal and state tax obligation is calculated precisely. This is the amount the IRS was always going to collect — we are simply deciding who pays it first, and from where.</p>
+        <div class="phase-arrow">→</div>
+      </div>
+      <div class="phase">
+        <span class="phase-num">Phase 02</span>
+        <h3>The Bank Pays the IRS</h3>
+        <p>A bank lender advances the tax obligation to the IRS. Your full distribution — not the after-tax remainder — is deployed into a participating index life insurance policy. The full balance begins compounding on your behalf immediately.</p>
+        <div class="phase-arrow">→</div>
+      </div>
+      <div class="phase">
+        <span class="phase-num">Phase 03</span>
+        <h3>The Policy Repays the Bank</h3>
+        <p>Over a structured period, policy loans from your accumulating policy value retire the bank loan. The policy's death benefit serves as collateral throughout. Your out-of-pocket obligation is zero — the policy handles the repayment.</p>
+        <div class="phase-arrow">→</div>
+      </div>
+      <div class="phase">
+        <span class="phase-num">Phase 04</span>
+        <h3>Tax-Free Income — On Your Terms</h3>
+        <p>Once the bank is repaid, you take income as tax-free participating policy loans — as much or as little as you want, whenever you want it, with no RMD forcing your hand. At death, the policy pays the death benefit, retires any remaining balance, and transfers the net estate tax-free.</p>
+        <div class="phase-arrow">→</div>
+      </div>
+    </div>
+
+    <div class="advantage-strip">
+      <div class="adv-item">
+        <span class="adv-icon">⊘</span>
+        <span class="adv-label"><strong>0% Floor</strong>No negative crediting years — sequence risk structurally eliminated</span>
+      </div>
+      <div class="adv-item">
+        <span class="adv-icon">◈</span>
+        <span class="adv-label"><strong>Full Balance Compounds</strong>Every dollar of your distribution, not just the after-tax remainder</span>
+      </div>
+      <div class="adv-item">
+        <span class="adv-icon">◎</span>
+        <span class="adv-label"><strong>Tax-Free Income</strong>Policy loans are not taxable — no bracket compression, ever</span>
+      </div>
+      <div class="adv-item">
+        <span class="adv-icon">⊕</span>
+        <span class="adv-label"><strong>No RMDs</strong>Income is entirely at your discretion — no forced distributions</span>
+      </div>
+      <div class="adv-item">
+        <span class="adv-icon">◻</span>
+        <span class="adv-label"><strong>Tax-Free Legacy</strong>Death benefit retires the bank loan; net transfers to your estate</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOR ADVISORS -->
+<section id="advisors">
+  <div class="section-inner">
+    <div class="advisor-grid">
+      <div class="advisor-left">
+        <h2>Are you a financial advisor<br>with <em>qualified plan clients?</em></h2>
+        <p>EFS Life provides a complete advisor platform — a Monte Carlo modeler, client-ready discussion documents, and dedicated case support. The modeler ingests a carrier illustration, runs 10,000 simulations, and produces a four-page greensheet and an 11-page client discussion document in a single workflow.</p>
+        <div class="btns">
+          <a href="advisor-login.html" class="btn-navy">Advisor Login</a>
+          <a href="mailto:support@enhancedFunding.com?subject=RetainMoreValue Advisor Access" class="btn-outline">Request Access</a>
+        </div>
+      </div>
+      <div class="feature-list">
+        <div class="feature-item">
+          <div class="feature-icon">⊡</div>
+          <div class="feature-body">
+            <h4>Monte Carlo Engine</h4>
+            <p>10,000 simulations using bootstrapped historical S&amp;P 500 returns. True 25th / 50th / 75th percentile income paths across all simulations.</p>
+          </div>
+        </div>
+        <div class="feature-item">
+          <div class="feature-icon">⊞</div>
+          <div class="feature-body">
+            <h4>Carrier CSV Integration</h4>
+            <p>Upload the carrier illustration CSV directly. The tool parses policy charges and accumulated value to run the validated IUL AV engine — confirmed against real illustrations.</p>
+          </div>
+        </div>
+        <div class="feature-item">
+          <div class="feature-icon">⊟</div>
+          <div class="feature-body">
+            <h4>Print-Ready Client Output</h4>
+            <p>A four-page 17×11 landscape greensheet and an 11-page client discussion document — both produced from a single run, with all numbers populated automatically.</p>
+          </div>
+        </div>
+        <div class="feature-item">
+          <div class="feature-icon">⊠</div>
+          <div class="feature-body">
+            <h4>Validated Math</h4>
+            <p>The IUL AV engine — including BCF/bonus credit factor schedule and binary search income solve — has been confirmed against carrier-produced illustrations.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-top">
+      <a href="/" class="nav-logo">
+        <svg class="efs-svg" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="90" height="23" viewBox="0 0 1417 368" xml:space="preserve"><g><path fill="#FFFFFF" d="M356.718,51.895H107.804v248.914h124.335c-3.1,6.239-8.797,14.516-10.488,18.127l-0.266,0.604H89.074V33.165h286.375l0,64.698c-4.035,3.044-8.566,5.883-13.666,8.604c-1.651,0.882-3.356,1.645-5.064,2.357V51.895z M257.101,300.809h22.341c-14.024,0.813-21.681,7.254-24.268,14.115c-0.104-5.474-0.37-10.386,1.112-12.794L257.101,300.809z M317.209,300.809h39.509v-83.955c5.178-5.954,8.698-10.725,9.054-10.648c3.285,0.712,6.488,1.438,9.676,1.961l0,111.373h-77.993c3.602-1.962,6.725-3.637,8.958-4.545C311.832,312.791,315.76,305.381,317.209,300.809z"/><path fill-rule="evenodd" clip-rule="evenodd" fill="#FFFFFF" d="M182.381,324.222c3.701,3.545,5.984,6.317,3.814,6.438c-5.52,0.307-14.096,1.673-17.469,0.753s-5.83-6.825-5.83-6.825L182.381,324.222z M84.392,314.414c-8.056,1.693-27.078,5.802-29.85,9.329c-3.373,4.292-11.495,2.978-12.265-0.307c-1.208-5.148,1.772-14.872,8.585-18.705c8.25-4.64,24.374-3.006,26.827-4.232c0.853-0.427,3.52-3.112,6.703-6.603V314.414z M84.392,219.194c-11.831,0.147-23.829-0.765-23.829-0.765s-3.585,12.397-11.801,12.696c-8.216,0.299-24.349-6.871-24.349-6.871s11.502,4.631,16.581,0.747s4.78-8.066,8.963-9.561s11.353-0.447,11.353-0.447s12.141,0.222,23.082-0.533V219.194z M135.644,289.767c-9.205,1.975-17.08,2.889-23.157,6.242v-41.895c4.325-4.195,9.52-8.924,13.038-16.168c5.092-10.482,9.013-23.305,11.765-29.039c-8.35-4.014-18.359-8.063-24.803-8.082v-6.397c9.81,0.647,21.874,4.464,30.787,7.787c5.496-4.642,12.802-9.236,13.835-9.649c1.533-0.613,12.879-1.227,16.559-3.066s13.416-13.568,20.392-16.788s11.882-4.829,16.559-4.829c2.637,0,14.29,0.39,25.08,1.472c12.319-4.688,23.968-8.972,27.574-11.312c8.327-5.401,19.784-10.374,26.615-14.495c6.832-4.122,10.037-9.455,23.271-13.359c7.114-2.099,16.859-2.407,24.35-2.244c1.706,3.941,3.741,7.61,5.902,9.33c5.849,4.655,20.19,7.965,20.19,7.965s-11.25-5.115-17.225-10.585c-2.104-1.926-3.051-4.638-3.395-7.344c-0.296-3.643,0.782-7.225,3.403-8.533c4.839-2.416,27.776-10.292,42.981-27.307c16.168-18.094,16.642-34.156,17.637-34.502c2-0.696-1.752,23.748-12.379,40.381c-6.003,9.395-12.737,15.903-19.214,20.238c-2.707,1.812-4.567,3.201-5.818,4.206c2.096-0.108,4.284-0.044,6.53,0.255c6.183,0.825,26.711,18.773,30.338,25.46c7.129-1.77,15.903-4.851,22.589-12.762c12.848-15.202,6.701-34.215,8.548-31.653c1.848,2.562,6.247,21.779-4.054,37.77c-6.195,9.616-14.924,16.221-22.168,19.335c1.997,4.657,4.282,9.53,6.259,13.166c3.908,7.188,11.305,8.971,10.731,16.368c-0.574,7.398-0.864,15.935-8.974,16.143s-20.294-4.923-27.035-2.871c-7.983,2.43-13.186,1.227-27.096-1.696l-2.346-1.046c-6.746-3.066-19.318-10.886-19.318-10.886s9.353,10.732,16.405,15.485l0.672,0.449c-2.866,4.201-7.382,10.415-11.791,14.818c-7.261,7.251-15.087,8.598-16.444,17.702c-1.357,9.105-0.365,14.299-4.137,17.355c-3.772,3.057-7.83,6.184-7.83,6.184s0.632,13.445-1.222,19.349s-5.344,13.726-6.2,17.566c-0.856,3.841-4.56,10.811-8.402,12.373s-14.944,7.958-20.566,10.87c-5.622,2.913-16.437,6.819-19.994,5.893c-3.556-0.928-8.675-6.906-2.196-14.869c6.479-7.964,18.572-6.746,20.848-7.314c2.277-0.567,11.102-5.186,14.162-7.46c3.061-2.274-1.202-12.094-1.202-12.094s-9.174-4.062-11.664-4.348c-0.703,0.523-1.248,0.998-1.819,1.38c-1.885,1.256-7.417-0.458-14.14-3.188c0.498-3.154,1.007-6.797,1.316-10.139c0.767-8.279,5.366-8.586,6.899-14.719s1.38-18.091,1.38-18.091s-1.84,11.192-3.22,14.104c-1.38,2.913-2.913,6.593-5.673,9.659s-4.14,12.879-5.06,15.792l-2.026,6.325c-1.593,3.911-3.964,9.482-5.339,11.521c-2.208,3.271-6.55,7.678-6.197,12.729c0.353,5.051,3.896,26.536-9.764,27.523c-13.659,0.987-17.068-7.836-14.504-13.312c2.564-5.477,12.533-18.844,12.964-25.602c0.318-4.988-2.537-19.399-4.767-28.979c-0.573-2.17-1.078-4.351-1.337-5.386c-0.613-2.453-1.993-6.286-2.453-10.732c-0.46-4.445-0.307-12.571,0.767-15.178s0.767-16.558,0.767-16.558s-0.916,9.896-3.148,15.256c-1.746,4.19-3.751,14.334-3.138,18.166c0.551,3.441,2.461,11.703,2.845,15.686c-7.629,1.561-21.082,3.953-30.928,5.668l-16.738,1.936l11.493,1.226c-5.783,5.634-17.139,16.572-21.321,19.702h-17.225c1.222-2.224,2.29-4.47,2.474-5.942c0.13-1.038-0.4-4.493-1.053-8.134c3.29-3.622,3.659-5.769,8.975-9.689c6.243-4.605,10.414-5.629,13.796-11.851c-3.22,3.373-13.798,6.578-18.858,11.178c-5.06,4.599-10.732,9.352-10.732,9.352C143.538,284.958,137.796,289.305,135.644,289.767z M369.055,143.649c0,0-1.073,7.206,4.063,11.422c5.137,4.216,12.956,3.066,12.956,3.066L369.055,143.649z"/><polygon fill-rule="evenodd" clip-rule="evenodd" fill="#FFFFFF" points="609.536,135.78 609.536,94.658 478.023,94.658 478.023,258.046 609.536,258.046 609.536,216.924 524.141,216.924 524.141,195.248 601.924,195.248 601.924,154.126 524.141,154.126 524.141,135.78"/><polygon fill-rule="evenodd" clip-rule="evenodd" fill="#FFFFFF" points="769.819,135.78 769.819,94.658 638.307,94.658 638.307,258.046 684.424,258.046 684.424,200.005 762.208,200.005 762.208,158.883 684.424,158.883 684.424,135.78"/><path fill-rule="evenodd" clip-rule="evenodd" fill="#FFFFFF" d="M858.892,260.9c20.705-0.124,37.036-4.928,48.994-14.412s18.061-22.909,18.308-40.273c-0.197-15.194-5.745-26.328-16.643-33.402c-10.897-7.074-25.959-12.438-45.184-16.091c-11.416-2.33-19.172-4.571-23.268-6.722c-4.097-2.151-6.021-5.225-5.772-9.22c-0.005-3.153,1.374-5.711,4.136-7.674c2.762-1.963,6.938-2.975,12.526-3.034c7.448,0,15.163,1.368,23.144,4.104s15.809,6.841,23.485,12.314l23.059-32.581c-8.987-7.264-19.122-12.761-30.402-16.49c-11.28-3.729-23.979-5.6-38.095-5.615c-19.648,0.203-35.235,5.086-46.763,14.649c-11.526,9.564-17.421,22.592-17.683,39.085c0.118,11.197,2.918,20.08,8.4,26.65c5.48,6.57,12.932,11.699,22.351,15.387s20.095,6.808,32.027,9.359c11.073,2.395,18.621,4.446,22.643,6.157c4.022,1.71,5.916,4.416,5.683,8.119c-0.015,3.6-1.65,6.395-4.908,8.388c-3.259,1.993-8.049,3.004-14.371,3.034c-9.646-0.015-18.975-1.711-27.988-5.086c-9.014-3.376-17.683-8.344-26.008-14.901l-25.678,30.683c10.456,9.156,22.354,16.039,35.695,20.649S844.024,260.896,858.892,260.9z"/><polygon fill-rule="evenodd" clip-rule="evenodd" fill="#FFFFFF" points="995.344,245.142 1087.753,245.142 1087.753,258.061 982.187,258.061 982.187,93.228 995.344,93.228"/><rect x="1109.227" y="93.228" fill-rule="evenodd" clip-rule="evenodd" fill="#FFFFFF" width="13.157" height="164.833"/><polygon fill-rule="evenodd" clip-rule="evenodd" fill="#FFFFFF" points="1263.484,106.15 1161.978,106.15 1161.978,167.666 1253.918,167.666 1253.918,180.589 1161.978,180.589 1161.978,258.061 1148.82,258.061 1148.82,93.228 1263.484,93.228"/><polygon fill-rule="evenodd" clip-rule="evenodd" fill="#FFFFFF" points="1391.019,106.15 1294.18,106.15 1294.18,167.666 1383.785,167.666 1383.785,180.589 1294.18,180.589 1294.18,245.142 1391.019,245.142 1391.019,258.061 1281.021,258.061 1281.021,93.228 1391.019,93.228"/></g></svg>
+      </a>
+      <nav class="footer-nav">
+        <a href="#irs-lender">The Concept</a>
+        <a href="#problem">What's at Stake</a>
+        <a href="#comparison">Side by Side</a>
+        <a href="#how">How It Works</a>
+        <a href="#advisors">For Advisors</a>
+        <a href="advisor-login.html">Advisor Login</a>
+        <a href="mailto:support@enhancedFunding.com">Contact</a>
+      </nav>
+    </div>
+    <p class="footer-disc">EFS Life LLC and its related entities' programs, strategies, solutions, and platforms are not intended to be investment advice or a recommendation of any stock or index. The Enhanced Tax Advantage structure and related benefits shown are hypothetical illustrative examples. The finance arrangement is offered by EFS Life LLC. Purchasing life insurance involves risk, including loss of principal. Life insurance policies are not investment or marketable securities products — they are insurance products. Benefits and values shown are not guaranteed. Assumptions are subject to change. Actual results may be more or less favorable. All platforms are not valid unless accompanied by a complete insurance company illustration.</p>
+    <p class="footer-copy">© 2026 EFS Life LLC · RetainMoreValue.com · <a href="mailto:support@enhancedFunding.com">support@enhancedFunding.com</a></p>
+  </div>
+</footer>
+
+</body>
+</html>
