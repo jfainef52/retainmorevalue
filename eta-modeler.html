@@ -817,7 +817,15 @@ function parseNum(id) { return parseFloat((document.getElementById(id).value||''
 const $f = n=>(!n||isNaN(n)||Math.abs(n)<0.5)?'—':'$'+Math.round(n).toLocaleString();
 const pf = n=>(n*100).toFixed(2)+'%';
 const tick = ()=>new Promise(r=>setTimeout(r,0));
-function openDiscussionDoc(){ window.open('eta-discussion-doc.html','_blank'); }
+function openDiscussionDoc(){
+  // Use a named window target to avoid popup blockers treating this as an unsolicited popup.
+  // localStorage is synchronous so data is guaranteed written before the new tab reads it.
+  const w = window.open('eta-discussion-doc.html', 'eta_discussion_doc');
+  if (!w) {
+    // Popup was blocked — navigate current tab instead
+    window.location.href = 'eta-discussion-doc.html';
+  }
+}
 
 // ══════════════════════════════════════════════════════════
 // PDA CALCULATION
@@ -1815,7 +1823,7 @@ async function generateMC() {
 
     localStorage.setItem('eta_mc_data', JSON.stringify({
       clientName:     d.name,
-      advisor:        advisorName||'',
+      advisor:        adv||'',
       date:           dateStr,
       issueAge:       d.age,
       dist:           d.dist,
