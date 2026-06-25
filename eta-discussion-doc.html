@@ -909,6 +909,10 @@
     var $m  = function(n) { return n>=1e6 ? '$'+(n/1e6).toFixed(1)+'M' : '$'+Math.round(n/1000)+'K'; };
     var set = function(id, val) { var el=document.getElementById(id); if(el) el.textContent=val; };
 
+    // Declare mode flag first — used throughout
+    var isNQP = r.isNQP || false;
+    var compLabel = isNQP ? 'Taxable Account' : 'Qualified Plan';
+
     // Cover — update for NQP
     set('cover-client', r.clientName || '—');
     set('cover-date',   r.date || '—');
@@ -917,9 +921,6 @@
       if (eyebrow) eyebrow.textContent = 'Confidential · Liquidity Event — Tax Financing Review';
       var subtitle = document.querySelector('.cover-subtitle');
       if (subtitle) subtitle.textContent = 'A Smarter Way to Handle Your Tax Obligation';
-    } else {
-      set('cover-client', r.clientName || '—');
-      set('cover-date',   r.date || '—');
     }
 
     // Tax rate on lender page
@@ -931,8 +932,6 @@
     // PLR display removed — carrier rate is situational
 
     // Outcomes page
-    var isNQP = r.isNQP || false;
-    var compLabel = isNQP ? 'Taxable Account' : 'Qualified Plan';
     var sourceDesc = isNQP
       ? 'Tax Liability $' + Math.round(r.taxLiability||0).toLocaleString() + ' · IUL Funding $' + Math.round(r.dist).toLocaleString()
       : 'Distribution $' + Math.round(r.dist).toLocaleString();
