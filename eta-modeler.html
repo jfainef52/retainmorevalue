@@ -1341,7 +1341,7 @@ function calculate() {
             </table>
           </div>
           <div style="font-size:10px;color:var(--muted);margin-top:6px">
-            PDA net deposit ${$f(pdaNet)} · yield ${pdaRate.toFixed(2)}% · after-tax rate ${(afterTaxRate*100).toFixed(3)}% (${(pdaTaxRate*100).toFixed(2)}% ordinary income tax on interest, no QP penalty) · annuity-depletes over ${payYears} years
+            PDA net deposit ${$f(pdaNet)} · yield ${pdaRate.toFixed(2)}% · after-tax rate ${(afterTaxRate*100).toFixed(3)}% (${(pdaTaxRate*100).toFixed(2)}% ordinary income tax on interest${d.isNQP ? '' : ', no QP penalty'}) · annuity-depletes over ${payYears} years
           </div>
         </div>
 
@@ -2178,15 +2178,15 @@ function buildPage2(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
       <div>
         <div style="font-size:9px;letter-spacing:3px;text-transform:uppercase;color:rgba(201,168,76,.7);margin-bottom:4px">Enhanced Tax Advantage — ETA · Monte Carlo Scenario Analysis</div>
         <div class="title">${d.name} — ${N.toLocaleString()} Market Sequences · ${poolLabel}</div>
-        <div class="sub">Ages ${d.is}–${d.ie} · ${d.cola}% COLA · ${baseRate.toFixed(2)}% QP income tax (after age 59½) · Asset Loan Rate ${d.plr}% · ${dateStr}${adv ? ' · ' + adv : ''}</div>
+        <div class="sub">Ages ${d.is}–${d.ie} · ${d.cola}% COLA · ${baseRate.toFixed(2)}% ${d.isNQP ? 'income tax' : 'QP income tax (after age 59½)'} · Asset Loan Rate ${d.plr}% · ${dateStr}${adv ? ' · ' + adv : ''}</div>
       </div>
     </div>
     ${scenarioStrip}
     ${summaryRow}
     ${pctExplain}
     <div style="padding:12px 28px 0">
-      <div style="font-family:'Playfair Display',serif;font-size:14px;color:var(--navy);margin-bottom:3px">Cumulative Income — ETA Tax-Free vs. Qualified Plan Taxable (Median)</div>
-      <div style="font-size:9px;color:var(--muted);margin-bottom:8px">${N.toLocaleString()} bootstrapped S&P 500 sequences (${poolLabel}) · ${d.cap}% cap / ${d.floorRate}% floor · ETA tax-free asset loan income vs. QP taxable distributions at ${baseRate.toFixed(2)}% income tax (after age 59½)</div>
+      <div style="font-family:'Playfair Display',serif;font-size:14px;color:var(--navy);margin-bottom:3px">Cumulative Income — ETA Tax-Free vs. ${d.isNQP ? 'Taxable Account' : 'Qualified Plan'} Taxable (Median)</div>
+      <div style="font-size:9px;color:var(--muted);margin-bottom:8px">${N.toLocaleString()} bootstrapped S&P 500 sequences (${poolLabel}) · ${d.cap}% cap / ${d.floorRate}% floor · ETA tax-free asset loan income vs. ${d.isNQP ? 'taxable account distributions' : 'QP taxable distributions'} at ${baseRate.toFixed(2)}% ${d.isNQP ? 'income tax' : 'income tax (after age 59½)'}</div>
       ${chartSVG}
     </div>
     <div class="disc-3col" style="margin-top:auto">
@@ -2334,7 +2334,7 @@ function buildChart(ageRange,etaPct,qpPct,d,bandIncome){
   <text x="${lX}" y="${yS(ci75[ci75.length-1])-5}" fill="#2a6e45" font-size="9" text-anchor="end">75th</text>
   <text x="${lX}" y="${yS(ci50[ci50.length-1])-5}" fill="#c9a84c" font-size="9" text-anchor="end">50th</text>
   <text x="${lX}" y="${yS(ci25[ci25.length-1])+12}" fill="#8a8070" font-size="9" text-anchor="end">25th</text>
-  <text x="${lX}" y="${yS(qp50[qp50.length-1])+12}" fill="rgba(139,32,32,.8)" font-size="9" text-anchor="end">QP</text>
+  <text x="${lX}" y="${yS(qp50[qp50.length-1])+12}" fill="rgba(139,32,32,.8)" font-size="9" text-anchor="end">${d.isNQP ? 'Txbl' : 'QP'}</text>
   <line x1="${PL}" y1="${PT}" x2="${PL}" y2="${PT+cH}" stroke="rgba(13,27,46,.12)" stroke-width="1"/>
   ${yTicks.map(v=>`<line x1="${PL-4}" y1="${yS(v).toFixed(1)}" x2="${PL+cW}" y2="${yS(v).toFixed(1)}" stroke="rgba(13,27,46,.05)" stroke-width="1"/><text x="${PL-8}" y="${(yS(v)+4).toFixed(1)}" fill="rgba(13,27,46,.45)" font-size="10" font-family="IBM Plex Mono,monospace" text-anchor="end">${$m(v)}</text>`).join('')}
   <line x1="${PL}" y1="${PT+cH}" x2="${PL+cW}" y2="${PT+cH}" stroke="rgba(13,27,46,.15)" stroke-width="1"/>
