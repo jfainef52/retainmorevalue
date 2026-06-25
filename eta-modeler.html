@@ -992,7 +992,9 @@ function solveIncomeFromAV(avSeries, surrSeries, bankRows, annualPrem, payYears,
       cumIncomeLoan=cumIncomeLoan*(1+plrR)+income;
       const totalLoan=bankLoan+cumIncomeLoan;
       const csvNet=Math.max(0,Math.max(0,av-surrChg)-totalLoan);
+      // Enforce floor during income period; enforce non-negative NAV for all years
       if (age>=incStart&&age<=incEnd&&csvNet<csvFloor){ok=false;break;}
+      if (age>incEnd&&csvNet<=0){ok=false;break;}
     }
     if (ok){best=mid;lo=mid;}else hi=mid;
   }
