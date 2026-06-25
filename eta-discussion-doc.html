@@ -909,9 +909,18 @@
     var $m  = function(n) { return n>=1e6 ? '$'+(n/1e6).toFixed(1)+'M' : '$'+Math.round(n/1000)+'K'; };
     var set = function(id, val) { var el=document.getElementById(id); if(el) el.textContent=val; };
 
-    // Cover
+    // Cover — update for NQP
     set('cover-client', r.clientName || '—');
     set('cover-date',   r.date || '—');
+    if (isNQP) {
+      var eyebrow = document.querySelector('.cover-eyebrow');
+      if (eyebrow) eyebrow.textContent = 'Confidential · Liquidity Event — Tax Financing Review';
+      var subtitle = document.querySelector('.cover-subtitle');
+      if (subtitle) subtitle.textContent = 'A Smarter Way to Handle Your Tax Obligation';
+    } else {
+      set('cover-client', r.clientName || '—');
+      set('cover-date',   r.date || '—');
+    }
 
     // Tax rate on lender page
     // Lender slide tax rate = fed + state only (no 10% early withdrawal penalty)
@@ -922,13 +931,19 @@
     // PLR display removed — carrier rate is situational
 
     // Outcomes page
+    var isNQP = r.isNQP || false;
+    var compLabel = isNQP ? 'Taxable Account' : 'Qualified Plan';
+    var sourceDesc = isNQP
+      ? 'Tax Liability $' + Math.round(r.taxLiability||0).toLocaleString() + ' · IUL Funding $' + Math.round(r.dist).toLocaleString()
+      : 'Distribution $' + Math.round(r.dist).toLocaleString();
+
     set('doc-inc-start',  r.incStart || 65);
     set('doc-inc-end',    r.incEnd   || 95);
     set('doc-cola',       r.cola     || 3);
     set('doc-inc-ages',   (r.incStart||65) + '–' + (r.incEnd||95));
     set('doc-inc-ages2',  (r.incStart||65) + '–' + (r.incEnd||95));
     set('doc-tax-r',      r.baseRate ? r.baseRate.toFixed(2) : '37.75');
-    set('doc-outcomes-meta', 'Age ' + r.issueAge + ' · Distribution $' + Math.round(r.dist).toLocaleString() + ' · ' + (r.payYears||7) + '-year funding · ' + (r.nSims||10000).toLocaleString() + ' simulations · 1975–2024 (50 yrs) · Version ' + (r.version||'—'));
+    set('doc-outcomes-meta', 'Age ' + r.issueAge + ' · ' + sourceDesc + ' · ' + (r.payYears||7) + '-year funding · ' + (r.nSims||10000).toLocaleString() + ' simulations · 1975–2024 (50 yrs) · Version ' + (r.version||'—'));
     set('doc-eta-yr1',    $f(r.etaYr1Med));
     set('doc-eta-total',  $f(r.etaTotalMed));
     set('doc-qp-total',   $f(r.qpTotalMed));
@@ -937,9 +952,41 @@
     set('doc-contrib-footer', $f(r.totalEtaContrib));
     set('doc-contrib-sub', (r.payYears||7) + ' annual contributions of ' + $f(r.annualPrem));
 
+    // Update sidebar and outcomes headline to reflect source mode
+    var sidebarDesc = document.getElementById('doc-sidebar-desc');
+    if (sidebarDesc) sidebarDesc.textContent = 'ETA vs. ' + compLabel + ' — Median Market Sequence · ' + (r.nSims||10000).toLocaleString() + ' Simulations';
+    var outcomesHeadline = document.getElementById('doc-outcomes-headline');
+    if (outcomesHeadline) {
+      var agesSpan = '<span id="doc-inc-ages">' + (r.incStart||65) + '–' + (r.incEnd||95) + '</span>';
+      outcomesHeadline.innerHTML = 'Tax-Free Income vs. ' + compLabel + ' ' + (isNQP ? 'Taxable Account' : 'Taxable Distributions') + ' — Ages ' + agesSpan;
+    }
+    // Update chart QP legend label
+    var qpLegendEl = document.querySelector('#doc-chart-svg text[x="685"]');
+    if (qpLegendEl) qpLegendEl.textContent = (isNQP ? 'Taxable Acct Net (50th)' : 'QP Taxable Net (50th)');
+    // Update QP fact block label
+    var qpFactLabel = document.querySelector('.fact-block .fact-label[for="doc-qp-total"], .fact-block:nth-child(3) .fact-label');
+    // Update the 3rd fact block label text directly
+    var factBlocks = document.querySelectorAll('.fact-block');
+    if (factBlocks[2]) {
+      var lbl = factBlocks[2].querySelector('.fact-label');
+      if (lbl) lbl.textContent = (isNQP ? 'Taxable Account Net · 50th' : 'QP Net Total · 50th Pctile');
+      var sub = factBlocks[2].querySelector('.fact-sub');
+      if (sub) sub.textContent = isNQP
+        ? '60/40 · ' + (r.baseRate||0).toFixed(2) + '% tax · after-tax returns'
+        : '60/40 · ' + (r.baseRate||0).toFixed(2) + '% income tax · after 59½';
+    }
+
     var adv = r.advisor ? r.advisor + ' — Advisor' : '';
     var advEl = document.getElementById('doc-advisor-line');
     if (advEl && adv) advEl.textContent = adv;
+
+    // Update CTA for NQP
+    if (isNQP) {
+      var ctaHeadline = document.querySelector('.why-cta-headline');
+      if (ctaHeadline) ctaHeadline.innerHTML = 'Ready to see what the <em>Enhanced Tax Advantage</em> can do for your liquidity event?';
+      var ctaText = document.querySelector('.why-cta-text');
+      if (ctaText) ctaText.textContent = 'The next step is a formal carrier illustration built around your specific tax liability, age, and income timeline. ETA finances 100% of your tax obligation — the full funding amount goes to work for you. Our team will walk you through every component before any decision is made.';
+    }
 
     // Advantage
     var adv_amt = (r.etaTotalMed||0) - (r.qpTotalMed||0);
