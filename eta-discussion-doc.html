@@ -736,7 +736,7 @@
           <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:4px">Reading the Results</div>
           <div class="mc-pct-card mc-pct-card-50">
             <div class="mc-pct-label mc-pct-label-50">50th Percentile — Median</div>
-            <div class="mc-pct-desc">Half of all 10,000 simulated market sequences produced more income than this; half produced less. This is the base case — what a client in the middle of all possible market outcomes would experience. Both ETA and QP are shown at their respective 50th percentiles.</div>
+            <div class="mc-pct-desc" id="mc-pct-50-desc">Half of all 10,000 simulated market sequences produced more income than this; half produced less. This is the base case — what a client in the middle of all possible market outcomes would experience. Both ETA and QP are shown at their respective 50th percentiles.</div>
           </div>
           <div class="mc-pct-card mc-pct-card-75">
             <div class="mc-pct-label mc-pct-label-75">75th Percentile — Favorable</div>
@@ -774,7 +774,7 @@
       </div>
       <!-- Full-width chart — no sidebar -->
       <div class="outcomes-chart">
-        <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:6px;font-weight:600">Cumulative Income — ETA Tax-Free vs. Qualified Plan Taxable (50th Percentile)</div>
+        <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:6px;font-weight:600" id="doc-chart-sublabel">Cumulative Income — ETA Tax-Free vs. Qualified Plan Taxable (50th Percentile)</div>
         <svg id="doc-chart-svg" viewBox="0 0 1060 380" xmlns="http://www.w3.org/2000/svg" style="width:100%;flex:1">
           <!-- Gridlines -->
           <line id="doc-g3" x1="60" y1="20"  x2="1050" y2="20"  stroke="#e2ddd6" stroke-width=".5"/>
@@ -884,7 +884,7 @@
           </div>
         </div>
         <div class="why-cta">
-          <div class="why-cta-headline">Ready to see what the <em>Enhanced Tax Advantage</em> can do for your qualified plan?</div>
+          <div class="why-cta-headline" id="why-cta-headline">Ready to see what the <em>Enhanced Tax Advantage</em> can do for your qualified plan?</div>
           <div class="why-cta-text">The next step is a formal carrier illustration built around your specific distribution amount, age, tax rate, and income timeline. Our team will walk you through every component of the structure before any decision is made.</div>
           <div class="why-contact">
             <div class="why-contact-item">🌐 <strong>RetainMoreValue.com</strong></div>
@@ -957,11 +957,15 @@
     var outcomesHeadline = document.getElementById('doc-outcomes-headline');
     if (outcomesHeadline) {
       var agesSpan = '<span id="doc-inc-ages">' + (r.incStart||65) + '–' + (r.incEnd||95) + '</span>';
-      outcomesHeadline.innerHTML = 'Tax-Free Income vs. ' + compLabel + ' ' + (isNQP ? 'Taxable Account' : 'Taxable Distributions') + ' — Ages ' + agesSpan;
+      outcomesHeadline.innerHTML = 'Tax-Free Income vs. ' + (isNQP ? 'Taxable Account' : 'Qualified Plan Taxable Distributions') + ' — Ages ' + agesSpan;
     }
     // Update chart QP legend label
     var qpLegendEl = document.querySelector('#doc-chart-svg text[x="685"]');
     if (qpLegendEl) qpLegendEl.textContent = (isNQP ? 'Taxable Acct Net (50th)' : 'QP Taxable Net (50th)');
+    var chartSublabel = document.getElementById('doc-chart-sublabel');
+    if (chartSublabel) chartSublabel.textContent = isNQP
+      ? 'Cumulative Income — ETA Tax-Free vs. Taxable Account (50th Percentile)'
+      : 'Cumulative Income — ETA Tax-Free vs. Qualified Plan Taxable (50th Percentile)';
     // Update QP fact block label
     var qpFactLabel = document.querySelector('.fact-block .fact-label[for="doc-qp-total"], .fact-block:nth-child(3) .fact-label');
     // Update the 3rd fact block label text directly
@@ -981,7 +985,7 @@
 
     // Update CTA for NQP
     if (isNQP) {
-      var ctaHeadline = document.querySelector('.why-cta-headline');
+      var ctaHeadline = document.getElementById('why-cta-headline');
       if (ctaHeadline) ctaHeadline.innerHTML = 'Ready to see what the <em>Enhanced Tax Advantage</em> can do for your liquidity event?';
       var ctaText = document.querySelector('.why-cta-text');
       if (ctaText) ctaText.textContent = 'The next step is a formal carrier illustration built around your specific tax liability, age, and income timeline. ETA finances 100% of your tax obligation — the full funding amount goes to work for you. Our team will walk you through every component before any decision is made.';
@@ -1045,6 +1049,7 @@
       setText('mc-step-2-text', 'Each simulation draws a unique sequence of annual returns. Both the ETA and the taxable account face the exact same sequence in each simulation — ensuring a fair, paired comparison. The same market year that affects the taxable account affects the ETA.');
       setText('mc-step-4-title', 'Taxable Account: 60/40 Blended Portfolio');
       setText('mc-step-4-text', 'The taxable account uses a blended 60% equity / 40% bond portfolio return paired to the same historical year as the ETA. Full downside exposure — no floor. Annual tax drag applied on gains.');
+      setText('mc-pct-50-desc', 'Half of all 10,000 simulated market sequences produced more income than this; half produced less. This is the base case — what a client in the middle of all possible market outcomes would experience. Both ETA and the taxable account are shown at their respective 50th percentiles.');
       setText('mc-pct-25-desc', 'In 75% of sequences the outcome exceeded this level. This is the stress-test floor — appropriate for conservative planning. Even at the 25th percentile, the ETA structure\'s 0% floor and tax-free income provide meaningful advantages over a taxable investment account.');
     }
 
