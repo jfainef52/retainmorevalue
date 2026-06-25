@@ -760,7 +760,7 @@
 <div class="page sidebar-page">
   <div class="sidebar">
     <div class="sidebar-section">The Numbers</div>
-    <div class="sidebar-title">Your Out&shy;comes</div>
+    <div class="sidebar-title">Your<br>Outcomes</div>
     <div class="sidebar-subtitle" id="doc-sidebar-client">CLIENT<br>SPECIFIC<br>RESULTS</div>
     <div class="sidebar-divider"></div>
     <div class="sidebar-tagline" id="doc-sidebar-desc">ETA vs. Qualified Plan — Median Market Sequence · 10,000 Simulations</div>
@@ -775,13 +775,13 @@
       <!-- Full-width chart — no sidebar -->
       <div class="outcomes-chart">
         <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:6px;font-weight:600">Cumulative Income — ETA Tax-Free vs. Qualified Plan Taxable (50th Percentile)</div>
-        <svg id="doc-chart-svg" viewBox="0 0 1060 330" xmlns="http://www.w3.org/2000/svg" style="width:100%;flex:1">
+        <svg id="doc-chart-svg" viewBox="0 0 1060 380" xmlns="http://www.w3.org/2000/svg" style="width:100%;flex:1">
           <!-- Gridlines -->
           <line id="doc-g3" x1="60" y1="20"  x2="1050" y2="20"  stroke="#e2ddd6" stroke-width=".5"/>
           <line id="doc-g2" x1="60" y1="95"  x2="1050" y2="95"  stroke="#e2ddd6" stroke-width=".5"/>
           <line id="doc-g1" x1="60" y1="170" x2="1050" y2="170" stroke="#e2ddd6" stroke-width=".5"/>
           <line id="doc-g0" x1="60" y1="245" x2="1050" y2="245" stroke="#e2ddd6" stroke-width=".5"/>
-          <line x1="60" y1="285" x2="1050" y2="285" stroke="rgba(200,168,75,.4)" stroke-width="1.5"/>
+          <line x1="60" y1="335" x2="1050" y2="335" stroke="rgba(200,168,75,.4)" stroke-width="1.5"/>
           <!-- Y labels -->
           <text id="doc-yl3" x="54" y="24"  font-size="12" fill="#8a8070" text-anchor="end" font-family="IBM Plex Mono,monospace">—</text>
           <text id="doc-yl2" x="54" y="99"  font-size="12" fill="#8a8070" text-anchor="end" font-family="IBM Plex Mono,monospace">—</text>
@@ -791,7 +791,7 @@
           <path id="doc-path-eta75" fill="none" stroke="#2a6e45" stroke-width="2" stroke-dasharray="6,3"/>
           <path id="doc-path-eta50" fill="none" stroke="#c9a84c" stroke-width="3.5"/>
           <path id="doc-path-eta25" fill="none" stroke="#8a8070" stroke-width="1.5" stroke-dasharray="4,4"/>
-          <path id="doc-path-qp50"  fill="none" stroke="rgba(100,140,200,.8)" stroke-width="2" stroke-dasharray="6,3"/>
+          <path id="doc-path-qp50"  fill="none" stroke="rgba(100,140,200,.9)" stroke-width="2.5"/>
           <!-- Legend -->
           <line x1="65"  y1="16" x2="85"  y2="14" stroke="#2a6e45" stroke-width="1.5" stroke-dasharray="5,3"/>
           <text x="90"  y="19" font-size="13" fill="#6b7c8d" font-family="IBM Plex Sans,sans-serif">ETA 75th (Favorable)</text>
@@ -799,7 +799,7 @@
           <text x="275" y="19" font-size="13" fill="#6b7c8d" font-family="IBM Plex Sans,sans-serif">ETA 50th — Median</text>
           <line x1="440" y1="16" x2="460" y2="14" stroke="#8a8070" stroke-width="1.5" stroke-dasharray="4,4"/>
           <text x="465" y="19" font-size="13" fill="#6b7c8d" font-family="IBM Plex Sans,sans-serif">ETA 25th (Conservative)</text>
-          <line x1="660" y1="16" x2="680" y2="14" stroke="rgba(100,140,200,.8)" stroke-width="1.5" stroke-dasharray="6,3"/>
+          <line x1="660" y1="16" x2="680" y2="14" stroke="rgba(100,140,200,.9)" stroke-width="2.5"/>
           <text x="685" y="19" font-size="13" fill="#6b7c8d" font-family="IBM Plex Sans,sans-serif">QP Taxable Net (50th)</text>
           <!-- X axis labels injected by JS -->
           <g id="doc-xlabels"></g>
@@ -1069,7 +1069,7 @@
     var qp50  = r.cumQp50  || [];
 
     var maxVal = Math.max.apply(null, eta75.concat(qp50)) * 1.06 || 1;
-    var PL=60, PT=24, cW=980, cH=256, BASE=285;
+    var PL=60, PT=24, cW=980, cH=306, BASE=335;
 
     function xS(i) { return PL + (i/(ages.length-1))*cW; }
     function yS(v) { return PT + cH - (v/maxVal)*cH; }
@@ -1102,7 +1102,7 @@
       var xhtml='';
       ages.forEach(function(a,i){
         if(i===0||i===ages.length-1||(a%5===0)){
-          xhtml+='<text x="'+xS(i).toFixed(1)+'" y="305" font-size="13" fill="#8a8070" text-anchor="middle" font-family="IBM Plex Mono,monospace">'+a+'</text>';
+          xhtml+='<text x="'+xS(i).toFixed(1)+'" y="355" font-size="13" fill="#8a8070" text-anchor="middle" font-family="IBM Plex Mono,monospace">'+a+'</text>';
         }
       });
       xlg.innerHTML=xhtml;
