@@ -979,7 +979,8 @@
         : '60/40 · ' + (r.baseRate||0).toFixed(2) + '% income tax · after 59½';
     }
 
-    var adv = (r.advisor && typeof r.advisor === 'string') ? r.advisor + ' — Advisor' : '';
+    var adv = r.advisor ? String(r.advisor).replace(' — Advisor','').trim() + ' — Advisor' : '';
+    console.log('ETA doc advisor:', JSON.stringify(r.advisor), '→', adv);
     var advEl = document.getElementById('doc-advisor-line');
     if (advEl && adv) advEl.textContent = adv;
 
