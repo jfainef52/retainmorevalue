@@ -1341,7 +1341,7 @@ function calculate() {
             </table>
           </div>
           <div style="font-size:10px;color:var(--muted);margin-top:6px">
-            PDA net deposit ${$f(pdaNet)} · yield ${pdaRate.toFixed(2)}% · after-tax rate ${(afterTaxRate*100).toFixed(3)}% (${(pdaTaxRate*100).toFixed(2)}% ordinary income tax on interest${d.isNQP ? '' : ', no QP penalty'}) · annuity-depletes over ${payYears} years
+            PDA net deposit ${$f(pdaNet)} · yield ${pdaRate.toFixed(2)}% · after-tax rate ${(afterTaxRate*100).toFixed(3)}% (${(pdaTaxRate*100).toFixed(2)}% ordinary income tax on interest${isNQP ? '' : ', no QP penalty'}) · annuity-depletes over ${payYears} years
           </div>
         </div>
 
