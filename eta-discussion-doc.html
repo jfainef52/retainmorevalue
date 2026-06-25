@@ -347,7 +347,7 @@
         <div class="pillar">
           <div class="pillar-icon">📈</div>
           <div class="pillar-title">Sequence Protection</div>
-          <div class="pillar-text">Income is taken as asset loans — not investment distributions. A 0% floor means bad market years credit nothing but cost nothing. The compounding engine never goes backward.</div>
+          <div class="pillar-text">Income is taken as asset loans — not investment distributions. A 0% floor means bad market years credit nothing to the index — your principal is never reduced by market losses. Income is taken on your schedule, never forced by market conditions.</div>
         </div>
         <div class="pillar">
           <div class="pillar-icon" id="goals-pillar-3-icon">♾️</div>
@@ -428,11 +428,11 @@
         <div class="phase-col phase-col-acc">
           <div class="phase-label phase-label-acc">⬆ Accumulation Phase — Going Up the Mountain</div>
           <div class="phase-title">Volatility is manageable.</div>
-          <div class="phase-body">You are contributing regularly — dollar cost averaging works in your favor. A down market means more units purchased at lower prices. Time is your ally. The qualified plan excels here: tax deferral compounds every dollar.</div>
+          <div class="phase-body" id="acc-dist-acc-text">You are contributing regularly — dollar cost averaging works in your favor. A down market means more units purchased at lower prices. Time is your ally. The qualified plan excels here: tax deferral compounds every dollar.</div>
           <div class="phase-rows">
             <div class="phase-row"><span class="phase-row-label">Primary objective</span><span class="phase-row-val">Maximize account balance</span></div>
             <div class="phase-row"><span class="phase-row-label">Volatility impact</span><span class="phase-row-val">Buffered by contributions</span></div>
-            <div class="phase-row"><span class="phase-row-label">Right tool</span><span class="phase-row-val">Qualified plan — maximize deferral</span></div>
+            <div class="phase-row"><span class="phase-row-label">Right tool</span><span class="phase-row-val" id="acc-right-tool">Qualified plan — maximize deferral</span></div>
           </div>
         </div>
         <svg style="position:absolute;bottom:0;right:0;width:50%;height:100%;pointer-events:none" viewBox="0 0 400 300" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
@@ -443,7 +443,7 @@
         <div class="phase-col phase-col-dist">
           <div class="phase-label phase-label-dist">⬇ Distribution Phase — Coming Down the Mountain</div>
           <div class="phase-title">Volatility is now the enemy.</div>
-          <div class="adf-text" id="acc-dist-problem-text">Every distribution forces a sale. A bad year at the wrong time locks in permanent losses while income demands continue. The qualified plan becomes a liability: every dollar out is taxed as ordinary income, at the highest rate of your life.</div>
+          <div class="phase-body" id="acc-dist-problem-text">Every distribution forces a sale. A bad year at the wrong time locks in permanent losses while income demands continue. The qualified plan becomes a liability: every dollar out is taxed as ordinary income, at the highest rate of your life.</div>
           <div class="phase-rows">
             <div class="phase-row"><span class="phase-row-label">Primary objective</span><span class="phase-row-val">Sustainable tax-efficient income</span></div>
             <div class="phase-row"><span class="phase-row-label">Volatility impact</span><span class="phase-row-val">Amplified by forced distributions</span></div>
@@ -594,7 +594,7 @@
             <div class="how-advantage-icon">🛡️</div>
             <div>
               <div class="how-advantage-title">0% Floor — No Down Years</div>
-              <div class="how-advantage-text">When the index has a negative year, the asset credits 0% — not a negative return. The compounding engine never goes backward. Kai's problem is eliminated structurally.</div>
+              <div class="how-advantage-text">When the index has a negative year, the asset credits 0% — not a negative return. Market losses cannot reduce your index-linked principal. Kai's sequence risk problem is structurally addressed.</div>
             </div>
           </div>
           <div class="how-advantage">
@@ -652,7 +652,7 @@
           <div class="benefit-num">3</div>
           <div>
             <div class="benefit-title">Sequence of Returns Risk Is Structurally Eliminated</div>
-            <div class="benefit-text">The 0% floor means the asset never loses value in a down year. Income loans are drawn against the asset value — never forced by market conditions. Breck's advantage — arriving in retirement with a compounding asset instead of a depleting one — is built into the architecture.</div>
+            <div class="benefit-text">The 0% floor means market losses cannot reduce your index-linked principal in a down year. Income loans are drawn against the asset value — never forced by market conditions. Breck's advantage — arriving in retirement with a compounding asset instead of a depleting one — is built into the architecture.</div>
           </div>
         </div>
         <div class="benefit-cell">
@@ -666,7 +666,7 @@
       <div class="benefits-footer">
         <div class="bft-item">
           <div class="bft-num">0%</div>
-          <div class="bft-label">Floor in down years — the asset<br>never goes backward</div>
+          <div class="bft-label">Floor in down years — market losses<br>cannot reduce index-linked principal</div>
         </div>
         <div class="bft-item">
           <div class="bft-num">$0</div>
@@ -721,7 +721,7 @@
             <div class="mc-step-num">3</div>
             <div>
               <div class="mc-step-title">ETA: 0% Guaranteed Floor / Index Cap Applied</div>
-              <div class="mc-step-text">ETA credits based on S&amp;P 500 index performance each year, subject to a 0% guaranteed floor and full participation up to the cap. The 0% floor means the policy value never goes backward in a down year. All carrier charges from the actual illustration are applied year by year.</div>
+              <div class="mc-step-text">ETA credits based on S&amp;P 500 index performance each year, subject to a 0% guaranteed floor and full participation up to the cap. The 0% floor means market losses cannot reduce the index-linked principal in a down year. All carrier charges from the actual illustration are applied year by year.</div>
             </div>
           </div>
           <div class="mc-step">
@@ -1011,6 +1011,8 @@
       setText('goals-pillar-3-text', 'Life insurance income is taken as policy loans — not reported as income, not subject to capital gains tax, not subject to RMDs. The IRS collects from the death benefit, not from you during your lifetime.');
 
       // ── PAGE 5: ACC/DIST FOOTER ──────────────────────────────────────────
+      setText('acc-dist-acc-text', 'You are building wealth — your capital is compounding and growing. Time is your ally. The goal during this phase is maximum growth on the full amount before a liquidity event occurs.');
+      setText('acc-right-tool', 'Taxable account — grow the full balance');
       setText('acc-dist-problem-text', 'Every distribution forces a sale. A bad year at the wrong time locks in permanent losses while income demands continue. The taxable account is fully exposed: every dollar withdrawn triggers a capital gains or income tax event.');
       setText('acc-dist-footer-label-1', 'The Taxable Account Problem');
       setText('acc-dist-footer-text-1', 'After paying the tax, the net proceeds sit in a taxable account — growing at after-tax rates, distributed at after-tax rates, and fully exposed to sequence risk with no floor.');
