@@ -975,7 +975,7 @@
       if (lbl) lbl.textContent = (isNQP ? 'Taxable Account Net · 50th' : 'QP Net Total · 50th Pctile');
       var sub = factBlocks[2].querySelector('.fact-sub');
       if (sub) sub.textContent = isNQP
-        ? '60/40 · ' + (r.baseRate||0).toFixed(2) + '% tax · after-tax returns'
+        ? '60/40 · ' + (r.ltcgRate||15).toFixed(2) + '% LTCG on gains · ' + (r.basisPct||40).toFixed(0) + '% cost basis'
         : '60/40 · ' + (r.baseRate||0).toFixed(2) + '% income tax · after 59½';
     }
 
@@ -1049,7 +1049,7 @@
       setText('mc-header', 'Not a projection. A probability distribution built from 50 years of real market history — applied to a taxable investment account and the ETA side by side.');
       setText('mc-step-2-text', 'Each simulation draws a unique sequence of annual returns. Both the ETA and the taxable account face the exact same sequence in each simulation — ensuring a fair, paired comparison. The same market year that affects the taxable account affects the ETA.');
       setText('mc-step-4-title', 'Taxable Account: 60/40 Blended Portfolio');
-      setText('mc-step-4-text', 'The taxable account uses a blended 60% equity / 40% bond portfolio return paired to the same historical year as the ETA. Full downside exposure — no floor. Annual tax drag applied on gains.');
+      setText('mc-step-4-text', 'The taxable account uses a blended 60% equity / 40% bond portfolio return paired to the same historical year as the ETA. Full downside exposure — no floor. Growth compounds tax-deferred; each withdrawal is taxed only on its gain portion (' + (r.ltcgRate||15).toFixed(0) + '% LTCG rate), with ' + (r.basisPct||40).toFixed(0) + '% of the account treated as cost basis and returned tax-free.');
       setText('mc-pct-50-desc', 'Half of all 10,000 simulated market sequences produced more income than this; half produced less. This is the base case — what a client in the middle of all possible market outcomes would experience. Both ETA and the taxable account are shown at their respective 50th percentiles.');
       setText('mc-pct-25-desc', 'In 75% of sequences the outcome exceeded this level. This is the stress-test floor — appropriate for conservative planning. Even at the 25th percentile, the ETA structure\'s 0% floor and tax-free income provide meaningful advantages over a taxable investment account.');
     }
