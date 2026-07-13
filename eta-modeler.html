@@ -423,6 +423,12 @@ table.sc-ldg tfoot td.gold-col { color:var(--gold); }
             <div class="hint">Full gross amount funded into IUL via PDA over the premium pay period. ETA finances the tax half; the policy receives the full amount.</div>
           </div>
 
+          <!-- NQP: Investment Account comparator assumptions (cost-basis tracking) -->
+          <div class="fg fr" id="nqp-ltcg-row" style="display:none">
+            <div class="field"><label class="fl">Cost Basis (%)</label><input type="number" id="basisPct" value="40" step="5" min="0" max="100" oninput="recalcAll()"/><div class="hint">Share of the comparator account that is original investment (returned tax-free). Remainder is gain, taxed at the LTCG rate when withdrawn.</div></div>
+            <div class="field"><label class="fl">LTCG Rate (%)</label><input type="number" id="ltcgRate" value="15" step="0.5" min="0" max="40" oninput="recalcAll()"/><div class="hint">Effective long-term capital gains rate applied to the gain portion of each withdrawal. Growth is tax-deferred until drawn.</div></div>
+          </div>
+
           <div class="fg fr">
             <div class="field"><label class="fl">Federal Tax Rate (%)</label><input type="number" id="fedRate" value="32" step="0.25" oninput="recalcAll()"/><div class="hint">Use marginal rate — typically 22–37% for this profile.</div></div>
             <div class="field">
@@ -518,7 +524,7 @@ table.sc-ldg tfoot td.gold-col { color:var(--gold); }
           </div>
           <div class="fg fr">
             <div class="field"><label class="fl">QP Management Fee (%/yr)</label><input type="number" id="qpFee" value="1.50" step="0.25" min="0" max="3"/><div class="hint">Annual fee deducted from QP balance before growth. Default 1%.</div></div>
-            <div class="field"><label class="fl">QP Equity Allocation (%)</label><input type="number" id="qpEqWt" value="60" step="5" min="0" max="100"/><div class="hint">QP portfolio equity weight. Balance in 10-yr T-bonds. Default 60/40. Same historical year drawn for both assets.</div></div>
+            <div class="field"><label class="fl" id="qpEqWtLabel">QP Equity Allocation (%)</label><input type="number" id="qpEqWt" value="60" step="5" min="0" max="100"/><div class="hint">Comparator portfolio equity weight. Balance in 10-yr T-bonds. Default 60/40. Same historical year drawn for both assets.</div></div>
             <div class="field"><label class="fl">Data Pool (years, ending 2024)</label><input type="number" id="dataYears" value="50" min="20" max="55"/></div>
           </div>
 
@@ -815,6 +821,12 @@ function formatCurrency(el) {
 }
 function parseNum(id) { return parseFloat((document.getElementById(id).value||'').replace(/[$,]/g,''))||0; }
 const $f = n=>(!n||isNaN(n)||Math.abs(n)<0.5)?'—':'$'+Math.round(n).toLocaleString();
+// Comparator tax-rate description — used throughout the greensheet/ledger output
+function compRateStr(d){
+  return d.isNQP
+    ? `${(d.ltcgRate||0).toFixed(2)}% LTCG on gains (${(d.basisPct||0).toFixed(0)}% cost basis)`
+    : `${(d.fed+d.state).toFixed(2)}% income tax`;
+}
 const pf = n=>(n*100).toFixed(2)+'%';
 const tick = ()=>new Promise(r=>setTimeout(r,0));
 function openDiscussionDoc(){
@@ -1072,41 +1084,45 @@ function simQP(dist, combinedTaxRate, baseRate, issueAge, incStart, incEnd, cola
 }
 
 // ══════════════════════════════════════════════════════════
-// TAXABLE ACCOUNT COMPARATOR (NQP path)
-// Seed = taxLiability (what client "saved" by financing instead of paying)
-// Grows at blended equity/bond return with annual LTCG tax drag on gains
-// Income solved to deplete to $0 at incEnd — same approach as QP comparator
+// INVESTMENT ACCOUNT COMPARATOR (NQP path) — cost-basis tracking
+// Seed = taxLiability (the amount that would otherwise be invested
+// instead of financed via ETA). Growth compounds tax-deferred —
+// no annual drag. On each withdrawal, only the GAIN portion of the
+// draw (1 − current basis %) is taxed at the LTCG rate; basis comes
+// back tax-free. Basis % is recomputed each year as the blended
+// share of the balance that is still original principal, and is
+// drawn down proportionally as withdrawals are taken — same
+// methodology used in IncomeArchitect/EnhanceYourIncome.com.
+// Income solved to deplete to $0 at incEnd — same approach as QP comparator.
 // ══════════════════════════════════════════════════════════
-function simTaxableAccount(seed, ltcgRate, baseRate, issueAge, incStart, incEnd, colaRate, returns) {
+function simInvestmentAccount(seed, basisPct, ltcgRate, issueAge, incStart, incEnd, colaRate, returns) {
   const cola = colaRate/100;
   const nYrs = returns.length;
   const startIdx = incStart - issueAge;
   const incomeYrs = incEnd - incStart + 1;
-  const annualTaxDrag = ltcgRate / 100; // applied to positive returns each year
+  const ltcg = ltcgRate / 100;
+  const basis0 = Math.max(0, Math.min(1, basisPct / 100));
 
-  // Grow seed to incStart, applying annual tax drag on gains
+  // Grow seed to incStart — fully tax-deferred, basis dollar amount unchanged
   let bal = seed;
+  const basisDollarAtStart = seed * basis0;
   for (let i = 0; i < Math.min(startIdx, nYrs); i++) {
-    const r = returns[i];
-    if (r > 0) {
-      bal = bal * (1 + r * (1 - annualTaxDrag));
-    } else {
-      bal = bal * (1 + r);
-    }
+    bal = bal * (1 + returns[i]);
   }
   const balAtStart = bal;
 
-  // Binary search for gross withdrawal
-  const incStartTaxR = baseRate / 100; // ordinary income tax on withdrawals (LTCG simplification)
+  // Binary search for base-year gross withdrawal that depletes the account by incEnd
   let wLo = 0, wHi = balAtStart * 3, bestW = 0;
   for (let iter = 0; iter < 60; iter++) {
     const wMid = (wLo + wHi) / 2;
-    let b = balAtStart;
+    let b = balAtStart, basisDollar = basisDollarAtStart;
     for (let j = 0; j < incomeYrs; j++) {
       const ret = returns[startIdx + j] || 0;
-      const w = wMid * Math.pow(1 + cola, j);
-      if (ret > 0) { b = b * (1 + ret * (1 - annualTaxDrag)); }
-      else { b = b * (1 + ret); }
+      b = b * (1 + ret);
+      if (b <= 0) { b = 0; break; }
+      const w = Math.min(wMid * Math.pow(1 + cola, j), b);
+      const curBasisPct = Math.max(0, Math.min(1, basisDollar / b));
+      basisDollar = Math.max(0, basisDollar - w * curBasisPct);
       b -= w;
       if (b < 0) { b = 0; break; }
     }
@@ -1115,26 +1131,28 @@ function simTaxableAccount(seed, ltcgRate, baseRate, issueAge, incStart, incEnd,
   }
 
   const rows = [];
-  let b2 = seed;
+  let b2 = seed, basisDollar2 = basisDollarAtStart, netW1 = 0;
   for (let i = 0; i < nYrs; i++) {
     const yr = i + 1, age = issueAge + yr - 1, ret = returns[i] || 0;
     if (age < incStart) {
-      if (ret > 0) { b2 = b2 * (1 + ret * (1 - annualTaxDrag)); }
-      else { b2 = b2 * (1 + ret); }
-      rows.push({yr, age, gross: 0, net: 0, bal: b2, ret});
+      b2 = b2 * (1 + ret);
+      rows.push({yr, age, gross: 0, net: 0, bal: b2, ret, basisPct: 100});
     } else if (age <= incEnd) {
       const j = age - incStart;
-      if (ret > 0) { b2 = b2 * (1 + ret * (1 - annualTaxDrag)); }
-      else { b2 = b2 * (1 + ret); }
-      const g = Math.min(bestW * Math.pow(1 + cola, j), b2);
-      const n = g * (1 - incStartTaxR);
+      b2 = b2 * (1 + ret);
+      const g = Math.min(bestW * Math.pow(1 + cola, j), Math.max(0, b2));
+      const curBasisPct = b2 > 0 ? Math.max(0, Math.min(1, basisDollar2 / b2)) : 0;
+      const gainPortion = g * (1 - curBasisPct);
+      const n = g - gainPortion * ltcg;
+      basisDollar2 = Math.max(0, basisDollar2 - g * curBasisPct);
       b2 = Math.max(0, b2 - g);
-      rows.push({yr, age, gross: g, net: n, bal: b2});
+      if (j === 0) netW1 = n;
+      rows.push({yr, age, gross: g, net: n, bal: b2, basisPct: curBasisPct * 100});
     } else {
-      rows.push({yr, age, gross: 0, net: 0, bal: 0, ret});
+      rows.push({yr, age, gross: 0, net: 0, bal: 0, ret, basisPct: 0});
     }
   }
-  return {rows, grossW: bestW, netW: bestW * (1 - incStartTaxR)};
+  return {rows, grossW: bestW, netW: netW1};
 }
 function pctile(arr,p){const s=[...arr].sort((a,b)=>a-b);return s[Math.floor(p/100*(s.length-1))];}
 function bootstrap(n,arr){const o=new Array(n);for(let i=0;i<n;i++)o[i]=arr[Math.floor(Math.random()*arr.length)];return o;}
@@ -1166,6 +1184,13 @@ function setSourceMode(mode) {
 
   // Derived funding row
   document.getElementById('nqp-funding-row').style.display = isNQP ? 'block' : 'none';
+
+  // Investment Account comparator fields (basis %, LTCG rate)
+  document.getElementById('nqp-ltcg-row').style.display = isNQP ? 'grid' : 'none';
+
+  // Equity allocation field label — describes whichever comparator is active
+  const eqLbl = document.getElementById('qpEqWtLabel');
+  if (eqLbl) eqLbl.textContent = isNQP ? 'Investment Account Equity Allocation (%)' : 'QP Equity Allocation (%)';
 
   // Penalty row — hidden for NQP (no 59½ issue)
   document.getElementById('penaltyRow').style.display = isNQP ? 'none' : 'flex';
@@ -1263,6 +1288,8 @@ function calculate() {
   const dataYrs = parseInt(document.getElementById('dataYears').value)||50;
   const qpFee   = parseFloat(document.getElementById('qpFee').value)||1.0;
   const qpEqWt  = (parseFloat(document.getElementById('qpEqWt').value)||60)/100;
+  const basisPct = parseFloat(document.getElementById('basisPct').value)||40;
+  const ltcgRate = parseFloat(document.getElementById('ltcgRate').value)||15;
   const gender = document.getElementById('gender').value;
   const health = document.getElementById('health').value;
   const stateCode = document.getElementById('stateRes').value;
@@ -1289,7 +1316,7 @@ function calculate() {
            pdaFee, pdaRate, payYears, pdaNet, afterTaxRate, annualPrem, totalPrem,
            pdaRows, financedTax, sofrRate, sofrSpread, bankRate, rateEnv,
            payoffYear, plr, bankRows, payoffBalance, carrierKey, is, ie, cola,
-           floor, cap, floorRate, nSims, dataYrs, qpFee, qpEqWt,
+           floor, cap, floorRate, nSims, dataYrs, qpFee, qpEqWt, basisPct, ltcgRate,
            gender, health, stateCode, advisorName};
 
   // Build PDA schedule table
@@ -1642,7 +1669,7 @@ async function generateMC() {
     allPathQPRets.push(qpRets);
     allAvAtInc.push(ePath[incStartIdx]?.av||0);
     const qp=d.isNQP
-      ? simTaxableAccount(d.taxLiability, d.fed+d.state, d.fed+d.state, d.age, d.is, d.ie, d.cola, qpRets)
+      ? simInvestmentAccount(d.taxLiability, d.basisPct, d.ltcgRate, d.age, d.is, d.ie, d.cola, qpRets)
       : simQP(d.dist, d.combined, d.fed+d.state, d.age, d.is, d.ie, d.cola, qpRets);
     qp.rows.forEach(row=>{if(qpByAge[row.age]){qpByAge[row.age].gross.push(row.gross);qpByAge[row.age].net.push(row.net);qpByAge[row.age].bal.push(row.bal);}});
   }
@@ -1712,7 +1739,7 @@ async function generateMC() {
   const strandQP={};
   PCTS.forEach(p=>{
     strandQP[p] = d.isNQP
-      ? simTaxableAccount(d.taxLiability, d.fed+d.state, d.fed+d.state, d.age, d.is, d.ie, d.cola, strandPaths[p].pathQPRets)
+      ? simInvestmentAccount(d.taxLiability, d.basisPct, d.ltcgRate, d.age, d.is, d.ie, d.cola, strandPaths[p].pathQPRets)
       : simQP(d.dist, d.combined, d.fed+d.state, d.age, d.is, d.ie, d.cola, strandPaths[p].pathQPRets);
   });
 
@@ -1838,6 +1865,8 @@ async function generateMC() {
       cola:           d.cola,
       taxRate:        d.combined,
       baseRate:       d.fed+d.state,
+      basisPct:       d.basisPct||0,
+      ltcgRate:       d.ltcgRate||0,
       plr:            d.plr,
       nSims:          d.nSims,
       version:        carrierMeta.targetPremium ? Math.round(carrierMeta.targetPremium) : null,
@@ -2027,7 +2056,7 @@ function buildPage1(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
       <div style="padding:16px 20px;border-right:1px solid var(--border)">
         <div style="font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">${d.isNQP ? 'Total Taxable Account Net Income' : 'Total QP Net Distributions'}<br>Median (50th Percentile)</div>
         <div style="font-family:'Playfair Display',serif;font-size:22px;color:var(--red)">${$f(totalMedQPNet)}</div>
-        <div style="font-size:9px;color:var(--muted);margin-top:3px">After ${d.isNQP ? 'capital gains' : 'ordinary income'} tax · Ages ${d.is}–${d.ie}</div>
+        <div style="font-size:9px;color:var(--muted);margin-top:3px">After ${compRateStr(d)} · Ages ${d.is}–${d.ie}</div>
       </div>
       <div style="padding:16px 20px;border-right:1px solid var(--border)">
         <div style="font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Net Asset Value at Age ${d.ie}<br>Net of All Asset Loans</div>
@@ -2051,7 +2080,7 @@ function buildPage1(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
       <div>
         <div class="eyebrow">Enhanced Tax Advantage — ETA · Median Market Sequence${d.isNQP ? ' · Liquidity Event' : ''}</div>
         <div class="title">${d.name}</div>
-        <div class="meta-line">Client: ${d.name} &nbsp;|&nbsp; Advisor: ${adv || '—'} &nbsp;|&nbsp; ${d.isNQP ? 'Tax Liability: ' + $f(d.taxLiability) + ' · IUL Funding: ' + $f(d.dist) : 'Distribution: ' + $f(d.dist)} &nbsp;|&nbsp; Tax Rate: ${d.combined.toFixed(2)}% &nbsp;|&nbsp; PDA Rate: ${d.pdaRate.toFixed(2)}% &nbsp;|&nbsp; Asset Loan Rate: ${d.plr.toFixed(2)}%${carrierMeta.targetPremium ? ' &nbsp;|&nbsp; Version ' + Math.round(carrierMeta.targetPremium) : ''}</div>
+        <div class="meta-line">Client: ${d.name} &nbsp;|&nbsp; Advisor: ${adv || '—'} &nbsp;|&nbsp; ${d.isNQP ? 'Tax Liability: ' + $f(d.taxLiability) + ' · IUL Funding: ' + $f(d.dist) : 'Distribution: ' + $f(d.dist)} &nbsp;|&nbsp; ${d.isNQP ? 'Comparator: ' + compRateStr(d) : 'Tax Rate: ' + d.combined.toFixed(2) + '%'} &nbsp;|&nbsp; PDA Rate: ${d.pdaRate.toFixed(2)}% &nbsp;|&nbsp; Asset Loan Rate: ${d.plr.toFixed(2)}%${carrierMeta.targetPremium ? ' &nbsp;|&nbsp; Version ' + Math.round(carrierMeta.targetPremium) : ''}</div>
       </div>
       <div class="ver-block">
         ${ver ? `<div class="vnum">${ver}</div>` : ''}
@@ -2146,7 +2175,7 @@ function buildPage2(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
       <div style="padding:14px 20px;border-right:1px solid var(--border)">
         <div style="font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">${d.isNQP ? 'Taxable Account Net Income (Median)' : 'Qualified Plan Net Distributions (Median)'}</div>
         <div style="font-family:'Playfair Display',serif;font-size:22px;color:var(--red)">${$f(totalMedQPNet)}</div>
-        <div style="font-size:9px;color:var(--muted);margin-top:3px">After ${baseRate.toFixed(2)}% ${d.isNQP ? 'tax' : 'income tax'} · Ages ${d.is}–${d.ie}</div>
+        <div style="font-size:9px;color:var(--muted);margin-top:3px">After ${compRateStr(d)} · Ages ${d.is}–${d.ie}</div>
       </div>
       <div style="padding:14px 20px;border-right:1px solid var(--border)">
         <div style="font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">ETA Tax-Free Income Advantage (Median)</div>
@@ -2189,7 +2218,7 @@ function buildPage2(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
       <div>
         <div style="font-size:9px;letter-spacing:3px;text-transform:uppercase;color:rgba(201,168,76,.7);margin-bottom:4px">Enhanced Tax Advantage — ETA · Monte Carlo Scenario Analysis</div>
         <div class="title">${d.name} — ${N.toLocaleString()} Market Sequences · ${poolLabel}</div>
-        <div class="sub">Ages ${d.is}–${d.ie} · ${d.cola}% COLA · ${baseRate.toFixed(2)}% ${d.isNQP ? 'income tax' : 'QP income tax (after age 59½)'} · Asset Loan Rate ${d.plr}% · ${dateStr}${adv ? ' · ' + adv : ''}</div>
+        <div class="sub">Ages ${d.is}–${d.ie} · ${d.cola}% COLA · ${compRateStr(d)}${d.isNQP ? '' : ' (after age 59½)'} · Asset Loan Rate ${d.plr}% · ${dateStr}${adv ? ' · ' + adv : ''}</div>
       </div>
     </div>
     ${scenarioStrip}
@@ -2197,7 +2226,7 @@ function buildPage2(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
     ${pctExplain}
     <div style="padding:12px 28px 0">
       <div style="font-family:'Playfair Display',serif;font-size:14px;color:var(--navy);margin-bottom:3px">Cumulative Income — ETA Tax-Free vs. ${d.isNQP ? 'Taxable Account' : 'Qualified Plan'} Taxable (Median)</div>
-      <div style="font-size:9px;color:var(--muted);margin-bottom:8px">${N.toLocaleString()} bootstrapped S&P 500 sequences (${poolLabel}) · ${d.cap}% cap / ${d.floorRate}% floor · ETA tax-free asset loan income vs. ${d.isNQP ? 'taxable account distributions' : 'QP taxable distributions'} at ${baseRate.toFixed(2)}% ${d.isNQP ? 'income tax' : 'income tax (after age 59½)'}</div>
+      <div style="font-size:9px;color:var(--muted);margin-bottom:8px">${N.toLocaleString()} bootstrapped S&P 500 sequences (${poolLabel}) · ${d.cap}% cap / ${d.floorRate}% floor · ETA tax-free asset loan income vs. ${d.isNQP ? 'investment account distributions' : 'QP taxable distributions'} at ${compRateStr(d)}${d.isNQP ? '' : ' (after age 59½)'}</div>
       ${chartSVG}
     </div>
     <div class="disc-3col" style="margin-top:auto">
