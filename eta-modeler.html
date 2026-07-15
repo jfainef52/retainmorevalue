@@ -838,6 +838,12 @@ function openDiscussionDoc(){
     window.location.href = 'eta-discussion-doc.html';
   }
 }
+function openOnePageSummary(){
+  const w = window.open('eta-onepage-summary.html', 'eta_onepage_summary');
+  if (!w) {
+    window.location.href = 'eta-onepage-summary.html';
+  }
+}
 
 // ══════════════════════════════════════════════════════════
 // PDA CALCULATION
@@ -1791,6 +1797,7 @@ async function generateMC() {
     <button class="ab-btn" onclick="document.getElementById('intake-panel').style.display='block';document.getElementById('ledger-output').style.display='none'">← Edit Inputs</button>
     <button class="ab-btn primary" onclick="window.print()">Print / Export PDF</button>
     <button class="ab-btn" onclick="openDiscussionDoc()" style="background:var(--navy);color:var(--gold);border:1.5px solid var(--gold)">📄 Produce Discussion Document</button>
+    <button class="ab-btn" onclick="openOnePageSummary()" style="background:var(--navy);color:var(--gold);border:1.5px solid var(--gold)">📋 Produce One-Page Summary</button>
   </div>
   <div class="eta-page">${pg1}</div>
   <div class="eta-page page-break">${pg2}</div>
