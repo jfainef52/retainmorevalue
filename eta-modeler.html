@@ -468,6 +468,29 @@ table.sc-ldg tfoot td.gold-col { color:var(--gold); }
           </div>
 
           <div class="sep"></div>
+          <div class="stag">Loan Amount Override — Excess Liquidity</div>
+          <div class="chk-row">
+            <input type="checkbox" id="loanOverrideChk" onchange="updateLoanOverride()"/>
+            <label for="loanOverrideChk">Override Year 1 loan — draw liquidity beyond the tax obligation (e.g. to fund a Roth conversion)</label>
+          </div>
+          <div id="loanOverridePanel" style="display:none">
+            <div class="fg fr">
+              <div class="field"><label class="fl">Max LTV on Distribution (%)</label><input type="number" id="loanLTV" value="55" step="1" min="1" max="100" oninput="updateLoanOverride()"/></div>
+              <div class="field"><label class="fl">Max Loan at LTV (auto-computed)</label><input type="text" id="maxLoanDisplay" class="computed" readonly/></div>
+            </div>
+            <div class="fg">
+              <label class="fl">Custom Loan Amount ($)</label>
+              <div class="field"><input type="text" id="loanOverrideAmt" placeholder="ex. $385,000" oninput="formatCurrency(this);updateLoanOverride()"/></div>
+              <div class="hint">Defaults to the projected tax obligation. Raise it — up to the max LTV above — to draw excess liquidity from the bank for other purposes. That excess still accrues at the bank rate and refinances into the policy loan at payoff, same as the tax-financed portion.</div>
+            </div>
+            <div id="loan-override-summary" class="pda-summary" style="display:block">
+              <div class="pda-row"><span class="pda-key">Projected tax on distribution</span><span class="pda-val" id="lo-tax">—</span></div>
+              <div class="pda-row"><span class="pda-key">Loan amount (Year 1, post-override)</span><span class="pda-val" id="lo-loan">—</span></div>
+              <div class="pda-row"><span class="pda-key">Excess liquidity available</span><span class="pda-val g" id="lo-excess">—</span></div>
+            </div>
+          </div>
+
+          <div class="sep"></div>
           <div class="stag">Bank Loan & Refinance</div>
           <div class="fg fr">
             <div class="field">
@@ -1255,6 +1278,56 @@ function recalcAll() {
   } else {
     document.getElementById('pda-summary').style.display='none';
   }
+  updateLoanOverride();
+}
+
+// ══════════════════════════════════════════════════════════
+// LOAN AMOUNT OVERRIDE — excess liquidity beyond the tax obligation
+// Projected tax = the normal Year-1 loan (dist×combinedRate for QP,
+// user-entered tax liability for NQP). Custom loan is clamped to
+// Max LTV × distribution. Excess = custom loan − projected tax.
+// ══════════════════════════════════════════════════════════
+function getTaxObligation() {
+  const taxOrDist = parseNum('distribution');
+  const isNQP = _sourceMode === 'nqp';
+  const dist = isNQP ? taxOrDist * 2 : taxOrDist;
+  if (isNQP) return {dist, taxObligation: taxOrDist};
+  const fed = parseFloat(document.getElementById('fedRate').value)||0;
+  const state = parseFloat(document.getElementById('stateRate').value)||0;
+  const penalty = document.getElementById('penaltyChk').checked ? 10 : 0;
+  const combined = fed+state+penalty;
+  return {dist, taxObligation: dist*(combined/100)};
+}
+
+function updateLoanOverride() {
+  const active = document.getElementById('loanOverrideChk').checked;
+  document.getElementById('loanOverridePanel').style.display = active ? 'block' : 'none';
+  if (!active) return;
+
+  const {dist, taxObligation} = getTaxObligation();
+  const ltvPct = parseFloat(document.getElementById('loanLTV').value)||55;
+  const maxLoan = dist * (ltvPct/100);
+  document.getElementById('maxLoanDisplay').value = dist>0 ? '$'+Math.round(maxLoan).toLocaleString() : '—';
+
+  if (dist<=0) return;
+
+  const amtField = document.getElementById('loanOverrideAmt');
+  let custom = parseNum('loanOverrideAmt');
+  // Default the field to the projected tax the first time it's engaged
+  if (!custom || custom<=0) {
+    custom = taxObligation;
+    amtField.value = '$'+Math.round(custom).toLocaleString();
+  }
+  // Clamp to the max LTV
+  if (custom > maxLoan) {
+    custom = maxLoan;
+    amtField.value = '$'+Math.round(custom).toLocaleString();
+  }
+
+  const excess = Math.max(0, custom - taxObligation);
+  document.getElementById('lo-tax').textContent = '$'+Math.round(taxObligation).toLocaleString();
+  document.getElementById('lo-loan').textContent = '$'+Math.round(custom).toLocaleString();
+  document.getElementById('lo-excess').textContent = '$'+Math.round(excess).toLocaleString();
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1313,14 +1386,34 @@ function calculate() {
   const {pdaNet, afterTaxRate, annualPrem, totalPrem, rows: pdaRows, pdaTaxRate} =
     calcPDA(dist, fed, state, pdaFee, pdaRate, payYears);
 
-  // For NQP: financed tax = taxLiability (user-entered). For QP: dist × combinedRate.
-  const financedTax = isNQP ? taxLiability : dist*(combined/100);
-  const {rows: bankRows} = buildBankLoan(dist, combined, sofrRate, sofrSpread, payoffYear, plr, age, 100, isNQP ? financedTax : null);
+  // Projected tax obligation (always computed, independent of any override).
+  // For NQP: taxLiability (user-entered). For QP: dist × combinedRate.
+  const taxObligation = isNQP ? taxLiability : dist*(combined/100);
+
+  // Year-1 loan principal: defaults to the tax obligation, but can be
+  // overridden (up to Max LTV × dist) to draw excess liquidity from the bank
+  // for purposes beyond the tax itself (e.g. financing a Roth conversion).
+  let financedTax = taxObligation;
+  let loanOverrideActive = false, loanLTVPct = 0, maxLoanLTV = 0, excessLiquidity = 0;
+  const loanOverrideChk = document.getElementById('loanOverrideChk').checked;
+  if (loanOverrideChk) {
+    loanLTVPct = parseFloat(document.getElementById('loanLTV').value)||55;
+    maxLoanLTV = dist * (loanLTVPct/100);
+    let customLoan = parseNum('loanOverrideAmt');
+    if (!customLoan || customLoan<=0) customLoan = taxObligation;
+    if (customLoan > maxLoanLTV) customLoan = maxLoanLTV;
+    financedTax = customLoan;
+    loanOverrideActive = true;
+    excessLiquidity = Math.max(0, financedTax - taxObligation);
+  }
+
+  const {rows: bankRows} = buildBankLoan(dist, combined, sofrRate, sofrSpread, payoffYear, plr, age, 100, financedTax);
   const payoffBalance = bankRows[payoffYear-1]?.prevLoan || financedTax;
 
   _prog = {name, age, dist, taxLiability, isNQP, fed, state, penalty, combined,
            pdaFee, pdaRate, payYears, pdaNet, afterTaxRate, annualPrem, totalPrem,
-           pdaRows, financedTax, sofrRate, sofrSpread, bankRate, rateEnv,
+           pdaRows, financedTax, taxObligation, loanOverrideActive, loanLTVPct,
+           maxLoanLTV, excessLiquidity, sofrRate, sofrSpread, bankRate, rateEnv,
            payoffYear, plr, bankRows, payoffBalance, carrierKey, is, ie, cola,
            floor, cap, floorRate, nSims, dataYrs, qpFee, qpEqWt, basisPct, ltcgRate,
            gender, health, stateCode, advisorName};
@@ -1361,8 +1454,21 @@ function calculate() {
               <div class="ii"><span class="ik">Run illustration to age</span><span class="iv">100</span></div>
             </div>
           </div>
+          ${loanOverrideActive ? `
+          <div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(201,168,76,.2)">
+            <div class="ig">
+              <div>
+                <div class="ii"><span class="ik">Projected Tax on Distribution</span><span class="iv">${$f(taxObligation)}</span></div>
+                <div class="ii"><span class="ik">Year 1 Loan (Post-Override, ${loanLTVPct}% LTV cap)</span><span class="iv hl">${$f(financedTax)}</span></div>
+              </div>
+              <div>
+                <div class="ii"><span class="ik">Excess Liquidity Drawn</span><span class="iv hl">${$f(excessLiquidity)}</span></div>
+                <div class="ii"><span class="ik">Max Loan at ${loanLTVPct}% LTV</span><span class="iv">${$f(maxLoanLTV)}</span></div>
+              </div>
+            </div>
+          </div>` : ''}
           <div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(201,168,76,.2);font-size:11px;color:var(--muted)">
-            ℹ️ &nbsp;At Year ${payoffYear} the outstanding bank balance of <strong>${$f(payoffBalance)}</strong> refinances as a participating policy loan at PLR ${plr.toFixed(2)}%. Run two exports: <strong>Primary Rate</strong> and <strong>Alternative Rate</strong>. Include Summary of Policy Charges sheet.
+            ℹ️ &nbsp;At Year ${payoffYear} the outstanding bank balance of <strong>${$f(payoffBalance)}</strong> refinances as a participating policy loan at PLR ${plr.toFixed(2)}%.${loanOverrideActive ? ` This includes <strong>${$f(excessLiquidity)}</strong> of excess liquidity drawn beyond the tax obligation.` : ''} Run two exports: <strong>Primary Rate</strong> and <strong>Alternative Rate</strong>. Include Summary of Policy Charges sheet.
           </div>
         </div>
 
@@ -2087,7 +2193,7 @@ function buildPage1(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
       <div>
         <div class="eyebrow">Enhanced Tax Advantage — ETA · Median Market Sequence${d.isNQP ? ' · Liquidity Event' : ''}</div>
         <div class="title">${d.name}</div>
-        <div class="meta-line">Client: ${d.name} &nbsp;|&nbsp; Advisor: ${adv || '—'} &nbsp;|&nbsp; ${d.isNQP ? 'Tax Liability: ' + $f(d.taxLiability) + ' · IUL Funding: ' + $f(d.dist) : 'Distribution: ' + $f(d.dist)} &nbsp;|&nbsp; ${d.isNQP ? 'Comparator: ' + compRateStr(d) : 'Tax Rate: ' + d.combined.toFixed(2) + '%'} &nbsp;|&nbsp; PDA Rate: ${d.pdaRate.toFixed(2)}% &nbsp;|&nbsp; Asset Loan Rate: ${d.plr.toFixed(2)}%${carrierMeta.targetPremium ? ' &nbsp;|&nbsp; Version ' + Math.round(carrierMeta.targetPremium) : ''}</div>
+        <div class="meta-line">Client: ${d.name} &nbsp;|&nbsp; Advisor: ${adv || '—'} &nbsp;|&nbsp; ${d.isNQP ? 'Tax Liability: ' + $f(d.taxLiability) + ' · IUL Funding: ' + $f(d.dist) : 'Distribution: ' + $f(d.dist)} &nbsp;|&nbsp; ${d.isNQP ? 'Comparator: ' + compRateStr(d) : 'Tax Rate: ' + d.combined.toFixed(2) + '%'} &nbsp;|&nbsp; PDA Rate: ${d.pdaRate.toFixed(2)}% &nbsp;|&nbsp; Asset Loan Rate: ${d.plr.toFixed(2)}%${carrierMeta.targetPremium ? ' &nbsp;|&nbsp; Version ' + Math.round(carrierMeta.targetPremium) : ''}${d.loanOverrideActive ? ' &nbsp;|&nbsp; Loan: ' + $f(d.financedTax) + ' (' + $f(d.excessLiquidity) + ' excess liquidity @ ' + d.loanLTVPct + '% LTV)' : ''}</div>
       </div>
       <div class="ver-block">
         ${ver ? `<div class="vnum">${ver}</div>` : ''}
@@ -2125,7 +2231,7 @@ function buildPage1(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
               <th>PDA → Asset</th>
               <th>PDA Balance</th>
               <th>Lender Rate</th>
-              <th>Loan for Tax</th>
+              <th>${d.loanOverrideActive ? 'Loan (incl. Excess)' : 'Loan for Tax'}</th>
               <th>Interest</th>
               <th>Loan Balance</th>
               <th>Loan Payoff</th>
