@@ -258,7 +258,8 @@
   .why-cta-headline em { color:var(--gold); font-style:italic; }
   .why-cta-text { font-size:13px; color:var(--muted); line-height:1.7; }
   .why-contact { background:var(--navy); padding:20px 24px; border-radius:4px; display:flex; flex-direction:column; gap:8px; margin-top:auto; }
-  .why-contact-item { font-size:13px; color:rgba(255,255,255,.7); }
+  .why-contact-item { font-size:13px; color:rgba(255,255,255,.7); }  .eta-callout { display:none; margin-top:10px; padding:10px 14px; background:rgba(200,168,75,.08); border-left:3px solid var(--gold); border-radius:2px; font-size:11.5px; color:var(--muted); line-height:1.55; }
+  .eta-callout b { color:var(--navy); }
 </style>
 </head>
 <body>
@@ -557,6 +558,7 @@
             <div>
               <div class="how-step-title" id="how-step-1-title">Distribution &amp; Deposit</div>
               <div class="how-step-text" id="how-step-1-text">The qualified plan distributes. The full amount — before tax — is deposited into a Premium Deposit Account (PDA). A bank simultaneously provides a loan to cover the tax obligation. Nothing is paid out of pocket.</div>
+              <div class="eta-callout" id="excess-liquidity-callout"></div>
             </div>
           </div>
           <div class="how-step">
@@ -950,6 +952,16 @@
     set('doc-dist-footer', $f(r.dist));
     set('doc-contrib-footer', $f(r.totalEtaContrib));
     set('doc-contrib-sub', (r.payYears||7) + ' annual contributions of ' + $f(r.annualPrem));
+
+    // Excess liquidity breadcrumb — only shown when the advisor sized the
+    // Year-1 loan above the tax obligation itself (loan override in modeler)
+    if (r.loanOverrideActive && r.excessLiquidity > 0) {
+      var callout = document.getElementById('excess-liquidity-callout');
+      if (callout) {
+        callout.innerHTML = 'This structure is also being sized to help offset up to <b>' + $f(r.excessLiquidity) + '</b> of tax on a related Roth conversion — creating an additional tax-free income source alongside this plan.';
+        callout.style.display = 'block';
+      }
+    }
 
     // Update sidebar and outcomes headline to reflect source mode
     var sidebarDesc = document.getElementById('doc-sidebar-desc');
