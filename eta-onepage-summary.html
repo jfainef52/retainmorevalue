@@ -41,6 +41,8 @@ h1{font-family:'Playfair Display',serif;font-weight:600;font-size:26px;color:var
 .rec-body b{font-size:11.5px;color:var(--navy)}
 .rec-body p{font-size:10.3px;line-height:1.55;color:var(--text);margin-top:3px}
 .rec-body .rec-sub{font-size:9px;color:var(--muted);font-style:italic;margin-top:4px}
+.eta-callout{display:none;margin-top:6px;padding:7px 10px;background:var(--gold-pale);border-left:2px solid var(--gold);border-radius:2px;font-size:9.5px;color:var(--text);line-height:1.5}
+.eta-callout b{color:var(--navy)}
 
 .deliver-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:3px;margin-bottom:24px}
 .dbox{background:var(--off);border:1px solid var(--border);border-radius:6px;padding:13px 14px}
@@ -101,6 +103,7 @@ h1{font-family:'Playfair Display',serif;font-weight:600;font-size:26px;color:var
       <b id="doc-rec1-title">Finance the tax obligation — don't pay it out of pocket</b>
       <p id="doc-rec1-text">A commercial bank finances the full $1,000,000 tax bill at closing. No check written to the IRS. The bank loan is secured only by the policy — not your home or other assets — and is retired later from the policy's death benefit.</p>
       <div class="rec-sub" id="doc-rec1-sub">Bank lender rate ~4.10–6.10% during the funding period · repaid via a participating policy loan at the refinance point</div>
+      <div class="eta-callout" id="excess-liquidity-callout"></div>
     </div>
   </div>
 
@@ -264,6 +267,14 @@ h1{font-family:'Playfair Display',serif;font-weight:600;font-size:26px;color:var
     set('doc-out4-val', ratio.toFixed(2) + '×');
     set('doc-out6-val', $f(nav) + '+');
     set('doc-out6-lbl', 'Net asset value at age ' + incEnd + ' — passes to your beneficiary income-tax-free');
+
+    // Excess liquidity breadcrumb — only shown when the advisor sized the
+    // Year-1 loan above the tax obligation itself (loan override in modeler)
+    if (r.loanOverrideActive && r.excessLiquidity > 0) {
+      setHTML('excess-liquidity-callout', 'This plan also reserves up to <b>' + $f(r.excessLiquidity) + '</b> in additional liquidity to help offset tax on a related Roth conversion — supporting a further tax-free income source.');
+      var callout = document.getElementById('excess-liquidity-callout');
+      if (callout) callout.style.display = 'block';
+    }
 
   } catch(e) { console.warn('One-page summary data load failed:', e); }
 })();
