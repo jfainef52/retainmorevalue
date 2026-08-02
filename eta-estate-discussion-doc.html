@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Estate Review — EFS Life — Enhanced Tax Advantage</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --navy:   #0D1B2E; --navy-2: #142236; --navy-3: #1a2d48;
+    --gold:   #C8A84B; --gold-lt:#D4B96A;
+    --white:  #FFFFFF; --off:    #F8F7F4;
+    --text:   #1C2B3A; --muted:  #6B7C8D; --border: #E2DDD6;
+    --green:  #2A6E45; --green-lt:#EBF4EE;
+    --red:    #8B2020; --red-lt: #FDF0F0;
+  }
+  body {
+    font-family: 'IBM Plex Sans', sans-serif;
+    background: #E8E4DC; color: var(--text); font-size: 14px;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  .page {
+    width: 11in; height: 8.5in; margin: 0 auto 32px;
+    overflow: hidden; position: relative; background: white;
+    box-shadow: 0 8px 40px rgba(0,0,0,.18); display: flex;
+  }
+  @media print {
+    body { background: white; }
+    .page { margin:0; box-shadow:none; page-break-after:always; page-break-inside:avoid; }
+    .page:last-child { page-break-after: avoid !important; }
+    @page { size: 11in 8.5in landscape; margin: 0; }
+  }
+  .serif  { font-family: 'Playfair Display', serif; }
+  .serif2 { font-family: 'Cormorant Garamond', serif; }
+
+  /* ── COVER ── */
+  .cover { flex-direction: column; background: var(--navy); position: relative; overflow: hidden; }
+  .cover-bg {
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(ellipse 70% 60% at 70% 40%, rgba(200,168,75,.08) 0%, transparent 70%),
+      linear-gradient(145deg, #0D1B2E 0%, #1a3050 40%, #0f2540 70%, #0D1B2E 100%);
+  }
+  .cover-mountain { position: absolute; bottom: 0; left: 0; right: 0; height: 55%; opacity: .06; }
+  .cover-top-bar {
+    position: relative; z-index: 2; height: 6px;
+    background: linear-gradient(90deg, var(--gold) 0%, var(--gold-lt) 50%, var(--gold) 100%);
+  }
+  .cover-content {
+    position: relative; z-index: 2; flex: 1;
+    display: flex; flex-direction: column; padding: 0.55in 0.7in;
+  }
+  .cover-eyebrow { font-size:10px; letter-spacing:4px; text-transform:uppercase; color:var(--gold); margin-bottom:.18in; font-weight:500; }
+  .cover-title { font-family:'Playfair Display',serif; font-size:58px; font-weight:700; color:var(--white); line-height:1.08; max-width:7in; margin-bottom:.2in; }
+  .cover-title em { color:var(--gold); font-style:italic; }
+  .cover-subtitle { font-family:'Cormorant Garamond',serif; font-size:22px; font-weight:300; color:rgba(255,255,255,.6); letter-spacing:1px; margin-bottom:auto; }
+  .cover-divider { width:60px; height:1px; background:var(--gold); margin:.25in 0; }
+  .cover-meta { display:flex; align-items:flex-end; justify-content:space-between; }
+  .cover-prepared { font-size:12px; color:rgba(255,255,255,.4); letter-spacing:1px; }
+  .cover-prepared strong { display:block; font-size:22px; color:rgba(255,255,255,.9); font-weight:400; margin-top:4px; font-family:'Playfair Display',serif; letter-spacing:1px; }
+  .cover-corner { position:absolute; top:.4in; right:.5in; width:120px; height:120px; border:1px solid rgba(200,168,75,.2); border-radius:50%; z-index:1; }
+  .cover-corner::after { content:''; position:absolute; inset:12px; border:1px solid rgba(200,168,75,.12); border-radius:50%; }
+
+  /* ── SHARED SIDEBAR ── */
+  .sidebar-page { flex-direction: row; }
+  .sidebar {
+    width: 2.4in; background: var(--navy); flex-shrink:0;
+    display:flex; flex-direction:column; padding:.5in .35in; position:relative; overflow:hidden;
+  }
+  .sidebar::before { content:''; position:absolute; top:0; left:0; right:0; height:4px; background:linear-gradient(90deg,var(--gold),var(--gold-lt)); }
+  .sidebar::after { content:''; position:absolute; bottom:-60px; left:-60px; width:220px; height:220px; border:1px solid rgba(200,168,75,.08); border-radius:50%; }
+  .sidebar-section { font-size:9px; letter-spacing:3px; text-transform:uppercase; color:var(--gold); margin-bottom:10px; font-weight:500; }
+  .sidebar-title { font-family:'Playfair Display',serif; font-size:30px; font-weight:700; color:var(--white); line-height:1.15; margin-bottom:6px; }
+  .sidebar-subtitle { font-size:11px; letter-spacing:2px; text-transform:uppercase; color:rgba(255,255,255,.3); line-height:1.6; }
+  .sidebar-divider { width:30px; height:1px; background:var(--gold); margin:20px 0; }
+  .sidebar-tagline { font-family:'Cormorant Garamond',serif; font-size:16px; font-style:italic; color:rgba(255,255,255,.4); line-height:1.6; margin-top:auto; }
+  .main-content { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+  .eyebrow { font-size:9px; letter-spacing:3px; text-transform:uppercase; color:var(--gold); font-weight:600; }
+
+  /* ── PAGE 2: SITUATION ── */
+  .situation-main { padding:.45in .5in; background:var(--off); flex:1; display:flex; flex-direction:column; justify-content:center; position:relative; }
+  .situation-main::before { content:''; position:absolute; top:0; right:0; width:50%; height:100%; background:linear-gradient(135deg,rgba(200,168,75,.04) 0%,transparent 60%); }
+  .situation-pull { font-family:'Cormorant Garamond',serif; font-size:20px; font-style:italic; color:var(--muted); border-left:3px solid var(--gold); padding-left:20px; margin-bottom:28px; line-height:1.5; max-width:5in; }
+  .situation-headline { font-family:'Playfair Display',serif; font-size:28px; font-weight:600; color:var(--navy); line-height:1.2; margin-bottom:20px; max-width:6in; }
+  .situation-headline em { color:var(--gold); font-style:italic; }
+  .sit-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; margin-top:6px; }
+  .sit-card { background:white; border:1px solid var(--border); border-top:3px solid var(--gold); padding:16px 14px; }
+  .sit-icon { font-size:20px; margin-bottom:8px; }
+  .sit-title { font-family:'Playfair Display',serif; font-size:13px; font-weight:600; color:var(--navy); margin-bottom:5px; }
+  .sit-text { font-size:11.5px; color:var(--muted); line-height:1.6; }
+
+  /* ── PAGE 3: GOALS ── */
+  .goals-main { padding:.5in .55in; background:white; flex:1; display:flex; flex-direction:column; justify-content:center; position:relative; }
+  .goals-question { font-size:10px; letter-spacing:3px; text-transform:uppercase; color:var(--gold); margin-bottom:14px; font-weight:600; }
+  .goals-headline { font-family:'Playfair Display',serif; font-size:30px; font-weight:600; color:var(--navy); line-height:1.2; margin-bottom:18px; max-width:6in; }
+  .goals-headline em { color:var(--gold); font-style:italic; }
+  .goals-body { font-family:'Cormorant Garamond',serif; font-size:18px; color:var(--text); line-height:1.75; max-width:6.5in; margin-bottom:28px; }
+  .goals-pillars { display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; }
+  .pillar { background:var(--off); border:1px solid var(--border); border-top:3px solid var(--gold); padding:18px 16px; }
+  .pillar-icon { font-size:22px; margin-bottom:10px; }
+  .pillar-title { font-family:'Playfair Display',serif; font-size:14px; font-weight:600; color:var(--navy); margin-bottom:6px; }
+  .pillar-text { font-size:12px; color:var(--muted); line-height:1.6; }
+
+  /* ── PAGE 4: KAI & BRECK ── */
+  .kai-breck-main { flex:1; display:grid; grid-template-columns:1fr 1fr; grid-template-rows:auto 1fr auto; overflow:hidden; }
+  .kb-header { grid-column:1/-1; background:white; padding:.3in .5in .2in; border-bottom:1px solid var(--border); }
+  .kb-header h2 { font-family:'Playfair Display',serif; font-size:22px; font-weight:600; color:var(--navy); margin-top:8px; }
+  .kb-brother { padding:.3in .4in; display:flex; flex-direction:column; gap:12px; }
+  .kb-left { background:var(--off); border-right:1px solid var(--border); }
+  .kb-right { background:white; }
+  .kb-name { display:flex; align-items:center; gap:10px; font-family:'Playfair Display',serif; font-size:18px; font-weight:700; color:var(--navy); }
+  .kb-badge { width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; color:white; flex-shrink:0; }
+  .kb-badge-k { background:var(--navy); }
+  .kb-badge-b { background:var(--green); }
+  .kb-retire { font-size:11px; color:var(--muted); letter-spacing:1px; }
+  .kb-body { font-size:12.5px; color:var(--text); line-height:1.7; }
+  .kb-result { display:flex; align-items:center; gap:10px; padding:10px 14px; border-radius:4px; font-size:12px; font-weight:600; }
+  .kb-result-bad { background:rgba(180,50,50,.08); color:#b43232; border:1px solid rgba(180,50,50,.2); }
+  .kb-result-good { background:var(--green-lt); color:var(--green); border:1px solid rgba(42,110,69,.2); }
+  .kb-footer { grid-column:1/-1; background:var(--navy); padding:.2in .5in; display:grid; grid-template-columns:1fr 1fr 1fr; gap:20px; align-items:center; }
+  .kb-stat-num { font-family:'Playfair Display',serif; font-size:32px; font-weight:700; color:var(--gold); margin-bottom:4px; }
+  .kb-stat-label { font-size:11px; color:rgba(255,255,255,.45); line-height:1.5; }
+
+  /* ── PAGE 5: ACCUMULATION VS DISTRIBUTION ── */
+  .acc-dist-main { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+  .acc-dist-header { background:white; padding:.28in .5in .22in; border-bottom:1px solid var(--border); }
+  .acc-dist-header h2 { font-family:'Playfair Display',serif; font-size:22px; font-weight:600; color:var(--navy); margin-top:8px; }
+  .acc-dist-body { flex:1; display:grid; grid-template-columns:1fr 1fr; border-bottom:1px solid var(--border); position:relative; overflow:hidden; }
+  .phase-col { padding:.3in .4in; display:flex; flex-direction:column; gap:14px; }
+  .phase-col-acc { background:var(--off); border-right:1px solid var(--border); }
+  .phase-col-dist { background:white; }
+  .phase-label { display:inline-flex; align-items:center; gap:8px; font-size:9px; letter-spacing:2px; text-transform:uppercase; font-weight:600; margin-bottom:4px; }
+  .phase-label-acc { color:#5BA4CF; }
+  .phase-label-dist { color:#C05C5C; }
+  .phase-title { font-family:'Playfair Display',serif; font-size:20px; font-weight:700; color:var(--navy); margin-bottom:6px; }
+  .phase-body { font-family:'Cormorant Garamond',serif; font-size:16px; line-height:1.7; color:var(--text); }
+  .phase-rows { display:flex; flex-direction:column; gap:0; margin-top:auto; }
+  .phase-row { display:flex; justify-content:space-between; font-size:11px; padding:6px 0; border-bottom:1px solid var(--border); }
+  .phase-row-label { color:var(--muted); }
+  .phase-row-val { font-weight:600; color:var(--navy); }
+  .acc-dist-footer { background:var(--navy); padding:.18in .5in; display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+  .adf-item { display:flex; flex-direction:column; gap:4px; }
+  .adf-label { font-size:9px; letter-spacing:2px; text-transform:uppercase; color:var(--gold); }
+  .adf-text { font-size:12px; color:rgba(255,255,255,.7); line-height:1.5; }
+
+  /* ── PAGE 6: WHO IS THE LENDER? ── */
+  .lender-main { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+  .lender-header { background:white; padding:.28in .5in .22in; border-bottom:1px solid var(--border); }
+  .lender-header h2 { font-family:'Playfair Display',serif; font-size:22px; font-weight:600; color:var(--navy); margin-top:8px; }
+  .lender-body { flex:1; display:grid; grid-template-columns:1fr 1fr 1fr; overflow:hidden; }
+  .lender-col { padding:.28in .35in; display:flex; flex-direction:column; gap:12px; border-right:1px solid var(--border); }
+  .lender-col:last-child { border-right:none; }
+  .lender-col-irs { background:var(--red-lt); }
+  .lender-col-bank { background:var(--off); }
+  .lender-col-carrier { background:var(--green-lt); }
+  .lender-badge { display:inline-flex; align-items:center; gap:6px; font-size:9px; letter-spacing:2px; text-transform:uppercase; font-weight:700; padding:4px 10px; border-radius:2px; margin-bottom:4px; }
+  .badge-irs { background:rgba(139,32,32,.12); color:var(--red); border:1px solid rgba(139,32,32,.25); }
+  .badge-bank { background:rgba(13,27,46,.08); color:var(--navy); border:1px solid rgba(13,27,46,.2); }
+  .badge-carrier { background:rgba(42,110,69,.12); color:var(--green); border:1px solid rgba(42,110,69,.25); }
+  .lender-title { font-family:'Playfair Display',serif; font-size:17px; font-weight:700; color:var(--navy); }
+  .lender-rate { font-family:'IBM Plex Mono',monospace; font-size:24px; font-weight:600; margin:4px 0; }
+  .lender-rate-irs { color:var(--red); }
+  .lender-rate-bank { color:var(--navy); }
+  .lender-rate-carrier { color:var(--green); }
+  .lender-desc { font-size:12px; color:var(--text); line-height:1.65; }
+  .lender-pros { display:flex; flex-direction:column; gap:6px; margin-top:auto; }
+  .lender-pro { display:flex; gap:8px; font-size:11.5px; line-height:1.5; }
+  .lender-pro-icon { flex-shrink:0; font-size:13px; }
+  .lender-footer { background:var(--navy); padding:.18in .5in; display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+
+  /* ── PAGE 7: HOW ETA WORKS ── */
+  .how-main { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+  .how-header { background:white; padding:.28in .5in .2in; border-bottom:1px solid var(--border); }
+  .how-header h2 { font-family:'Playfair Display',serif; font-size:22px; font-weight:600; color:var(--navy); margin-top:8px; }
+  .how-body { flex:1; display:grid; grid-template-columns:1fr 1fr; overflow:hidden; }
+  .how-col { padding:.3in .4in; display:flex; flex-direction:column; gap:14px; }
+  .how-col-left { background:var(--off); border-right:1px solid var(--border); }
+  .how-col-right { background:white; }
+  .how-step { display:grid; grid-template-columns:28px 1fr; gap:12px; padding:10px 0; border-bottom:1px solid var(--border); }
+  .how-step:last-child { border-bottom:none; }
+  .how-step-num { width:28px; height:28px; border-radius:50%; background:var(--navy); color:var(--gold); font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .how-step-title { font-family:'Playfair Display',serif; font-size:13px; font-weight:600; color:var(--navy); margin-bottom:3px; }
+  .how-step-text { font-size:11.5px; color:var(--muted); line-height:1.6; }
+  .how-advantage { display:flex; gap:12px; padding:12px 0; border-bottom:1px solid var(--border); }
+  .how-advantage:last-child { border-bottom:none; }
+  .how-advantage-icon { font-size:22px; flex-shrink:0; }
+  .how-advantage-title { font-family:'Playfair Display',serif; font-size:14px; font-weight:600; color:var(--navy); margin-bottom:4px; }
+  .how-advantage-text { font-size:12px; color:var(--text); line-height:1.6; }
+
+  /* ── PAGE 8: THE FIVE BENEFITS ── */
+  .benefits-main { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+  .benefits-header { background:white; padding:.22in .5in .18in; border-bottom:1px solid var(--border); }
+  .benefits-header h2 { font-family:'Playfair Display',serif; font-size:22px; font-weight:600; color:var(--navy); margin-top:8px; }
+  .benefits-grid { flex:1; display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr; overflow:hidden; }
+  .benefit-cell { padding:.25in .35in; display:flex; gap:14px; border-right:1px solid var(--border); border-bottom:1px solid var(--border); }
+  .benefit-cell:nth-child(2n) { border-right:none; }
+  .benefit-cell:nth-child(3), .benefit-cell:nth-child(4) { border-bottom:none; }
+  .benefit-num { width:34px; height:34px; border-radius:50%; background:var(--navy); color:var(--gold); font-size:13px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .benefit-title { font-family:'Playfair Display',serif; font-size:15px; font-weight:600; color:var(--navy); margin-bottom:6px; }
+  .benefit-text { font-size:12px; color:var(--text); line-height:1.65; }
+  .benefit-quote { font-family:'Cormorant Garamond',serif; font-size:14px; font-style:italic; color:var(--gold); margin-top:8px; line-height:1.5; }
+  .benefits-footer { background:var(--navy); padding:.16in .5in; display:flex; align-items:center; justify-content:center; gap:0; }
+  .bft-item { flex:1; text-align:center; padding:0 .3in; }
+  .bft-item + .bft-item { border-left:1px solid rgba(255,255,255,.1); }
+  .bft-num { font-family:'Playfair Display',serif; font-size:26px; font-weight:700; color:var(--gold); margin-bottom:3px; }
+  .bft-label { font-size:10px; color:rgba(255,255,255,.45); line-height:1.4; }
+
+  /* ── PAGE 9: MONTE CARLO ── */
+  .mc-main { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+  .mc-header { background:white; padding:.28in .5in .2in; border-bottom:1px solid var(--border); }
+  .mc-header h2 { font-family:'Playfair Display',serif; font-size:22px; font-weight:600; color:var(--navy); margin-top:8px; }
+  .mc-body { flex:1; display:grid; grid-template-columns:1fr 1fr; overflow:hidden; }
+  .mc-left { padding:.3in .4in; background:var(--off); border-right:1px solid var(--border); display:flex; flex-direction:column; gap:0; }
+  .mc-right { padding:.3in .4in; background:white; display:flex; flex-direction:column; gap:14px; }
+  .mc-step { display:grid; grid-template-columns:28px 1fr; gap:12px; padding:10px 0; border-bottom:1px solid var(--border); }
+  .mc-step-num { width:28px; height:28px; border-radius:50%; background:var(--navy); color:var(--gold); font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .mc-step-title { font-family:'Playfair Display',serif; font-size:13px; font-weight:600; color:var(--navy); margin-bottom:3px; }
+  .mc-step-text { font-size:11.5px; color:var(--muted); line-height:1.6; }
+  .mc-pct-card { padding:14px 16px; border-radius:3px; border:1px solid var(--border); }
+  .mc-pct-card-50 { background:rgba(200,168,75,.06); border-color:rgba(200,168,75,.3); }
+  .mc-pct-card-75 { background:rgba(42,110,69,.05); border-color:rgba(42,110,69,.2); }
+  .mc-pct-card-25 { background:rgba(138,128,112,.05); border-color:rgba(138,128,112,.2); }
+  .mc-pct-label { font-size:8.5px; letter-spacing:2px; text-transform:uppercase; font-weight:700; margin-bottom:3px; }
+  .mc-pct-label-50 { color:var(--gold); }
+  .mc-pct-label-75 { color:var(--green); }
+  .mc-pct-label-25 { color:var(--muted); }
+  .mc-pct-desc { font-size:11.5px; color:var(--text); line-height:1.55; }
+
+  /* ── PAGE 10: OUTCOMES ── */
+  .outcomes-main { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+  .outcomes-header { background:white; padding:.18in .4in .14in; border-bottom:1px solid var(--border); flex-shrink:0; }
+  .outcomes-header h2 { font-family:'Playfair Display',serif; font-size:19px; font-weight:600; color:var(--navy); margin:4px 0 2px; }
+  .outcomes-header p { font-size:11px; color:var(--muted); }
+  /* Chart fills full width */
+  .outcomes-chart { flex:1; padding:.14in .4in .08in; display:flex; flex-direction:column; background:var(--off); border-bottom:1px solid var(--border); min-height:0; }
+  /* Facts row sits below chart in a horizontal strip */
+  .outcomes-facts-row { display:grid; grid-template-columns:1fr 1fr 1fr 1fr 1fr; background:white; border-top:1px solid var(--border); flex-shrink:0; }
+  .fact-block { padding:10px 16px; border-right:1px solid var(--border); }
+  .fact-block:last-child { border-right:none; }
+  .fact-label { font-size:8px; letter-spacing:1.5px; text-transform:uppercase; color:var(--gold); margin-bottom:3px; }
+  .fact-value { font-family:'Playfair Display',serif; font-size:19px; font-weight:700; color:var(--navy); line-height:1.1; }
+  .fact-value.green { color:var(--green); }
+  .fact-sub { font-size:9.5px; color:var(--muted); margin-top:1px; }
+  .fact-vs { font-size:10.5px; font-weight:600; color:var(--green); margin-top:2px; }
+
+  /* ── PAGE 11: WHY US ── */
+  .why-main { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+  .why-header { background:var(--navy); padding:.3in .5in; border-bottom:2px solid rgba(200,168,75,.3); }
+  .why-header h2 { font-family:'Playfair Display',serif; font-size:24px; font-weight:600; color:var(--white); }
+  .why-body { flex:1; display:grid; grid-template-columns:1fr 1fr; }
+  .why-points { padding:.35in .4in; display:flex; flex-direction:column; gap:18px; background:var(--off); border-right:1px solid var(--border); }
+  .why-point { display:flex; gap:14px; }
+  .why-icon { font-size:22px; flex-shrink:0; }
+  .why-point-title { font-family:'Playfair Display',serif; font-size:14px; font-weight:600; color:var(--navy); margin-bottom:4px; }
+  .why-point-text { font-size:12px; color:var(--text); line-height:1.6; }
+  .why-cta { padding:.35in .4in; background:white; display:flex; flex-direction:column; gap:16px; }
+  .why-cta-headline { font-family:'Playfair Display',serif; font-size:22px; font-weight:600; color:var(--navy); line-height:1.3; }
+  .why-cta-headline em { color:var(--gold); font-style:italic; }
+  .why-cta-text { font-size:13px; color:var(--muted); line-height:1.7; }
+  .why-contact { background:var(--navy); padding:20px 24px; border-radius:4px; display:flex; flex-direction:column; gap:8px; margin-top:auto; }
+  .why-contact-item { font-size:13px; color:rgba(255,255,255,.7); }  .eta-callout { display:none; margin-top:10px; padding:10px 14px; background:rgba(200,168,75,.08); border-left:3px solid var(--gold); border-radius:2px; font-size:11.5px; color:var(--muted); line-height:1.55; }
+  .eta-callout b { color:var(--navy); }
+</style>
+</head>
+<body>
+
+<!-- ══ PAGE 1: COVER ══ -->
+
+<!-- ══ COVER ══ -->
+<div class="page cover">
+  <div class="cover-bg"></div>
+  <svg class="cover-mountain" viewBox="0 0 1100 480" preserveAspectRatio="none" fill="white">
+    <polygon points="0,480 180,140 340,320 520,80 700,280 850,120 1000,260 1100,160 1100,480"/>
+    <polygon points="0,480 120,260 280,380 440,180 600,340 780,200 950,300 1100,220 1100,480" fill-opacity=".4"/>
+  </svg>
+  <div class="cover-corner"></div>
+  <div class="cover-top-bar"></div>
+  <div class="cover-content">
+    <div class="cover-eyebrow">Confidential &nbsp;·&nbsp; Estate &amp; Qualified Plan Review</div>
+    <div class="cover-title">Taxed Once.<br><em>Then Taxed</em><br>Again.</div>
+    <div class="cover-subtitle">What Your Family Actually Receives from the Plan You Built</div>
+    <div class="cover-divider"></div>
+    <div class="cover-meta">
+      <div class="cover-prepared">
+        Prepared for
+        <strong id="cover-client">&mdash;</strong>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:9px;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,.25)" id="cover-date">&mdash;</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PAGE 2: THE SITUATION ══ -->
+<div class="page sidebar-page">
+  <div class="sidebar">
+    <div class="sidebar-section">Context</div>
+    <div class="sidebar-title">The<br>Situ&shy;ation</div>
+    <div class="sidebar-subtitle">WHY THE PLAN<br>IS THE WORST<br>ASSET TO<br>DIE HOLDING</div>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-tagline">"You deferred the tax. You did not eliminate it. It has been growing alongside the balance the entire time."</div>
+  </div>
+  <div class="main-content">
+    <div class="situation-main">
+      <div class="situation-pull" id="sit-pull">The statement shows one number. Your family receives a very different one.</div>
+      <div class="situation-headline">Every other asset you own is taxed <em>once</em>, or receives a step-up in basis and escapes tax entirely. The qualified plan does neither.</div>
+      <div class="sit-grid">
+        <div class="sit-card">
+          <div class="sit-icon">&#127963;&#65039;</div>
+          <div class="sit-title">It Is Counted in Your Estate</div>
+          <div class="sit-text">The full balance is included in your gross estate at death. Above the federal exemption, that exposure is taxed at 40% &mdash; and the bill is due in cash within nine months.</div>
+        </div>
+        <div class="sit-card">
+          <div class="sit-icon">&#128181;</div>
+          <div class="sit-title">Then Taxed Again as Income</div>
+          <div class="sit-text">Whatever remains is ordinary income to whoever inherits it, at their rates, not yours. There is no step-up in basis. Under current law the entire balance must come out within ten years.</div>
+        </div>
+        <div class="sit-card">
+          <div class="sit-icon">&#9200;</div>
+          <div class="sit-title">And You Cannot Simply Leave It Alone</div>
+          <div class="sit-text">Required distributions begin whether or not you need the income. The tax is paid, and what is left lands right back in your estate to be taxed a second time at death.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PAGE 3: THE COST, QUANTIFIED ══ -->
+<div class="page sidebar-page">
+  <div class="sidebar">
+    <div class="sidebar-section">Quantified</div>
+    <div class="sidebar-title">The<br>Cost</div>
+    <div class="sidebar-subtitle">FIVE LAYERS,<br>ONE POOL OF<br>MONEY</div>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-tagline" id="cost-tagline">"Doing nothing is not the neutral choice. It is the most expensive one."</div>
+  </div>
+  <div class="main-content">
+    <div class="situation-main">
+      <div class="situation-headline">Taking no action has a price. Here it is, layer by layer, from today through age <span id="cost-horizon">&mdash;</span>.</div>
+      <div class="phase-rows" style="margin-top:8px">
+        <div class="phase-row"><span class="phase-row-label">Income tax on required distributions during your lifetime</span><span class="phase-row-val" id="cost-rmd">&mdash;</span></div>
+        <div class="phase-row"><span class="phase-row-label">Capital gains and dividend drag on distributions you reinvest</span><span class="phase-row-val" id="cost-drag">&mdash;</span></div>
+        <div class="phase-row"><span class="phase-row-label">Medicare premium surcharges triggered by those distributions</span><span class="phase-row-val" id="cost-irmaa">&mdash;</span></div>
+        <div class="phase-row"><span class="phase-row-label">Federal estate tax at death</span><span class="phase-row-val" id="cost-est">&mdash;</span></div>
+        <div class="phase-row"><span class="phase-row-label">Capital gains tax at death</span><span class="phase-row-val" id="cost-cg">&mdash;</span></div>
+        <div class="phase-row"><span class="phase-row-label">Income tax your heirs owe on what remains in the plan</span><span class="phase-row-val" id="cost-ird">&mdash;</span></div>
+      </div>
+      <div class="eta-callout" id="cost-callout" style="margin-top:14px">
+        Of the balance projected to remain inside the plan at death, roughly <strong id="cost-cents">25&cent;</strong> on the dollar reaches your family. The rest is divided between the estate tax and the income tax your beneficiaries owe.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PAGE 4: THE PRINCIPLE ══ -->
+<div class="page sidebar-page">
+  <div class="sidebar">
+    <div class="sidebar-section">The Principle</div>
+    <div class="sidebar-title">Already<br>Spoken<br>For</div>
+    <div class="sidebar-subtitle">THE DEBT<br>ALREADY<br>EXISTS</div>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-tagline">"We are not creating a tax. We are deciding when it gets paid, and on what terms."</div>
+  </div>
+  <div class="main-content">
+    <div class="situation-main">
+      <div class="situation-pull">A portion of your plan has never belonged to you. It has always belonged to the government.</div>
+      <div class="situation-headline">The balance on the statement is not your money. It is <em>your money plus a liability you have not yet settled.</em></div>
+      <div class="sit-grid">
+        <div class="sit-card">
+          <div class="sit-icon">&#128200;</div>
+          <div class="sit-title">The Liability Grows With the Account</div>
+          <div class="sit-text">As the balance compounds, so does the tax owed on it. A larger plan is not purely a larger asset &mdash; it is also a larger obligation, and at death that obligation is settled twice.</div>
+        </div>
+        <div class="sit-card">
+          <div class="sit-icon">&#128273;</div>
+          <div class="sit-title">You Control the Timing</div>
+          <div class="sit-text">Nothing forces you to settle it at death, under the worst possible tax treatment, at a moment your family cannot choose. You can settle it deliberately, while you are here to direct it.</div>
+        </div>
+        <div class="sit-card">
+          <div class="sit-icon">&#127919;</div>
+          <div class="sit-title">The Question Is Where It Lands</div>
+          <div class="sit-text">Settled at death, the plan passes at a fraction of its value. Repositioned now, the same dollars can pass to your family free of income tax and outside your estate entirely.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PAGE 5: HOW IT WORKS ══ -->
+<div class="page sidebar-page">
+  <div class="sidebar">
+    <div class="sidebar-section">The Structure</div>
+    <div class="sidebar-title">How<br>It<br>Works</div>
+    <div class="sidebar-subtitle">FOUR STEPS,<br>NOTHING OUT<br>OF POCKET</div>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-tagline">"The full pre-tax balance goes to work &mdash; not what is left after writing a check to the IRS."</div>
+  </div>
+  <div class="main-content">
+    <div class="how-main">
+      <div class="how-header">
+        <h2 id="how-header">Your qualified plan funds a life insurance asset held outside your estate, and the tax on the distribution is financed rather than paid from your assets.</h2>
+      </div>
+      <div class="how-body">
+        <div class="how-col how-col-left">
+          <div class="how-step">
+            <div class="how-step-num">1</div>
+            <div class="how-step-title">Distribute on a Schedule You Choose</div>
+            <div class="how-step-text" id="how-step-1">The plan is distributed over a defined funding period rather than left to be settled at death under the worst available tax treatment.</div>
+          </div>
+          <div class="how-step">
+            <div class="how-step-num">2</div>
+            <div class="how-step-title">Finance the Tax Obligation</div>
+            <div class="how-step-text" id="how-step-2">A commercial lender finances the income tax due, secured by the policy rather than your other assets. Nothing additional comes out of your pocket.</div>
+          </div>
+        </div>
+        <div class="how-col how-col-right">
+          <div class="how-step">
+            <div class="how-step-num">3</div>
+            <div class="how-step-title">Fund the Policy Inside a Trust</div>
+            <div class="how-step-text" id="how-step-3">An irrevocable trust owns the policy from inception, so the death benefit is never part of your taxable estate. Your attorney drafts and administers the trust.</div>
+          </div>
+          <div class="how-step">
+            <div class="how-step-num">4</div>
+            <div class="how-step-title">Retire the Financing from the Benefit</div>
+            <div class="how-step-text" id="how-step-4">The lender is retired from within the policy, and the balance passes to your family free of income tax and outside your estate.</div>
+          </div>
+        </div>
+      </div>
+      <div class="how-advantage">
+        <div class="how-advantage-icon">&#9878;&#65039;</div>
+        <div>
+          <div class="how-advantage-title">The trust is not optional</div>
+          <div class="how-advantage-text">Held personally, the death benefit is free of income tax but still counted in your estate. Held in a properly structured irrevocable trust, it is outside the estate entirely. That single distinction is worth a material share of the result.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PAGE 6: WHAT THIS PRODUCES ══ -->
+<div class="page sidebar-page">
+  <div class="sidebar">
+    <div class="sidebar-section">Outcome</div>
+    <div class="sidebar-title">The<br>Result</div>
+    <div class="sidebar-subtitle">SAME DOLLARS,<br>TWO VERY<br>DIFFERENT<br>ENDINGS</div>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-tagline">"Nothing additional is contributed. The only change is where the dollars sit and how they are taxed."</div>
+  </div>
+  <div class="main-content">
+    <div class="outcomes-main">
+      <div class="outcomes-header">
+        <h2 id="doc-outcomes-headline">Net to your family at age <span id="out-horizon">&mdash;</span> &mdash; taking no action, against repositioning the plan now.</h2>
+      </div>
+      <div class="phase-body">
+        <div class="phase-col phase-col-dist">
+          <div class="phase-title">Take No Action</div>
+          <div class="phase-rows">
+            <div class="phase-row"><span class="phase-row-label">Gross estate</span><span class="phase-row-val" id="o-a-gross">&mdash;</span></div>
+            <div class="phase-row"><span class="phase-row-label">Federal estate tax</span><span class="phase-row-val" id="o-a-est">&mdash;</span></div>
+            <div class="phase-row"><span class="phase-row-label">Capital gains at death</span><span class="phase-row-val" id="o-a-cg">&mdash;</span></div>
+            <div class="phase-row"><span class="phase-row-label">Income tax owed by heirs</span><span class="phase-row-val" id="o-a-ird">&mdash;</span></div>
+            <div class="phase-row"><span class="phase-row-label"><strong>Net to your family</strong></span><span class="phase-row-val" id="o-a-net">&mdash;</span></div>
+          </div>
+        </div>
+        <div class="phase-col phase-col-acc">
+          <div class="phase-title">Reposition the Plan</div>
+          <div class="phase-rows">
+            <div class="phase-row"><span class="phase-row-label">Gross estate</span><span class="phase-row-val" id="o-b-gross">&mdash;</span></div>
+            <div class="phase-row"><span class="phase-row-label">Federal estate tax</span><span class="phase-row-val" id="o-b-est">&mdash;</span></div>
+            <div class="phase-row"><span class="phase-row-label">Capital gains at death</span><span class="phase-row-val" id="o-b-cg">&mdash;</span></div>
+            <div class="phase-row"><span class="phase-row-label">Benefit received outside the estate</span><span class="phase-row-val" id="o-b-db">&mdash;</span></div>
+            <div class="phase-row"><span class="phase-row-label"><strong>Net to your family</strong></span><span class="phase-row-val" id="o-b-net">&mdash;</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="outcomes-facts-row">
+        <div class="fact-block">
+          <div class="fact-label">Additional Out of Pocket</div>
+          <div class="fact-value">$0</div>
+          <div class="fact-sub" id="fact-oop">The tax on the distribution is financed, not paid from your assets</div>
+        </div>
+        <div class="fact-block">
+          <div class="fact-label">Put to Work</div>
+          <div class="fact-value" id="fact-prem">&mdash;</div>
+          <div class="fact-sub">The full pre-tax balance, rather than what remains after tax</div>
+        </div>
+        <div class="fact-block">
+          <div class="fact-label">Additional to Your Family</div>
+          <div class="fact-value green" id="fact-adv">&mdash;</div>
+          <div class="fact-sub">At the median outcome, after every layer of tax on both paths</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PAGE 7: HOW WE MODELED IT ══ -->
+<div class="page sidebar-page">
+  <div class="sidebar">
+    <div class="sidebar-section">Method</div>
+    <div class="sidebar-title">How We<br>Modeled<br>It</div>
+    <div class="sidebar-subtitle">FIFTY YEARS<br>OF ACTUAL<br>MARKET<br>HISTORY</div>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-tagline">"We did not pick a rate of return and compound it. We tested the plan against every market this country has actually had."</div>
+  </div>
+  <div class="main-content">
+    <div class="mc-main">
+      <div class="mc-header">
+        <h2 id="mc-header">A probability distribution built from fifty years of real market history &mdash; applied to your qualified plan.</h2>
+      </div>
+      <div class="mc-body">
+        <div class="mc-left">
+          <div class="mc-step">
+            <div class="mc-step-num">1</div>
+            <div class="mc-step-title">Real Years, Drawn at Random</div>
+            <div class="mc-step-text">Ten thousand scenarios are built by drawing actual paired stock and bond years from 1975 through 2024 &mdash; keeping equity and bond results together as they actually occurred, rather than assuming a smooth average.</div>
+          </div>
+          <div class="mc-step">
+            <div class="mc-step-num">2</div>
+            <div class="mc-step-title">Required Distributions Applied</div>
+            <div class="mc-step-text">Each scenario applies required minimum distributions on the IRS schedule at your age, stacks them on top of taxable Social Security, and reinvests what is left in a taxable account &mdash; because you do not need the income. Medicare premium surcharges triggered by that income are counted as well.</div>
+          </div>
+        </div>
+        <div class="mc-right">
+          <div class="mc-step">
+            <div class="mc-step-num">3</div>
+            <div class="mc-step-title">The Median, Not the Best Case</div>
+            <div class="mc-step-text">Every figure shown is the median &mdash; the middle outcome of ten thousand. Half the scenarios finish better and half finish worse.</div>
+          </div>
+          <div class="mc-step">
+            <div class="mc-step-num">4</div>
+            <div class="mc-step-title">The Insurance Side Is Not Modeled</div>
+            <div class="mc-step-text">Policy values are taken directly from the carrier's own illustration as prepared. Nothing on that side of the comparison is projected by us.</div>
+          </div>
+        </div>
+      </div>
+      <div class="how-advantage">
+        <div class="how-advantage-icon">&#9878;&#65039;</div>
+        <div>
+          <div class="how-advantage-title">Where the assumptions favour leaving things as they are</div>
+          <div class="how-advantage-text">Two choices in this analysis deliberately run against the recommendation. Required distributions on the do-nothing path are taxed as though they were your only ordinary income, so they fill the lowest brackets and produce the smallest possible tax on that path. The distribution funding the alternative is taxed at the highest bracket. Any error in either direction understates the advantage shown, never overstates it.</div>
+        </div>
+      </div>
+      <div class="how-advantage">
+        <div class="how-advantage-icon">&#128207;</div>
+        <div>
+          <div class="how-advantage-title">Why the median is the fair comparison</div>
+          <div class="how-advantage-text">The median outcome for your plan implies roughly the same annual return the carrier used in its illustration. Comparing the two at that level is a like-for-like comparison. Figures are hypothetical and are not a guarantee of future results.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PAGE 8: WORTH CONSIDERING ══ -->
+<div class="page sidebar-page">
+  <div class="sidebar">
+    <div class="sidebar-section">Before We Meet Again</div>
+    <div class="sidebar-title">Worth<br>Con&shy;sid&shy;ering</div>
+    <div class="sidebar-subtitle">QUESTIONS<br>ONLY YOU<br>CAN ANSWER</div>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-tagline">"The decision does not have to be made today. It does have to be made while it is still yours to make."</div>
+  </div>
+  <div class="main-content">
+    <div class="situation-main">
+      <div class="situation-headline">Four questions to sit with.</div>
+      <div class="goals-pillars">
+        <div class="pillar">
+          <div class="pillar-icon">&#10067;</div>
+          <div class="pillar-title">What would you need to see to make this a home run for you?</div>
+          <div class="pillar-text">If there is a number, a protection, or a condition that would make this obvious, tell us what it is and we will model it directly.</div>
+        </div>
+        <div class="pillar">
+          <div class="pillar-icon">&#128197;</div>
+          <div class="pillar-title">In twelve months, what is Plan B if you don't move forward?</div>
+          <div class="pillar-text">The plan continues to compound, and so does the liability attached to it. What is the alternative approach, and who is building it?</div>
+        </div>
+        <div class="pillar">
+          <div class="pillar-icon">&#129534;</div>
+          <div class="pillar-title">Where would the cash come from if the tax were due this year?</div>
+          <div class="pillar-text">Estate tax is payable in cash within nine months. Which asset would your family sell, and would they choose that moment to sell it?</div>
+        </div>
+        <div class="pillar">
+          <div class="pillar-icon">&#128101;</div>
+          <div class="pillar-title">Does your family know what they would actually receive?</div>
+          <div class="pillar-text">Most heirs assume the statement balance is the inheritance. The gap between that number and the real one is usually the reason this conversation happens too late.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="page sidebar-page">
+  <div class="sidebar">
+    <div class="sidebar-section">Our Firm</div>
+    <div class="sidebar-title">Why Us?</div>
+    <div class="sidebar-subtitle">EFS LIFE LLC<br>RetainMoreValue.com</div>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-tagline">"We advise the way we would want to be advised — with transparency, precision, and a long-term perspective."</div>
+  </div>
+  <div class="main-content">
+    <div class="why-main">
+      <div class="why-header">
+        <div class="eyebrow" style="color:var(--gold);margin-bottom:8px">Why EFS Life LLC</div>
+        <h2>Expertise, Relationships &amp; a Philosophy Born from Experience</h2>
+      </div>
+      <div class="why-body">
+        <div class="why-points">
+          <div class="why-point">
+            <div class="why-icon">💡</div>
+            <div>
+              <div class="why-point-title">Specialists in Structured Distribution Strategies</div>
+              <div class="why-point-text">The Enhanced Tax Advantage is not a product — it is a structure that requires precise coordination of a bank lender, a carrier illustration, a PDA schedule, and an income solve. We design these structures daily and understand how each variable interacts over a 40+ year horizon.</div>
+            </div>
+          </div>
+          <div class="why-point">
+            <div class="why-icon">🤝</div>
+            <div>
+              <div class="why-point-title">Carrier Relationships &amp; Institutional Access</div>
+              <div class="why-point-text">Our relationships with leading carriers give clients access to preferred product terms and program structures that are not available through general distribution. We know which carriers perform best in each client scenario — and we design accordingly.</div>
+            </div>
+          </div>
+          <div class="why-point">
+            <div class="why-icon">🏈</div>
+            <div>
+              <div class="why-point-title">Built on Team Chemistry</div>
+              <div class="why-point-text">Our founder's 10-year NFL career as an offensive lineman shaped a team-first philosophy. We collaborate directly with your CPA, attorney, and financial advisor to ensure the ETA is coordinated with the full picture of your financial life.</div>
+            </div>
+          </div>
+          <div class="why-point">
+            <div class="why-icon">🎯</div>
+            <div>
+              <div class="why-point-title">We Were Clients First</div>
+              <div class="why-point-text">Our firm's philosophy was shaped by our own experience as clients. We understand what it means to evaluate these structures from the other side of the table — with real capital and real families at stake.</div>
+            </div>
+          </div>
+        </div>
+        <div class="why-cta">
+          <div class="why-cta-headline" id="why-cta-headline">Ready to see what the <em>Enhanced Tax Advantage</em> can do for your qualified plan?</div>
+          <div class="why-cta-text">The next step is a formal carrier illustration built around your specific distribution amount, age, tax rate, and income timeline. Our team will walk you through every component of the structure before any decision is made.</div>
+          <div class="why-contact">
+            <div class="why-contact-item">🌐 <strong>RetainMoreValue.com</strong></div>
+            <div class="why-contact-item">✉️ <strong>support@enhancedFunding.com</strong></div>
+            <div class="why-contact-item" id="doc-advisor-line" style="font-size:12px;color:rgba(255,255,255,.5)"></div>
+            <div class="why-contact-item" style="font-size:10px;color:rgba(255,255,255,.2);margin-top:4px">Confidential — EFS Life LLC. This document is for discussion purposes only and does not constitute a contract, offer, or guarantee. All Monte Carlo projections are hypothetical based on historical S&P 500 returns 1975–2024 paired with 10-yr T-Bond returns. Not valid without a complete carrier illustration.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<script>
+(function(){
+  try {
+    var raw = localStorage.getItem('eta_estate_data');
+    if (!raw) return;
+    var r = JSON.parse(raw);
+    var dn = r.doNothing || {}, eta = r.eta || {}, wf = r.waterfall || {};
+
+    var $f = function(n){ return '$' + Math.round(n||0).toLocaleString(); };
+    var $M = function(n){ return '$' + ((n||0)/1e6).toFixed(2) + 'M'; };
+    var set = function(id,v){ var e=document.getElementById(id); if(e) e.textContent=v; };
+
+    set('cover-client', r.clientName || '\u2014');
+    set('cover-date', r.date || '\u2014');
+
+    set('cost-horizon', r.horizonAge || '\u2014');
+    set('out-horizon',  r.horizonAge || '\u2014');
+
+    set('cost-rmd',  $f(wf.taxRMD));
+    set('cost-drag', $f(wf.taxDrag));
+    set('cost-irmaa', $f(wf.irmaa));
+    set('cost-est',  $f(wf.estateTax));
+    set('cost-cg',   $f(wf.capGainsTax));
+    set('cost-ird',  $f(wf.inheritedIraTax));
+
+    if (r.qpAtDeath > 0) {
+      var kept = Math.round(100*(r.qpAtDeath - (r.qpEstateTax||0) - (r.qpIncomeTax||0))/r.qpAtDeath);
+      set('cost-cents', kept + '\u00a2');
+    }
+
+    set('o-a-gross', $M(dn.grossEstate));
+    set('o-a-est',   '\u2212' + $M(dn.estateTax));
+    set('o-a-cg',    '\u2212' + $M(dn.capGainsTax));
+    set('o-a-ird',   '\u2212' + $M(dn.inheritedIraTax));
+    set('o-a-net',   $M(dn.netToHeirs));
+
+    set('o-b-gross', $M(eta.grossEstate));
+    set('o-b-est',   '\u2212' + $M(eta.estateTax));
+    set('o-b-cg',    '\u2212' + $M(eta.capGainsTax));
+    set('o-b-db',    '+' + $M(eta.ilitProceeds));
+    set('o-b-net',   $M(eta.netToHeirs));
+
+    set('fact-oop',  'The ' + $f(r.financedTax) + ' of tax on the distribution is financed, not paid from your assets');
+    set('fact-prem', $f(r.totalPremium));
+    set('fact-adv',  '+' + $M((eta.netToHeirs||0) - (dn.netToHeirs||0)));
+
+    var advEl = document.getElementById('doc-advisor-line');
+    if (advEl && r.advisor) advEl.textContent = r.advisor;
+
+  } catch(e) { console.warn('Estate discussion doc data load failed:', e); }
+})();
+</script>
+
+</body>
+</html>
