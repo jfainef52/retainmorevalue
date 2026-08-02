@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Asset Your Heirs Are Taxed On Twice</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#0d1b2e; --navy-2:#152640; --gold:#c9a84c; --gold-lt:#dfc278; --gold-pale:#f7f0e0;
+  --off:#f5f3ee; --border:#ddd8ce; --muted:#8a8070; --green:#2a6e45; --red:#8b2020; --text:#1a1a2a; --white:#fff;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'IBM Plex Sans',sans-serif;background:#e9e6dd;color:var(--text)}
+.page{
+  width:8.5in;height:11in;margin:24px auto;background:var(--white);
+  box-shadow:0 4px 24px rgba(0,0,0,.12);padding:0.6in 0.7in;
+  display:flex;flex-direction:column;overflow:hidden;
+}
+.brand-line{font-size:8.5px;letter-spacing:2.5px;text-transform:uppercase;color:var(--gold-lt);background:var(--navy);
+  display:inline-block;padding:5px 12px;border-radius:2px;margin-bottom:13px;font-weight:600}
+h1{font-family:'Playfair Display',serif;font-weight:600;font-size:24px;color:var(--navy);line-height:1.15;margin-bottom:6px}
+.meta-row{display:flex;flex-wrap:wrap;gap:14px;font-size:10px;color:var(--muted);margin-bottom:13px;padding-bottom:11px;border-bottom:2px solid var(--gold)}
+.meta-row b{color:var(--navy);font-weight:600}
+.intro{font-size:10.5px;line-height:1.6;color:var(--text);margin-bottom:15px}
+.intro b{color:var(--navy)}
+
+.stag{font-size:8.5px;letter-spacing:1.8px;text-transform:uppercase;color:var(--navy);font-weight:700;
+  border-bottom:1.5px solid var(--gold);padding-bottom:5px;margin-bottom:11px;margin-top:2px}
+
+.glance-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:15px}
+.glance-box{background:var(--navy);border-radius:6px;padding:12px 15px;color:var(--white)}
+.glance-box .gl{font-size:7.5px;letter-spacing:1.2px;text-transform:uppercase;color:var(--gold-lt);margin-bottom:5px}
+.glance-box .gv{font-family:'Playfair Display',serif;font-size:19px;font-weight:600;color:var(--white);line-height:1.1}
+.glance-box .gs{font-size:8.8px;color:rgba(255,255,255,.68);margin-top:5px;line-height:1.45}
+
+.path-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:13px}
+.path-col{border:1px solid var(--border);border-radius:6px;overflow:hidden}
+.path-col.b{border-color:var(--gold);border-width:1.5px}
+.path-hdr{padding:9px 13px;font-size:9.5px;font-weight:700;letter-spacing:.3px}
+.path-col.a .path-hdr{background:var(--off);color:var(--navy)}
+.path-col.b .path-hdr{background:var(--navy);color:var(--gold)}
+.path-body{padding:10px 13px}
+.path-row{display:flex;justify-content:space-between;gap:8px;font-size:9.3px;line-height:1.5;padding:3.5px 0;border-bottom:1px dotted var(--border)}
+.path-row:last-child{border-bottom:none}
+.path-row .pl{color:var(--muted)}
+.path-row .pv{color:var(--navy);font-weight:600;text-align:right;white-space:nowrap}
+.path-result{margin-top:8px;padding-top:8px;border-top:1.5px solid var(--border)}
+.path-result .rl{font-size:7.8px;letter-spacing:1px;text-transform:uppercase;color:var(--muted)}
+.path-result .rv{font-family:'Playfair Display',serif;font-size:16px;color:var(--navy);margin-top:2px}
+.path-col.b .path-result .rv{color:var(--green)}
+
+.death-callout{background:var(--gold-pale);border:1px solid var(--gold);border-radius:6px;padding:11px 15px;margin-bottom:15px;display:flex;gap:10px}
+.death-callout .dc-icon{font-size:16px;line-height:1}
+.death-callout .dc-text{font-size:9.7px;line-height:1.55;color:var(--text)}
+.death-callout .dc-text b{color:var(--navy)}
+
+.deliver-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:2px;margin-bottom:14px}
+.dbox{background:var(--off);border:1px solid var(--border);border-radius:6px;padding:11px 12px}
+.dbox .dv{font-family:'Playfair Display',serif;font-size:15px;font-weight:600;color:var(--navy);line-height:1.1}
+.dbox.hl .dv{color:var(--green)}
+.dbox .dl{font-size:7.8px;color:var(--muted);margin-top:4px;line-height:1.4}
+
+.qbox{background:var(--off);border-left:3px solid var(--gold);padding:10px 14px;margin-bottom:12px}
+.qbox .ql{font-size:7.8px;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.qbox p{font-size:9.8px;line-height:1.6;color:var(--navy);font-style:italic;margin-bottom:3px}
+.qbox p:last-child{margin-bottom:0}
+
+.foot{margin-top:auto;padding-top:10px;border-top:1px solid var(--border)}
+.foot-disc{font-size:7.3px;color:var(--muted);line-height:1.45}
+.foot-adv{display:flex;justify-content:space-between;align-items:flex-end;margin-top:8px}
+.foot-adv .an{font-family:'Playfair Display',serif;font-size:11px;color:var(--navy);font-weight:600}
+.foot-adv .af{font-size:8.5px;color:var(--muted)}
+@media print{
+  body{background:var(--white)}
+  .page{margin:0;box-shadow:none;width:100%;height:100vh}
+  @page{size:letter;margin:0}
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="brand-line">EFS Life LLC &nbsp;·&nbsp; Enhanced Tax Advantage (ETA)</div>
+  <h1>The One Asset Your Heirs Are Taxed On Twice</h1>
+  <div class="meta-row">
+    <span><b>Client:</b> <span id="doc-client">Sample Client</span></span>
+    <span><b>Age <span id="doc-age">60</span></b></span>
+    <span><b>Planning horizon:</b> Age <span id="doc-horizon">91</span></span>
+    <span><b>Prepared:</b> <span id="doc-date">August 2026</span></span>
+  </div>
+
+  <div class="intro" id="doc-intro">
+    Every other asset you own passes to your heirs having been taxed once, or receives a step-up in basis and
+    escapes tax altogether. Your qualified plan does neither. It is included in your estate <b>and</b> taxed as
+    ordinary income to whoever inherits it. Those two layers land on the same dollars. The balance on your
+    statement is not what your family receives.
+  </div>
+
+  <div class="stag">What the Plan Actually Delivers</div>
+  <div class="glance-row">
+    <div class="glance-box">
+      <div class="gl">Total Tax on the Plan and What It Earns</div>
+      <div class="gv" id="doc-box1-val">$8,140,000</div>
+      <div class="gs">Income tax on required distributions and the Medicare surcharges they trigger, then estate tax and income tax again at death</div>
+    </div>
+    <div class="glance-box">
+      <div class="gl">What Your Heirs Keep of the Plan Itself</div>
+      <div class="gv" id="doc-box2-val">25&cent;</div>
+      <div class="gs">On the dollar, after estate tax and the income tax your beneficiaries owe on what they inherit</div>
+    </div>
+  </div>
+
+  <div class="stag">Two Paths for the Same Dollars</div>
+  <div class="path-grid">
+    <div class="path-col a">
+      <div class="path-hdr">PATH A — LEAVE THE PLAN WHERE IT IS</div>
+      <div class="path-body">
+        <div class="path-row"><span class="pl">Gross estate at death</span><span class="pv" id="a-gross">$113.73M</span></div>
+        <div class="path-row"><span class="pl">Federal estate tax</span><span class="pv" id="a-est">&minus;$18.39M</span></div>
+        <div class="path-row"><span class="pl">Capital gains at death</span><span class="pv" id="a-cg">&minus;$14.59M</span></div>
+        <div class="path-row"><span class="pl">Income tax owed by your heirs</span><span class="pv" id="a-ird">&minus;$3.18M</span></div>
+        <div class="path-result">
+          <div class="rl">Net to Your Heirs</div>
+          <div class="rv" id="a-net">$77.57M</div>
+        </div>
+      </div>
+    </div>
+    <div class="path-col b">
+      <div class="path-hdr">PATH B — REPOSITION THE PLAN NOW</div>
+      <div class="path-body">
+        <div class="path-row"><span class="pl">Gross estate at death</span><span class="pv" id="b-gross">$100.10M</span></div>
+        <div class="path-row"><span class="pl">Federal estate tax</span><span class="pv" id="b-est">&minus;$13.81M</span></div>
+        <div class="path-row"><span class="pl">Capital gains at death</span><span class="pv" id="b-cg">&minus;$14.29M</span></div>
+        <div class="path-row"><span class="pl">Death benefit, outside the estate</span><span class="pv" id="b-db">+$11.36M</span></div>
+        <div class="path-result">
+          <div class="rl">Net to Your Heirs</div>
+          <div class="rv" id="b-net">$82.80M</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="death-callout">
+    <div class="dc-icon">&#128737;</div>
+    <div class="dc-text"><b>The tax bill does not wait for a good year.</b> Estate tax is due within nine months of
+    death, in cash. Without a source of liquidity, that bill gets paid by selling something &mdash; often the asset
+    your family would least want to sell, at whatever price the market offers that month. Path B creates the cash
+    to pay it, and does so outside the estate so the liquidity itself is not taxed.</div>
+  </div>
+
+  <div class="stag">What Path B Delivers</div>
+  <div class="deliver-grid">
+    <div class="dbox">
+      <div class="dv">$0</div>
+      <div class="dl" id="doc-out1-lbl">Out of pocket for the tax on the distribution &mdash; financed, not paid from your assets</div>
+    </div>
+    <div class="dbox">
+      <div class="dv" id="doc-out2-val">$2,193,338</div>
+      <div class="dl">The full pre-tax balance goes to work, not the 65&cent; left after writing a check to the IRS</div>
+    </div>
+    <div class="dbox hl">
+      <div class="dv" id="doc-out3-val">+$5.23M</div>
+      <div class="dl">More to your heirs than leaving the plan in place, at the median outcome</div>
+    </div>
+    <div class="dbox hl">
+      <div class="dv" id="doc-out4-val">$11.36M</div>
+      <div class="dl">Death benefit &mdash; free of income tax, and outside your estate for estate tax</div>
+    </div>
+    <div class="dbox">
+      <div class="dv">No RMDs</div>
+      <div class="dl">Repositioned dollars are no longer subject to required distributions you do not need</div>
+    </div>
+    <div class="dbox">
+      <div class="dv">0% floor</div>
+      <div class="dl">Market losses never reduce index-linked principal &mdash; the liquidity is there when it is needed</div>
+    </div>
+  </div>
+
+  <div class="qbox">
+    <div class="ql">Worth Thinking About Before We Meet Again</div>
+    <p>&ldquo;What would you need to see to make this a home run for you?&rdquo;</p>
+    <p>&ldquo;In twelve months, what is Plan B if you don't move forward?&rdquo;</p>
+  </div>
+
+  <div class="foot">
+    <div class="foot-disc" id="doc-disc">
+      Required distributions are modelled on top of taxable Social Security and include Medicare premium surcharges they trigger.
+      Assumptions are set conservatively against the recommendation: required distributions on the do-nothing path are taxed as though they were your only ordinary income, and the distribution funding the alternative is taxed at the highest bracket.
+      All figures are hypothetical illustrations based on current assumptions and are not a guarantee of future results or tax outcomes.
+      Qualified plan projections reflect the median (50th percentile) of 10,000 bootstrapped S&amp;P 500 and 10-year Treasury simulations
+      (1975&ndash;2024). Death benefit figures are taken from the carrier illustration as prepared and are not guaranteed. Federal estate tax
+      exemption reflects current law and is subject to future legislative change. Death benefit is excluded from the gross estate only where
+      the policy is owned by a properly structured irrevocable trust. This is not tax or legal advice &mdash; consult qualified tax counsel and
+      an estate planning attorney regarding your specific circumstances. Not valid without a complete carrier illustration.
+    </div>
+    <div class="foot-adv">
+      <div>
+        <div class="an" id="doc-advisor">Sample — Advisor</div>
+        <div class="af">EFS Life LLC · RetainMoreValue.com</div>
+      </div>
+      <div class="af" id="doc-date2">August 2026</div>
+    </div>
+  </div>
+
+</div>
+<script>
+(function(){
+  try {
+    var raw = localStorage.getItem('eta_estate_data');
+    if (!raw) return;
+    var r = JSON.parse(raw);
+
+    var $f = function(n){ return '$' + Math.round(n||0).toLocaleString(); };
+    var $M = function(n){ return '$' + ((n||0)/1e6).toFixed(2) + 'M'; };
+    var set = function(id,v){ var e=document.getElementById(id); if(e) e.textContent=v; };
+    var setHTML = function(id,v){ var e=document.getElementById(id); if(e) e.innerHTML=v; };
+
+    var dn = r.doNothing || {}, eta = r.eta || {}, wf = r.waterfall || {};
+
+    set('doc-client', r.clientName || '\u2014');
+    set('doc-age', r.age || '\u2014');
+    set('doc-horizon', r.horizonAge || '\u2014');
+    set('doc-date', r.date || '\u2014');
+    set('doc-date2', r.date || '\u2014');
+    set('doc-advisor', (r.advisor ? String(r.advisor).replace(' \u2014 Advisor','').trim() : 'Sample') + ' \u2014 Advisor');
+
+    // Headline: total lifetime tax, and cents on the dollar retained from the plan itself
+    set('doc-box1-val', $f(wf.total));
+    var keptPct = r.qpAtDeath > 0
+      ? Math.round(100 * (r.qpAtDeath - (r.qpEstateTax||0) - (r.qpIncomeTax||0)) / r.qpAtDeath)
+      : null;
+    if (keptPct !== null) set('doc-box2-val', keptPct + '\u00a2');
+
+    setHTML('doc-intro',
+      'Every other asset you own passes to your heirs having been taxed once, or receives a step-up in basis and ' +
+      'escapes tax altogether. Your qualified plan does neither. It is included in your estate <b>and</b> taxed as ' +
+      'ordinary income to whoever inherits it. Those two layers land on the same dollars. Of the ' + $f(r.qpAtDeath) +
+      ' projected to remain in the plan at age ' + (r.horizonAge||'\u2014') + ', roughly ' +
+      $f((r.qpEstateTax||0) + (r.qpIncomeTax||0)) + ' is lost to tax.');
+
+    set('a-gross', $M(dn.grossEstate));
+    set('a-est',   '\u2212' + $M(dn.estateTax));
+    set('a-cg',    '\u2212' + $M(dn.capGainsTax));
+    set('a-ird',   '\u2212' + $M(dn.inheritedIraTax));
+    set('a-net',   $M(dn.netToHeirs));
+
+    set('b-gross', $M(eta.grossEstate));
+    set('b-est',   '\u2212' + $M(eta.estateTax));
+    set('b-cg',    '\u2212' + $M(eta.capGainsTax));
+    set('b-db',    '+' + $M(eta.ilitProceeds));
+    set('b-net',   $M(eta.netToHeirs));
+
+    set('doc-out1-lbl', 'Out of pocket for the ' + $f(r.financedTax) +
+        ' tax on the distribution \u2014 financed, not paid from your assets');
+    set('doc-out2-val', $f(r.totalPremium));
+    set('doc-out3-val', '+' + $M((eta.netToHeirs||0) - (dn.netToHeirs||0)));
+    set('doc-out4-val', $M(eta.ilitProceeds));
+
+  } catch(e) { console.warn('Estate one-page summary data load failed:', e); }
+})();
+</script>
+</body>
+</html>
