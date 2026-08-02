@@ -344,6 +344,21 @@ table.sc-ldg tfoot td.gold-col { color:var(--gold); }
 }
 
 
+/* ── LAYOUT OVERRIDES ──────────────────────────────────────────────────────
+   The income modeler sets .right-panel-wrap to float:left/width:58% and gives
+   .card-body zero horizontal padding, both of which assume its own markup.
+   Neither works here, so both are reset for this page. */
+.page { max-width: 1440px; padding: 36px 40px; }
+.two-col { grid-template-columns: 430px 1fr; gap: 26px; }
+.right-panel-wrap { float: none !important; width: 100% !important; }
+.card-body { padding: 22px 24px; }
+.ldg-wrap { padding: 0; overflow-x: auto; }
+.headline-box { margin: 0 0 18px; }
+.card-hdr { padding: 16px 24px; }
+@media (max-width: 1180px) {
+  .two-col { grid-template-columns: 1fr; }
+  .page { padding: 28px 20px; }
+}
 .phase-tabs{display:flex;gap:0;margin:0 0 22px;border-bottom:2px solid var(--border)}
 .phase-tab{flex:1;background:none;border:none;border-bottom:3px solid transparent;
   padding:13px 8px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;letter-spacing:1.6px;
@@ -426,8 +441,8 @@ table.sc-ldg tfoot td.gold-col { color:var(--gold); }
         </div>
 
         <div class="fg fr">
-          <div class="field"><label class="fl" id="age1Label">Insured Age</label><input type="number" id="issueAge" value="60" min="18" max="85" oninput="recalcAll();rebuildPayoffDropdown()"/></div>
-          <div class="field" id="age2Wrap" style="display:none"><label class="fl">Second Insured Age</label><input type="number" id="issueAge2" value="58" min="18" max="85" oninput="recalcAll()"/></div>
+          <div class="field"><label class="fl" id="age1Label">Insured Age</label><input type="number" id="issueAge" placeholder="e.g. 60" min="18" max="85" oninput="recalcAll();rebuildPayoffDropdown()"/></div>
+          <div class="field" id="age2Wrap" style="display:none"><label class="fl">Second Insured Age</label><input type="number" id="issueAge2" placeholder="e.g. 58" min="18" max="85" oninput="recalcAll()"/></div>
         </div>
 
         <div class="fg fr">
@@ -448,7 +463,7 @@ table.sc-ldg tfoot td.gold-col { color:var(--gold); }
 
         <div class="fg">
           <label class="fl">QP Distribution Amount</label>
-          <div class="field"><input type="text" id="distribution" value="$2,000,000" oninput="formatCurrency(this);recalcAll()"/></div>
+          <div class="field"><input type="text" id="distribution" placeholder="ex. $2,000,000" oninput="formatCurrency(this);recalcAll()"/></div>
         </div>
         <div class="fg fr3">
           <div class="field"><label class="fl">Federal Rate %</label><input type="number" id="fedRate" value="30.0" step="0.1" oninput="recalcAll()"/></div>
@@ -466,7 +481,7 @@ table.sc-ldg tfoot td.gold-col { color:var(--gold); }
         <div class="hint" id="bracketNote"></div>
         <div class="fg">
           <label class="fl">Distributed Before 59½ (penalty applies to this portion only)</label>
-          <div class="field"><input type="text" id="preAmount" value="$0" oninput="formatCurrency(this);recalcAll()"/></div>
+          <div class="field"><input type="text" id="preAmount" placeholder="$0" oninput="formatCurrency(this);recalcAll()"/></div>
         </div>
         <div class="hint">Leave at $0 to defer the entire distribution past 59½. Coverage can still be placed now by funding minimum premium from non-qualified assets, which locks insurability without incurring the penalty.</div>
         <div class="chk-row" style="display:none">
@@ -559,8 +574,8 @@ table.sc-ldg tfoot td.gold-col { color:var(--gold); }
       <div class="card-hdr"><div class="step">Step 3</div><h2>Estate Assumptions</h2></div>
       <div class="card-body">
         <div class="fg fr">
-          <div class="field"><label class="fl">QP Balance</label><input type="text" id="qpBalance" value="$2,000,000" oninput="formatCurrency(this)"/></div>
-          <div class="field"><label class="fl">Other Net Worth</label><input type="text" id="otherNW" value="$26,000,000" oninput="formatCurrency(this)"/></div>
+          <div class="field"><label class="fl">QP Balance</label><input type="text" id="qpBalance" placeholder="ex. $2,000,000" oninput="formatCurrency(this)"/></div>
+          <div class="field"><label class="fl">Other Net Worth</label><input type="text" id="otherNW" placeholder="ex. $26,000,000" oninput="formatCurrency(this)"/></div>
         </div>
         <div class="fg fr3">
           <div class="field"><label class="fl">Equity Alloc %</label><input type="number" id="eqAlloc" value="60" min="0" max="100"/></div>
@@ -578,7 +593,7 @@ table.sc-ldg tfoot td.gold-col { color:var(--gold); }
         <div class="hint">2026 maximum retired-worker benefit at age 70. Add the spousal benefit (roughly $25,242) where the client qualifies. 85% is assumed taxable &mdash; the provisional-income thresholds have never been indexed, so that inclusion is effectively certain at this asset level.</div>
         <div class="fg fr">
           <div class="field"><label class="fl">SS Claiming Age</label><input type="number" id="ssStartAge" value="70" min="62" max="70"/></div>
-          <div class="field"><label class="fl">Horizon Age (youngest)</label><input type="number" id="horizonAge" value="91" min="70" max="100"/></div>
+          <div class="field"><label class="fl">Horizon Age (youngest)</label><input type="number" id="horizonAge" placeholder="e.g. 91" min="70" max="100"/></div>
           <div class="field"><label class="fl">Simulations</label><input type="number" id="sims" value="10000" min="1000" max="50000" step="1000"/></div>
         </div>
         <div class="chk-row">
@@ -1461,7 +1476,7 @@ function useBrackets(){ return document.getElementById('bracketChk').checked; }
 function distributionTax(){
   const dist = parseNum('distribution');
   const st   = (parseFloat(document.getElementById('stateRate').value)||0)/100;
-  const age  = parseInt(document.getElementById('issueAge').value)||60;
+  const age  = parseInt(document.getElementById('issueAge').value)||0;
   const preAmt  = Math.min(parseNum('preAmount'), dist);
   const postAmt = Math.max(0, dist - preAmt);
   const under   = age < 59.5;
@@ -1514,7 +1529,18 @@ function recalcAll(){
   document.getElementById('penaltyBadge').style.display =
     document.getElementById('penaltyChk').checked ? '' : 'none';
 
-  if(!dist){ document.getElementById('reqLoan').innerHTML='&mdash;'; return; }
+  const issueAgeVal = parseInt(document.getElementById('issueAge').value)||0;
+  if(!dist || !issueAgeVal){
+    document.getElementById('reqLoan').innerHTML = '&mdash;';
+    document.getElementById('reqLoanSub').textContent =
+      'Enter the client age and qualified plan distribution to produce the specification.';
+    document.getElementById('premSummary').innerHTML = '';
+    document.getElementById('pdaTbl').innerHTML = '';
+    document.getElementById('bankTbl').innerHTML = '';
+    document.getElementById('bracketNote').innerHTML = '';
+    _preIllus = null;
+    return;
+  }
 
   const payYears = parseInt(document.getElementById('payYears').value)||7;
   const pdaRate  = parseFloat(document.getElementById('pdaRate').value)||0;
