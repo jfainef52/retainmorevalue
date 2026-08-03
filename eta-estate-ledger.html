@@ -142,8 +142,9 @@ tr.tot td{border-top:1.6px solid var(--navy);border-bottom:none;font-weight:700;
   var carrier=(L.carrier==='PL'?'Pacific Life':'National Life Group');
   var ptype=(L.policyType==='survivorship'?'Survivorship':'Single Life');
 
-  ['p1-who','p2-who'].forEach(function(id){ set(id, S.clientName||'\u2014'); });
-  var meta='<b>Client:</b> '+(S.clientName||'\u2014')+
+  var whoNames = (S.clientName||'\u2014') + (S.spouseName ? ' &amp; ' + S.spouseName : '');
+  ['p1-who','p2-who'].forEach(function(id){ set(id, whoNames); });
+  var meta='<b>Client:</b> '+whoNames+
     ' &nbsp;|&nbsp; <b>Advisor:</b> '+(S.advisor||'\u2014')+
     ' &nbsp;|&nbsp; <b>Distribution:</b> '+$f(S.qpBalance)+
     ' &nbsp;|&nbsp; <b>Carrier:</b> '+carrier+' \u00b7 '+ptype+
