@@ -218,7 +218,9 @@ h1{font-family:'Playfair Display',serif;font-weight:600;font-size:24px;color:var
 
     var dn = r.doNothing || {}, eta = r.eta || {}, wf = r.waterfall || {};
 
-    set('doc-client', r.clientName || '\u2014');
+    var names = r.clientName || '\u2014';
+    if (r.spouseName) names += ' & ' + r.spouseName;
+    set('doc-client', names);
     set('doc-age', r.age || '\u2014');
     set('doc-horizon', r.horizonAge || '\u2014');
     set('doc-date', r.date || '\u2014');
