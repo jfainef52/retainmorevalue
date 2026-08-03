@@ -409,9 +409,6 @@ table.sc-ldg tfoot td.gold-col { color:var(--gold); }
   <div id="prog-sub">Initializing…</div>
 </div>
 
-<div class="page" id="intake-panel">
-  <div class="two-col">
-
 
 <div class="page">
 
@@ -465,10 +462,17 @@ table.sc-ldg tfoot td.gold-col { color:var(--gold); }
           <label class="fl">QP Distribution Amount</label>
           <div class="field"><input type="text" id="distribution" placeholder="ex. $2,000,000" oninput="formatCurrency(this);recalcAll()"/></div>
         </div>
-        <div class="fg fr3">
-          <div class="field"><label class="fl">Federal Rate % (PDA)</label><input type="number" id="fedRate" value="30.0" step="0.1" oninput="recalcAll()"/></div>
+        <div class="stag" style="font-size:8px;margin-bottom:8px">Premium Deposit Account &mdash; Interest Tax</div>
+        <div class="fg fr">
+          <div class="field"><label class="fl">Federal Rate %</label><input type="number" id="fedRate" value="30.0" step="0.1" oninput="recalcAll()"/></div>
           <div class="field"><label class="fl">State Rate %</label><input type="number" id="stateRate" value="5.00" step="0.01" oninput="recalcAll()"/></div>
-          <div class="field"><label class="fl">Combined</label><input type="text" id="combinedRateDisplay" readonly class="computed-derived"/></div>
+        </div>
+        <div class="hint" style="margin-top:-10px">These two rates tax the PDA&rsquo;s interest and set the premium schedule. They are the same inputs the ETA income modeler uses.</div>
+
+        <div class="stag" style="font-size:8px;margin:16px 0 8px">Distribution &mdash; Tax on the Lump Sum</div>
+        <div class="fg">
+          <label class="fl">Top-Bracket Rate Applied to the Distribution</label>
+          <div class="field"><input type="text" id="combinedRateDisplay" readonly class="computed-derived"/></div>
         </div>
         <div class="fg fr">
           <div class="field"><label class="fl">Bracket Indexing %</label><input type="number" id="bracketIdx" value="2.5" step="0.1" oninput="recalcAll()"/></div>
@@ -1493,12 +1497,17 @@ function distributionTax(){
   // bracket regardless of the client's actual income. Any error favours taking
   // no action.
   const filing = document.getElementById('filingStatus').value;
+  const idx    = (parseFloat(document.getElementById('bracketIdx').value)||0)/100;
   const TOP = 0.37;
-  const fed = dist * TOP;
+  const fed = dist * TOP;                 // top bracket on EVERY dollar
   const topMarginal = TOP;
+  // What the tax would be if the brackets were actually walked from the bottom.
+  // Shown only to quantify how much conservatism the top-bracket assumption adds.
+  const walked = incrementalFedTax(dist, 0, filing, 0, idx, false);
 
   const tax = fed + dist*st + penalty;
-  return {tax, effective:100*tax/(dist||1), marginal:topMarginal, penalty, wait};
+  return {tax, effective:100*tax/(dist||1), marginal:topMarginal, penalty, wait,
+          walkedRate: dist>0 ? 100*(walked + dist*st)/dist : 0};
 }
 
 function getTaxObligation(){
@@ -1518,8 +1527,9 @@ function recalcAll(){
   document.getElementById('combinedRateDisplay').value = combined.toFixed(2) + '%';
   const preA = parseNum('preAmount');
   document.getElementById('bracketNote').innerHTML = useBrackets()
-    ? `Distribution taxed at the top marginal bracket <b>${(dt.marginal*100).toFixed(0)}%</b> plus state \u2014 ` +
-      `effective <b>${combined.toFixed(2)}%</b>. Deliberately conservative: any error favours taking no action.` +
+    ? `Top bracket <b>${(dt.marginal*100).toFixed(0)}%</b> applied to every dollar, plus state \u2014 <b>${combined.toFixed(2)}%</b>. ` +
+      `Walking the brackets from the bottom would give <b>${dt.walkedRate.toFixed(2)}%</b>, so this assumption adds ` +
+      `<b>${fmt$(dist*(combined-dt.walkedRate)/100)}</b> of tax. Deliberately conservative: any error favours taking no action.` +
       (dt.penalty>0
         ? ` Penalty of <b>${fmt$(dt.penalty)}</b> applies to the ${fmt$(preA)} taken before 59\u00bd; the remainder is distributed in ${dt.wait} year(s), penalty-free.`
         : (dt.wait>0 && preA===0
