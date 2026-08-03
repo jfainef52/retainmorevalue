@@ -428,6 +428,10 @@ table.sc-ldg tfoot td.gold-col { color:var(--gold); }
           <div class="field"><label class="fl">Client Name</label><input type="text" id="clientName" placeholder="ex. Ashby Monk"/></div>
           <div class="field"><label class="fl">Advisor Name</label><input type="text" id="advisorName" placeholder="Jeffrey Faine, CLU·RICP"/></div>
         </div>
+        <div class="fg" id="spouseWrap" style="display:none">
+          <label class="fl">Spouse Name</label>
+          <div class="field"><input type="text" id="spouseName" placeholder="ex. Katherine Monk"/></div>
+        </div>
 
         <div class="fg">
           <label class="fl">Policy Type</label>
@@ -1461,6 +1465,7 @@ function setPolicyType(t){
   document.getElementById('ptSingle').classList.toggle('active', t==='single');
   document.getElementById('ptSurv').classList.toggle('active', t==='survivorship');
   document.getElementById('age2Wrap').style.display = t==='survivorship'?'':'none';
+  document.getElementById('spouseWrap').style.display = t==='survivorship'?'':'none';
   document.getElementById('age1Label').textContent = t==='survivorship'?'First Insured Age':'Insured Age';
   recalcAll();
 }
@@ -1798,6 +1803,7 @@ function runEstate(){
   const qpAtDeath = mc.p50.qpFinal;
   localStorage.setItem('eta_estate_data', JSON.stringify({
     clientName: document.getElementById('clientName').value || '',
+    spouseName: policyType==='survivorship' ? (document.getElementById('spouseName').value || '') : '',
     advisor:    document.getElementById('advisorName').value || '',
     date: new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}),
     age: startAge, horizonAge: horizon, policyType: _illustration.policyType,
