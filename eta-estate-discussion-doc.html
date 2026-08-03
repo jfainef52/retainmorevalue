@@ -663,7 +663,9 @@
     var $M = function(n){ return '$' + ((n||0)/1e6).toFixed(2) + 'M'; };
     var set = function(id,v){ var e=document.getElementById(id); if(e) e.textContent=v; };
 
-    set('cover-client', r.clientName || '\u2014');
+    var names = r.clientName || '\u2014';
+    if (r.spouseName) names += ' &amp; ' + r.spouseName;
+    set('cover-client', names);
     set('cover-date', r.date || '\u2014');
 
     set('cost-horizon', r.horizonAge || '\u2014');
