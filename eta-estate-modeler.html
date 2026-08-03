@@ -1102,9 +1102,18 @@ function runQPMonteCarlo(cfg, paired, sims, seed){
 }
 
 /* Re-run one simulation and capture its year-by-year detail for the ledger. */
+/* Must stay byte-for-byte equivalent to runQPPath's tax logic. This function
+   replays a single simulation for display, and previously predated the
+   bracket/Social-Security/IRMAA methodology — it silently taxed every RMD at
+   a flat rate while the actual stored results used the bracket-stacked-on-SS
+   calculation, so the visible "Tax Paid" column and every downstream figure
+   derived from it (including the ledger's chart) disagreed with the real
+   numbers. Any future change to runQPPath's tax section must be mirrored here. */
 function rebuildQPLedger(cfg, paired, seed, simIndex){
   const {qpBalance,currentAge,horizonAge,rmdAge,equityAlloc,mgmtFee,fedRate,stateRate,
-         nonQpGrossRate,nonQpStart,nonQpBasis,annualDist=0,distYears=0}=cfg;
+         nonQpGrossRate,nonQpStart,nonQpBasis,annualDist=0,distYears=0,
+         useBrackets=false,filing='married',bracketIdx=0.025,
+         ssAnnual=0,ssStartAge=70,includeIrmaa=true,medicarePeople=2}=cfg;
   const rng=makeRng(subSeed(seed,simIndex));
   const bondAlloc=1-equityAlloc, incRate=fedRate+stateRate, DRAG=0.006;
   let qp=qpBalance, side=nonQpStart, basis=nonQpBasis, cumTax=0;
@@ -1115,14 +1124,27 @@ function rebuildQPLedger(cfg, paired, seed, simIndex){
     let rmd=0;
     if(age>=Math.floor(rmdAge)){ const d=ultDivisor(age); if(d) rmd=Math.min(qp,qp/d); }
     qp-=rmd;
-    const tax=rmd*incRate, net=rmd-tax; cumTax+=tax;
+    const yf=age-currentAge;
+    const ssGross   = (ssAnnual>0 && age>=ssStartAge) ? ssAnnual*Math.pow(1+bracketIdx,yf) : 0;
+    const ssTaxable = ssGross*SS_TAXABLE_SHARE;
+    let tax;
+    if(useBrackets && rmd>0){
+      tax = incrementalFedTax(rmd, ssTaxable, filing, yf, bracketIdx, age>=65) + rmd*stateRate;
+    } else {
+      tax = rmd*incRate;
+    }
+    let irmaa=0;
+    if(includeIrmaa && age>=65){
+      irmaa = irmaaAnnual(rmd+ssTaxable, filing, yf, bracketIdx, medicarePeople);
+    }
+    const net=rmd-tax; cumTax+=tax+irmaa;
     side+=net; basis+=net;
     const draw=paired[Math.floor(rng()*paired.length)];
     const ret=equityAlloc*draw.eq+bondAlloc*draw.bd;
     qp=Math.max(0, qp*(1+ret)*(1-mgmtFee));
     const dg=side*DRAG; cumTax+=dg;
     side=side*(1+nonQpGrossRate)*(1-mgmtFee)-dg;
-    rows.push({age, year:draw.year, ret, dist, rmd, tax, drag:dg, qp, side, basis, cumTax});
+    rows.push({age, year:draw.year, ret, dist, rmd, tax, irmaa, drag:dg, qp, side, basis, cumTax});
   }
   return rows;
 }
@@ -1812,6 +1834,7 @@ function runEstate(){
     financedTax: _preIllus ? _preIllus.dist * _preIllus.combined/100 : 0,
     netDB, ilit: inIlit,
     qpAtDeath, qpEstateTax: qpAtDeath*0.40, qpIncomeTax: qpAtDeath*benRate,
+    filing, cgRate, benRate, exIdx,
     doNothing: {grossEstate:dn.grossEstate, estateTax:dn.federalEstateTax,
                 capGainsTax:dn.capGainsTax, inheritedIraTax:dn.inheritedIraTax,
                 netToHeirs:dn.netToHeirs},
@@ -1835,14 +1858,17 @@ function runEstate(){
     creditingRate:_illustration.scenarios ? _illustration.scenarios[_illustration.activeScenario] : null,
     policy:_illustration.policy, flags:_illustration.flags,
     carrierRows:_illustration.rows.filter(r=>r.year<=Math.max(45,horizon-startAge+1)).map(thin),
+    // cfg already carries useBrackets/filing/bracketIdx/ssAnnual/ssStartAge/
+    // includeIrmaa/medicarePeople from the block above — no need to restate them.
     qpRows: rebuildQPLedger(cfg, paired, mc.seed, mc.p50.simIndex)
               .map(r=>({a:r.age, hy:r.year, ret:+(r.ret).toFixed(4), rmd:Math.round(r.rmd),
                         tax:Math.round(r.tax), drag:Math.round(r.drag), qp:Math.round(r.qp),
-                        side:Math.round(r.side), cum:Math.round(r.cumTax)})),
+                        side:Math.round(r.side), basis:Math.round(r.basis), cum:Math.round(r.cumTax)})),
     etaQpRows: rebuildQPLedger(Object.assign({},cfg,{annualDist:dist/payYears,distYears:payYears}),
                  paired, mcEta.seed, mcEta.p50.simIndex)
               .map(r=>({a:r.age, d:Math.round(r.dist), rmd:Math.round(r.rmd),
-                        tax:Math.round(r.tax), qp:Math.round(r.qp), side:Math.round(r.side)})),
+                        tax:Math.round(r.tax), qp:Math.round(r.qp), side:Math.round(r.side),
+                        basis:Math.round(r.basis)})),
     pda: _preIllus ? _preIllus.pda.rows.map(r=>({y:r.yr, boy:Math.round(r.boy),
           int:Math.round(r.interest), tax:Math.round(r.taxOnInt), prem:Math.round(r.prem),
           eoy:Math.round(r.eoy)})) : [],
