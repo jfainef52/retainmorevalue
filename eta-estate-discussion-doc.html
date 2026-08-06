@@ -132,7 +132,7 @@
   .phase-label { display:inline-flex; align-items:center; gap:8px; font-size:9px; letter-spacing:2px; text-transform:uppercase; font-weight:600; margin-bottom:4px; }
   .phase-label-acc { color:#5BA4CF; }
   .phase-label-dist { color:#C05C5C; }
-  .phase-title { font-family:'Playfair Display',serif; font-size:26px; font-weight:700; color:var(--navy); margin-bottom:8px; }
+  .phase-title { font-family:'Playfair Display',serif; font-size:30px; font-weight:700; color:var(--navy); margin-bottom:10px; }
   .phase-body { font-family:'Cormorant Garamond',serif; font-size:16px; line-height:1.7; color:var(--text); }
   .phase-rows { display:flex; flex-direction:column; gap:0; margin-top:auto; }
   .phase-row { display:flex; justify-content:space-between; font-size:11px; padding:6px 0; border-bottom:1px solid var(--border); }
@@ -145,9 +145,11 @@
 .cost-bar-val { font-family:'Playfair Display',serif; font-size:20px; font-weight:700; color:var(--navy); white-space:nowrap; }
 .cost-bar-track { height:12px; background:var(--off); border-radius:3px; overflow:hidden; }
 .cost-bar-fill { height:100%; background:var(--gold); border-radius:3px 0 0 3px; }
-.cost-callout-box { display:flex; margin-top:22px; padding:18px 22px; background:rgba(200,168,75,.1);
-  border-left:4px solid var(--gold); border-radius:2px; font-size:15px; line-height:1.6; color:var(--navy); }
-.cost-callout-box strong { font-family:'Playfair Display',serif; font-size:22px; color:var(--navy); }
+.cost-callout-box { display:flex; align-items:center; gap:24px; margin-top:22px; padding:18px 24px;
+  background:rgba(200,168,75,.1); border-left:4px solid var(--gold); border-radius:2px; }
+.cost-callout-num { font-family:'Playfair Display',serif; font-size:44px; font-weight:700; color:var(--navy);
+  line-height:1; flex-shrink:0; }
+.cost-callout-text { font-size:14px; line-height:1.55; color:var(--navy); }
   .phase-row-label { color:var(--muted); }
   .phase-row-val { font-weight:600; color:var(--navy); }
   .acc-dist-footer { background:var(--navy); padding:.18in .5in; display:grid; grid-template-columns:1fr 1fr; gap:20px; }
@@ -185,15 +187,15 @@
   .how-header { background:white; padding:.28in .5in .2in; border-bottom:1px solid var(--border); }
   .how-header h2 { font-family:'Playfair Display',serif; font-size:22px; font-weight:600; color:var(--navy); margin-top:8px; }
   .how-body { flex:1; display:grid; grid-template-columns:1fr 1fr; overflow:hidden; }
-  .how-col { padding:.3in .4in; display:flex; flex-direction:column; gap:14px; }
+  .how-col { padding:.35in .42in; display:flex; flex-direction:column; justify-content:space-evenly; gap:14px; }
   .how-col-left { background:var(--off); border-right:1px solid var(--border); }
   .how-col-right { background:white; }
-  .how-step { display:flex; align-items:flex-start; gap:12px; padding:10px 0; border-bottom:1px solid var(--border); }
+  .how-step { display:flex; align-items:flex-start; gap:16px; padding:16px 0; border-bottom:1px solid var(--border); }
 .how-step-body { flex:1; min-width:0; }
   .how-step:last-child { border-bottom:none; }
-  .how-step-num { width:28px; height:28px; border-radius:50%; background:var(--navy); color:var(--gold); font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
-  .how-step-title { font-family:'Playfair Display',serif; font-size:13px; font-weight:600; color:var(--navy); margin-bottom:3px; }
-  .how-step-text { font-size:11.5px; color:var(--muted); line-height:1.6; }
+  .how-step-num { width:36px; height:36px; border-radius:50%; background:var(--navy); color:var(--gold); font-size:15px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .how-step-title { font-family:'Playfair Display',serif; font-size:16px; font-weight:600; color:var(--navy); margin-bottom:6px; }
+  .how-step-text { font-size:13.5px; color:var(--muted); line-height:1.65; }
   .how-advantage { display:flex; gap:12px; padding:12px 0; border-bottom:1px solid var(--border); }
   .how-advantage:last-child { border-bottom:none; }
   .how-advantage-icon { font-size:22px; flex-shrink:0; }
@@ -252,7 +254,7 @@
   .fact-block { padding:10px 16px; border-right:1px solid var(--border); }
   .fact-block:last-child { border-right:none; }
   .fact-label { font-size:9.5px; letter-spacing:1.6px; text-transform:uppercase; color:var(--gold); margin-bottom:5px; }
-  .fact-value { font-family:'Playfair Display',serif; font-size:27px; font-weight:700; color:var(--navy); line-height:1.05; }
+  .fact-value { font-family:'Playfair Display',serif; font-size:33px; font-weight:700; color:var(--navy); line-height:1.02; }
   .fact-value.green { color:var(--green); }
   .fact-sub { font-size:9.5px; color:var(--muted); margin-top:1px; }
   .fact-vs { font-size:10.5px; font-weight:600; color:var(--green); margin-top:2px; }
@@ -361,7 +363,8 @@
         <div class="cost-bar-row"><div class="cost-bar-top"><span class="cost-bar-label">Income tax your heirs owe on what remains in the plan</span><span class="cost-bar-val" id="cost-ird">&mdash;</span></div><div class="cost-bar-track"><div class="cost-bar-fill" id="cost-ird-bar" style="width:0%"></div></div></div>
       </div>
       <div class="cost-callout-box" id="cost-callout">
-        Of the balance projected to remain inside the plan at death, roughly <strong id="cost-cents">25&cent;</strong> on the dollar reaches your family. The rest is divided between the estate tax and the income tax your beneficiaries owe.
+        <div class="cost-callout-num" id="cost-cents">25&cent;</div>
+        <div class="cost-callout-text">On the dollar reaches your family, of the balance projected to remain inside the plan at death. The rest is divided between the estate tax and the income tax your beneficiaries owe.</div>
       </div>
     </div>
   </div>
