@@ -136,6 +136,10 @@
   .phase-body { font-family:'Cormorant Garamond',serif; font-size:16px; line-height:1.7; color:var(--text); }
   .phase-rows { display:flex; flex-direction:column; gap:0; margin-top:auto; }
   .phase-row { display:flex; justify-content:space-between; font-size:11px; padding:6px 0; border-bottom:1px solid var(--border); }
+  .outcomes-main .phase-row { font-size:19px; padding:15px 0; }
+  .outcomes-main .phase-row-label { font-size:16px; }
+  .outcomes-main .phase-row-val { font-family:'Playfair Display',serif; font-size:22px; font-weight:700; }
+  .outcomes-main .phase-row:last-child .phase-row-val { font-size:27px; }
 
 /* Cost page — proportional bars, much larger type, real visible callout */
 .cost-bars { display:flex; flex-direction:column; gap:16px; margin-top:14px; }
@@ -152,6 +156,9 @@
 .cost-callout-text { font-size:14px; line-height:1.55; color:var(--navy); }
   .phase-row-label { color:var(--muted); }
   .phase-row-val { font-weight:600; color:var(--navy); }
+  .phase-col-dist .phase-row-val.neg { color:var(--red); }
+  .phase-col-acc .phase-row-val.pos { color:var(--green); }
+  .phase-col-acc .phase-row-val.neg { color:var(--muted); }
   .acc-dist-footer { background:var(--navy); padding:.18in .5in; display:grid; grid-template-columns:1fr 1fr; gap:20px; }
   .adf-item { display:flex; flex-direction:column; gap:4px; }
   .adf-label { font-size:9px; letter-spacing:2px; text-transform:uppercase; color:var(--gold); }
@@ -364,7 +371,7 @@
       </div>
       <div class="cost-callout-box" id="cost-callout">
         <div class="cost-callout-num" id="cost-cents">25&cent;</div>
-        <div class="cost-callout-text">On the dollar reaches your family, of the balance projected to remain inside the plan at death. The rest is divided between the estate tax and the income tax your beneficiaries owe.</div>
+        <div class="cost-callout-text">On the dollar reaches your family, of the balance projected to remain inside your qualified retirement plan at death. The rest is divided between the estate tax and the income tax your beneficiaries owe.</div>
       </div>
     </div>
   </div>
