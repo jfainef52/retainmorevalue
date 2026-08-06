@@ -169,6 +169,7 @@ tr.tot td{border-top:2px solid var(--navy);border-bottom:none;font-weight:700;ba
   qpRows.forEach(function(r){ if(rmdStart===null && r.rmd>0) rmdStart=r.a; });
 
   var isSurv = L.policyType==='survivorship';
+  function yrNum(age){ return age - S.age + 1; }
   function ageLabel(age){
     if(!isSurv) return String(age);
     var c=carByAge[age];
@@ -205,20 +206,20 @@ tr.tot td{border-top:2px solid var(--navy);border-bottom:none;font-weight:700;ba
   }
   var qShown=sample(qpRows);
 
-  var QP_HDR='<tr><th>Age(s)</th><th>Growth</th><th>Required<br>Distribution</th>'+
+  var QP_HDR='<tr><th>Yr</th><th>Age(s)</th><th>Growth</th><th>Required<br>Distribution</th>'+
              '<th>Tax<br>Paid</th><th>Plan<br>Balance</th><th>Non-Qualified<br>Estate</th></tr>';
-  var ETA_HDR='<tr><th>Age(s)</th><th>Contribution</th><th>Policy<br>Value</th>'+
+  var ETA_HDR='<tr><th>Yr</th><th>Age(s)</th><th>Contribution</th><th>Policy<br>Value</th>'+
               '<th>Bank Loan<br>Balance</th><th>Bank<br>Interest</th><th>Net Death<br>Benefit</th></tr>';
 
   function qpBody(rows,startBal){
     var h='', prev=startBal, phased=false;
     rows.forEach(function(r){
       if(!phased && r.rmd>0){
-        h+='<tr class="phase"><td colspan="6">Required Distribution Phase &mdash; begins age '+rmdStart+'</td></tr>';
+        h+='<tr class="phase"><td colspan="7">Required Distribution Phase &mdash; begins age '+rmdStart+'</td></tr>';
         phased=true;
       }
       var growth=r.qp+r.rmd-prev;
-      h+='<tr><td>'+ageLabel(r.a)+'</td><td>'+(growth?$f(growth):'\u2014')+'</td><td>'+$f(r.rmd)+
+      h+='<tr><td>'+yrNum(r.a)+'</td><td>'+ageLabel(r.a)+'</td><td>'+(growth?$f(growth):'\u2014')+'</td><td>'+$f(r.rmd)+
          '</td><td>'+$f(r.tax)+'</td><td>'+$f(r.qp)+'</td><td>'+$f(r.side)+'</td></tr>';
       prev=r.qp;
     });
@@ -230,15 +231,22 @@ tr.tot td{border-top:2px solid var(--navy);border-bottom:none;font-weight:700;ba
     rows.forEach(function(r){
       var c=carByAge[r.a], yr=r.a-S.age+1, bk=bankByYr[yr];
       if(!phased && r.rmd>0){
-        h+='<tr class="phase"><td colspan="6">Required Distribution Phase &mdash; begins age '+rmdStart+'</td></tr>';
+        h+='<tr class="phase"><td colspan="7">Required Distribution Phase &mdash; begins age '+rmdStart+'</td></tr>';
         phased=true;
       }
       var rowCls = (yr===payoffYr) ? 'payoff' : '';
+      // The bank ledger row AT the payoff year has already switched to the
+      // carrier (policy-loan) rate for that year's growth — its 'end'/'int'
+      // describe policy-loan interest, not bank interest. The figure that
+      // matches Phase 1's "required policy loan at payoff" is 'beg': the
+      // balance carried IN to the payoff year, i.e. the end of the prior year.
+      // No bank interest accrues in the payoff year itself, since the debt is
+      // retired before that year's growth would apply.
       var loanCell, intCell;
       if(yr<payoffYr){ loanCell=bk?$f(bk.end):'\u2014'; intCell=bk?$f(bk.int):'\u2014'; }
-      else if(yr===payoffYr){ loanCell='Retired \u2014 '+(bk?$f(bk.end):'\u2014'); intCell=bk?$f(bk.int):'\u2014'; }
+      else if(yr===payoffYr){ loanCell='Retired \u2014 '+(bk?$f(bk.beg):'\u2014'); intCell='\u2014'; }
       else { loanCell='\u2014'; intCell='\u2014'; }
-      h+='<tr class="'+rowCls+'"><td>'+ageLabel(r.a)+'</td><td>'+
+      h+='<tr class="'+rowCls+'"><td>'+yrNum(r.a)+'</td><td>'+ageLabel(r.a)+'</td><td>'+
          (c&&c.p?$f(c.p):'\u2014')+'</td><td>'+(c?$f(c.av):'\u2014')+'</td><td>'+
          loanCell+'</td><td>'+intCell+'</td><td>'+(c?$f(c.db):'\u2014')+'</td></tr>';
     });
@@ -249,14 +257,14 @@ tr.tot td{border-top:2px solid var(--navy);border-bottom:none;font-weight:700;ba
   var totRmd=qpRows.reduce(function(s,r){return s+r.rmd;},0);
 
   set('p1-qp', QP_HDR+qpBody(qShown,S.qpBalance)+
-    '<tr class="tot"><td>Totals</td><td>&mdash;</td><td>'+$f(totRmd)+'</td><td>'+$f(totTax)+
+    '<tr class="tot"><td colspan="2">Totals</td><td>&mdash;</td><td>'+$f(totRmd)+'</td><td>'+$f(totTax)+
     '</td><td colspan="2">&mdash;</td></tr>');
 
   var eShown=[];
   qShown.forEach(function(r){ eShown.push(etaByAge[r.a]||{a:r.a,rmd:0}); });
   var lastCar=carByAge[qpRows[qpRows.length-1].a];
   set('p1-eta', ETA_HDR+etaBody(eShown)+
-    '<tr class="tot"><td colspan="5">Net death benefit at age '+S.horizonAge+'</td><td>'+
+    '<tr class="tot"><td colspan="6">Net death benefit at age '+S.horizonAge+'</td><td>'+
     $f(lastCar?lastCar.db:S.netDB)+'</td></tr>');
 
   /* ── settlement block (unchanged math) ─────────────────────────── */
@@ -357,17 +365,21 @@ tr.tot td{border-top:2px solid var(--navy);border-bottom:none;font-weight:700;ba
 
     var last=pts[pts.length-1];
     var yDn=y(last.dn), yEta=y(last.eta);
-    // The series with the SMALLER y (higher on the chart) gets pushed further
-    // up; the other gets pushed further down. A minimum pixel gap is enforced
-    // so close values never collide, regardless of which line is on top.
-    var MIN_GAP=30, gap=Math.abs(yDn-yEta), extra=gap<MIN_GAP?(MIN_GAP-gap)/2:0;
-    var dnHigher = yDn < yEta;
-    var dnOff  = (dnHigher ? -1 : 1) * (14+extra);
-    var etaOff = (dnHigher ?  1 : -1) * (14+extra);
-    [['dn',last.dn,'#8a8070',dnOff],['eta',last.eta,'#c9a84c',etaOff]].forEach(function(cfg){
+    // Both labels sit BELOW their own line, never on top of it. The line that
+    // is visually higher (smaller y) gets its label placed in the gap toward
+    // the lower line, clamped so it can never cross past the lower line's own
+    // position; the lower line's label drops into the clear space beneath it.
+    var GAP=20, CLEAR=8;
+    var upperIsEta = yEta < yDn;
+    var upperY = Math.min(yDn,yEta), lowerY = Math.max(yDn,yEta);
+    var upperLabelY = Math.min(upperY+GAP, lowerY-CLEAR);
+    var lowerLabelY = lowerY+GAP;
+    var etaLabelY = upperIsEta ? upperLabelY : lowerLabelY;
+    var dnLabelY  = upperIsEta ? lowerLabelY : upperLabelY;
+    [['dn',last.dn,'#8a8070',dnLabelY],['eta',last.eta,'#c9a84c',etaLabelY]].forEach(function(cfg){
       var v=cfg[1];
       svg+='<circle cx="'+x(last.age)+'" cy="'+y(v)+'" r="5" fill="'+cfg[2]+'"/>';
-      svg+='<text x="'+(x(last.age)-8)+'" y="'+(y(v)+cfg[3])+'" text-anchor="end" font-family="Playfair Display" font-weight="600" font-size="17" fill="'+cfg[2]+'">$'+(v/1e6).toFixed(1)+'M</text>';
+      svg+='<text x="'+(x(last.age)-8)+'" y="'+cfg[3]+'" text-anchor="end" font-family="Playfair Display" font-weight="600" font-size="17" fill="'+cfg[2]+'">$'+(v/1e6).toFixed(1)+'M</text>';
     });
 
     document.getElementById('chart').innerHTML=svg;
