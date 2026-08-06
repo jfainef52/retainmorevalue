@@ -95,7 +95,7 @@
   .goals-headline { font-family:'Playfair Display',serif; font-size:30px; font-weight:600; color:var(--navy); line-height:1.2; margin-bottom:18px; max-width:6in; }
   .goals-headline em { color:var(--gold); font-style:italic; }
   .goals-body { font-family:'Cormorant Garamond',serif; font-size:18px; color:var(--text); line-height:1.75; max-width:6.5in; margin-bottom:28px; }
-  .goals-pillars { display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; }
+  .goals-pillars { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
   .pillar { background:var(--off); border:1px solid var(--border); border-top:3px solid var(--gold); padding:18px 16px; }
   .pillar-icon { font-size:22px; margin-bottom:10px; }
   .pillar-title { font-family:'Playfair Display',serif; font-size:14px; font-weight:600; color:var(--navy); margin-bottom:6px; }
@@ -132,10 +132,22 @@
   .phase-label { display:inline-flex; align-items:center; gap:8px; font-size:9px; letter-spacing:2px; text-transform:uppercase; font-weight:600; margin-bottom:4px; }
   .phase-label-acc { color:#5BA4CF; }
   .phase-label-dist { color:#C05C5C; }
-  .phase-title { font-family:'Playfair Display',serif; font-size:20px; font-weight:700; color:var(--navy); margin-bottom:6px; }
+  .phase-title { font-family:'Playfair Display',serif; font-size:26px; font-weight:700; color:var(--navy); margin-bottom:8px; }
   .phase-body { font-family:'Cormorant Garamond',serif; font-size:16px; line-height:1.7; color:var(--text); }
   .phase-rows { display:flex; flex-direction:column; gap:0; margin-top:auto; }
   .phase-row { display:flex; justify-content:space-between; font-size:11px; padding:6px 0; border-bottom:1px solid var(--border); }
+
+/* Cost page — proportional bars, much larger type, real visible callout */
+.cost-bars { display:flex; flex-direction:column; gap:16px; margin-top:14px; }
+.cost-bar-row { }
+.cost-bar-top { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px; }
+.cost-bar-label { font-size:13px; color:var(--navy); font-weight:500; line-height:1.35; max-width:72%; }
+.cost-bar-val { font-family:'Playfair Display',serif; font-size:20px; font-weight:700; color:var(--navy); white-space:nowrap; }
+.cost-bar-track { height:12px; background:var(--off); border-radius:3px; overflow:hidden; }
+.cost-bar-fill { height:100%; background:var(--gold); border-radius:3px 0 0 3px; }
+.cost-callout-box { display:flex; margin-top:22px; padding:18px 22px; background:rgba(200,168,75,.1);
+  border-left:4px solid var(--gold); border-radius:2px; font-size:15px; line-height:1.6; color:var(--navy); }
+.cost-callout-box strong { font-family:'Playfair Display',serif; font-size:22px; color:var(--navy); }
   .phase-row-label { color:var(--muted); }
   .phase-row-val { font-weight:600; color:var(--navy); }
   .acc-dist-footer { background:var(--navy); padding:.18in .5in; display:grid; grid-template-columns:1fr 1fr; gap:20px; }
@@ -176,7 +188,8 @@
   .how-col { padding:.3in .4in; display:flex; flex-direction:column; gap:14px; }
   .how-col-left { background:var(--off); border-right:1px solid var(--border); }
   .how-col-right { background:white; }
-  .how-step { display:grid; grid-template-columns:28px 1fr; gap:12px; padding:10px 0; border-bottom:1px solid var(--border); }
+  .how-step { display:flex; align-items:flex-start; gap:12px; padding:10px 0; border-bottom:1px solid var(--border); }
+.how-step-body { flex:1; min-width:0; }
   .how-step:last-child { border-bottom:none; }
   .how-step-num { width:28px; height:28px; border-radius:50%; background:var(--navy); color:var(--gold); font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
   .how-step-title { font-family:'Playfair Display',serif; font-size:13px; font-weight:600; color:var(--navy); margin-bottom:3px; }
@@ -212,7 +225,8 @@
   .mc-body { flex:1; display:grid; grid-template-columns:1fr 1fr; overflow:hidden; }
   .mc-left { padding:.3in .4in; background:var(--off); border-right:1px solid var(--border); display:flex; flex-direction:column; gap:0; }
   .mc-right { padding:.3in .4in; background:white; display:flex; flex-direction:column; gap:14px; }
-  .mc-step { display:grid; grid-template-columns:28px 1fr; gap:12px; padding:10px 0; border-bottom:1px solid var(--border); }
+  .mc-step { display:flex; align-items:flex-start; gap:12px; padding:10px 0; border-bottom:1px solid var(--border); }
+.mc-step-body { flex:1; min-width:0; }
   .mc-step-num { width:28px; height:28px; border-radius:50%; background:var(--navy); color:var(--gold); font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
   .mc-step-title { font-family:'Playfair Display',serif; font-size:13px; font-weight:600; color:var(--navy); margin-bottom:3px; }
   .mc-step-text { font-size:11.5px; color:var(--muted); line-height:1.6; }
@@ -237,8 +251,8 @@
   .outcomes-facts-row { display:grid; grid-template-columns:1fr 1fr 1fr 1fr 1fr; background:white; border-top:1px solid var(--border); flex-shrink:0; }
   .fact-block { padding:10px 16px; border-right:1px solid var(--border); }
   .fact-block:last-child { border-right:none; }
-  .fact-label { font-size:8px; letter-spacing:1.5px; text-transform:uppercase; color:var(--gold); margin-bottom:3px; }
-  .fact-value { font-family:'Playfair Display',serif; font-size:19px; font-weight:700; color:var(--navy); line-height:1.1; }
+  .fact-label { font-size:9.5px; letter-spacing:1.6px; text-transform:uppercase; color:var(--gold); margin-bottom:5px; }
+  .fact-value { font-family:'Playfair Display',serif; font-size:27px; font-weight:700; color:var(--navy); line-height:1.05; }
   .fact-value.green { color:var(--green); }
   .fact-sub { font-size:9.5px; color:var(--muted); margin-top:1px; }
   .fact-vs { font-size:10.5px; font-weight:600; color:var(--green); margin-top:2px; }
@@ -338,15 +352,15 @@
   <div class="main-content">
     <div class="situation-main">
       <div class="situation-headline">Taking no action has a price. Here it is, layer by layer, from today through age <span id="cost-horizon">&mdash;</span>.</div>
-      <div class="phase-rows" style="margin-top:8px">
-        <div class="phase-row"><span class="phase-row-label">Income tax on required distributions during your lifetime</span><span class="phase-row-val" id="cost-rmd">&mdash;</span></div>
-        <div class="phase-row"><span class="phase-row-label">Capital gains and dividend drag on distributions you reinvest</span><span class="phase-row-val" id="cost-drag">&mdash;</span></div>
-        <div class="phase-row"><span class="phase-row-label">Medicare premium surcharges triggered by those distributions</span><span class="phase-row-val" id="cost-irmaa">&mdash;</span></div>
-        <div class="phase-row"><span class="phase-row-label">Federal estate tax at death</span><span class="phase-row-val" id="cost-est">&mdash;</span></div>
-        <div class="phase-row"><span class="phase-row-label">Capital gains tax at death</span><span class="phase-row-val" id="cost-cg">&mdash;</span></div>
-        <div class="phase-row"><span class="phase-row-label">Income tax your heirs owe on what remains in the plan</span><span class="phase-row-val" id="cost-ird">&mdash;</span></div>
+      <div class="cost-bars" id="cost-bars">
+        <div class="cost-bar-row"><div class="cost-bar-top"><span class="cost-bar-label">Income tax on required distributions during your lifetime</span><span class="cost-bar-val" id="cost-rmd">&mdash;</span></div><div class="cost-bar-track"><div class="cost-bar-fill" id="cost-rmd-bar" style="width:0%"></div></div></div>
+        <div class="cost-bar-row"><div class="cost-bar-top"><span class="cost-bar-label">Capital gains and dividend drag on distributions you reinvest</span><span class="cost-bar-val" id="cost-drag">&mdash;</span></div><div class="cost-bar-track"><div class="cost-bar-fill" id="cost-drag-bar" style="width:0%"></div></div></div>
+        <div class="cost-bar-row"><div class="cost-bar-top"><span class="cost-bar-label">Medicare premium surcharges triggered by those distributions</span><span class="cost-bar-val" id="cost-irmaa">&mdash;</span></div><div class="cost-bar-track"><div class="cost-bar-fill" id="cost-irmaa-bar" style="width:0%"></div></div></div>
+        <div class="cost-bar-row"><div class="cost-bar-top"><span class="cost-bar-label">Federal estate tax at death</span><span class="cost-bar-val" id="cost-est">&mdash;</span></div><div class="cost-bar-track"><div class="cost-bar-fill" id="cost-est-bar" style="width:0%"></div></div></div>
+        <div class="cost-bar-row"><div class="cost-bar-top"><span class="cost-bar-label">Capital gains tax at death</span><span class="cost-bar-val" id="cost-cg">&mdash;</span></div><div class="cost-bar-track"><div class="cost-bar-fill" id="cost-cg-bar" style="width:0%"></div></div></div>
+        <div class="cost-bar-row"><div class="cost-bar-top"><span class="cost-bar-label">Income tax your heirs owe on what remains in the plan</span><span class="cost-bar-val" id="cost-ird">&mdash;</span></div><div class="cost-bar-track"><div class="cost-bar-fill" id="cost-ird-bar" style="width:0%"></div></div></div>
       </div>
-      <div class="eta-callout" id="cost-callout" style="margin-top:14px">
+      <div class="cost-callout-box" id="cost-callout">
         Of the balance projected to remain inside the plan at death, roughly <strong id="cost-cents">25&cent;</strong> on the dollar reaches your family. The rest is divided between the estate tax and the income tax your beneficiaries owe.
       </div>
     </div>
@@ -405,25 +419,29 @@
         <div class="how-col how-col-left">
           <div class="how-step">
             <div class="how-step-num">1</div>
-            <div class="how-step-title">Distribute on a Schedule You Choose</div>
-            <div class="how-step-text" id="how-step-1">The plan is distributed over a defined funding period rather than left to be settled at death under the worst available tax treatment.</div>
+            <div class="how-step-body"><div class="how-step-title">Distribute on a Schedule You Choose</div>
+              <div class="how-step-text" id="how-step-1">The plan is distributed over a defined funding period rather than left to be settled at death under the worst available tax treatment.</div>
+            </div>
           </div>
           <div class="how-step">
             <div class="how-step-num">2</div>
-            <div class="how-step-title">Finance the Tax Obligation</div>
-            <div class="how-step-text" id="how-step-2">A commercial lender finances the income tax due, secured by the policy rather than your other assets. Nothing additional comes out of your pocket.</div>
+            <div class="how-step-body"><div class="how-step-title">Finance the Tax Obligation</div>
+              <div class="how-step-text" id="how-step-2">A commercial lender finances the income tax due, secured by the policy rather than your other assets. Nothing additional comes out of your pocket.</div>
+            </div>
           </div>
         </div>
         <div class="how-col how-col-right">
           <div class="how-step">
             <div class="how-step-num">3</div>
-            <div class="how-step-title">Fund the Policy Inside a Trust</div>
-            <div class="how-step-text" id="how-step-3">An irrevocable trust owns the policy from inception, so the death benefit is never part of your taxable estate. Your attorney drafts and administers the trust.</div>
+            <div class="how-step-body"><div class="how-step-title">Fund the Policy Inside a Trust</div>
+              <div class="how-step-text" id="how-step-3">An irrevocable trust owns the policy from inception, so the death benefit is never part of your taxable estate. Your attorney drafts and administers the trust.</div>
+            </div>
           </div>
           <div class="how-step">
             <div class="how-step-num">4</div>
-            <div class="how-step-title">Retire the Financing from the Benefit</div>
-            <div class="how-step-text" id="how-step-4">The lender is retired from within the policy, and the balance passes to your family free of income tax and outside your estate.</div>
+            <div class="how-step-body"><div class="how-step-title">Retire the Financing from the Benefit</div>
+              <div class="how-step-text" id="how-step-4">The lender is retired from within the policy, and the balance passes to your family free of income tax and outside your estate.</div>
+            </div>
           </div>
         </div>
       </div>
@@ -457,9 +475,9 @@
           <div class="phase-title">Take No Action</div>
           <div class="phase-rows">
             <div class="phase-row"><span class="phase-row-label">Gross estate</span><span class="phase-row-val" id="o-a-gross">&mdash;</span></div>
-            <div class="phase-row"><span class="phase-row-label">Federal estate tax</span><span class="phase-row-val" id="o-a-est">&mdash;</span></div>
-            <div class="phase-row"><span class="phase-row-label">Capital gains at death</span><span class="phase-row-val" id="o-a-cg">&mdash;</span></div>
-            <div class="phase-row"><span class="phase-row-label">Income tax owed by heirs</span><span class="phase-row-val" id="o-a-ird">&mdash;</span></div>
+            <div class="phase-row"><span class="phase-row-label">Federal estate tax</span><span class="phase-row-val neg" id="o-a-est">&mdash;</span></div>
+            <div class="phase-row"><span class="phase-row-label">Capital gains at death</span><span class="phase-row-val neg" id="o-a-cg">&mdash;</span></div>
+            <div class="phase-row"><span class="phase-row-label">Income tax owed by heirs</span><span class="phase-row-val neg" id="o-a-ird">&mdash;</span></div>
             <div class="phase-row"><span class="phase-row-label"><strong>Net to your family</strong></span><span class="phase-row-val" id="o-a-net">&mdash;</span></div>
           </div>
         </div>
@@ -467,9 +485,9 @@
           <div class="phase-title">Reposition the Plan</div>
           <div class="phase-rows">
             <div class="phase-row"><span class="phase-row-label">Gross estate</span><span class="phase-row-val" id="o-b-gross">&mdash;</span></div>
-            <div class="phase-row"><span class="phase-row-label">Federal estate tax</span><span class="phase-row-val" id="o-b-est">&mdash;</span></div>
-            <div class="phase-row"><span class="phase-row-label">Capital gains at death</span><span class="phase-row-val" id="o-b-cg">&mdash;</span></div>
-            <div class="phase-row"><span class="phase-row-label">Benefit received outside the estate</span><span class="phase-row-val" id="o-b-db">&mdash;</span></div>
+            <div class="phase-row"><span class="phase-row-label">Federal estate tax</span><span class="phase-row-val neg" id="o-b-est">&mdash;</span></div>
+            <div class="phase-row"><span class="phase-row-label">Capital gains at death</span><span class="phase-row-val neg" id="o-b-cg">&mdash;</span></div>
+            <div class="phase-row"><span class="phase-row-label">Benefit received outside the estate</span><span class="phase-row-val pos" id="o-b-db">&mdash;</span></div>
             <div class="phase-row"><span class="phase-row-label"><strong>Net to your family</strong></span><span class="phase-row-val" id="o-b-net">&mdash;</span></div>
           </div>
         </div>
@@ -513,25 +531,29 @@
         <div class="mc-left">
           <div class="mc-step">
             <div class="mc-step-num">1</div>
-            <div class="mc-step-title">Real Years, Drawn at Random</div>
-            <div class="mc-step-text">Ten thousand scenarios are built by drawing actual paired stock and bond years from 1975 through 2024 &mdash; keeping equity and bond results together as they actually occurred, rather than assuming a smooth average.</div>
+            <div class="mc-step-body"><div class="mc-step-title">Real Years, Drawn at Random</div>
+              <div class="mc-step-text">Ten thousand scenarios are built by drawing actual paired stock and bond years from 1975 through 2024 &mdash; keeping equity and bond results together as they actually occurred, rather than assuming a smooth average.</div>
+            </div>
           </div>
           <div class="mc-step">
             <div class="mc-step-num">2</div>
-            <div class="mc-step-title">Required Distributions Applied</div>
-            <div class="mc-step-text">Each scenario applies required minimum distributions on the IRS schedule at your age, stacks them on top of taxable Social Security, and reinvests what is left in a taxable account &mdash; because you do not need the income. Medicare premium surcharges triggered by that income are counted as well.</div>
+            <div class="mc-step-body"><div class="mc-step-title">Required Distributions Applied</div>
+              <div class="mc-step-text">Each scenario applies required minimum distributions on the IRS schedule at your age, stacks them on top of taxable Social Security, and reinvests what is left in a taxable account &mdash; because you do not need the income. Medicare premium surcharges triggered by that income are counted as well.</div>
+            </div>
           </div>
         </div>
         <div class="mc-right">
           <div class="mc-step">
             <div class="mc-step-num">3</div>
-            <div class="mc-step-title">The Median, Not the Best Case</div>
-            <div class="mc-step-text">Every figure shown is the median &mdash; the middle outcome of ten thousand. Half the scenarios finish better and half finish worse.</div>
+            <div class="mc-step-body"><div class="mc-step-title">The Median, Not the Best Case</div>
+              <div class="mc-step-text">Every figure shown is the median &mdash; the middle outcome of ten thousand. Half the scenarios finish better and half finish worse.</div>
+            </div>
           </div>
           <div class="mc-step">
             <div class="mc-step-num">4</div>
-            <div class="mc-step-title">The Insurance Side Is Not Modeled</div>
-            <div class="mc-step-text">Policy values are taken directly from the carrier's own illustration as prepared. Nothing on that side of the comparison is projected by us.</div>
+            <div class="mc-step-body"><div class="mc-step-title">The Insurance Side Is Not Modeled</div>
+              <div class="mc-step-text">Policy values are taken directly from the carrier's own illustration as prepared. Nothing on that side of the comparison is projected by us.</div>
+            </div>
           </div>
         </div>
       </div>
@@ -557,7 +579,7 @@
 <div class="page sidebar-page">
   <div class="sidebar">
     <div class="sidebar-section">Before We Meet Again</div>
-    <div class="sidebar-title">Worth<br>Con&shy;sid&shy;ering</div>
+    <div class="sidebar-title" style="font-size:22px">Worth<br>Considering</div>
     <div class="sidebar-subtitle">QUESTIONS<br>ONLY YOU<br>CAN ANSWER</div>
     <div class="sidebar-divider"></div>
     <div class="sidebar-tagline">"The decision does not have to be made today. It does have to be made while it is still yours to make."</div>
@@ -680,6 +702,19 @@
     set('cost-est',  $f(wf.estateTax));
     set('cost-cg',   $f(wf.capGainsTax));
     set('cost-ird',  $f(wf.inheritedIraTax));
+
+    // Bar widths proportional to the largest layer, so the reader sees at a
+    // glance which layers actually drive the total rather than reading six
+    // equally-weighted numbers.
+    var costLayers = [['cost-rmd-bar',wf.taxRMD],['cost-drag-bar',wf.taxDrag],
+      ['cost-irmaa-bar',wf.irmaa],['cost-est-bar',wf.estateTax],
+      ['cost-cg-bar',wf.capGainsTax],['cost-ird-bar',wf.inheritedIraTax]];
+    var maxLayer = Math.max.apply(null, costLayers.map(function(l){ return l[1]||0; }));
+    costLayers.forEach(function(l){
+      var pct = maxLayer>0 ? Math.max(2, 100*(l[1]||0)/maxLayer) : 0;
+      var el = document.getElementById(l[0]);
+      if (el) el.style.width = pct.toFixed(1) + '%';
+    });
 
     if (r.qpAtDeath > 0) {
       var kept = Math.round(100*(r.qpAtDeath - (r.qpEstateTax||0) - (r.qpIncomeTax||0))/r.qpAtDeath);
