@@ -617,6 +617,7 @@ table.sc-ldg tfoot td.gold-col { color:var(--gold); }
         <button class="calc-btn" onclick="runEstate()">Run Estate Comparison</button>
         <button class="ab-btn" id="onepageBtn" onclick="openOnePageSummary()" style="display:none;margin-top:10px;width:100%;background:var(--navy);color:var(--gold);border:1.5px solid var(--gold)">Produce One-Page Summary</button>
         <button class="ab-btn" id="ledgerBtn" onclick="openLedger()" style="display:none;margin-top:8px;width:100%;background:var(--navy);color:var(--gold);border:1.5px solid var(--gold)">Produce Ledger (17&times;11)</button>
+        <button class="ab-btn" id="discussionBtn" onclick="openDiscussionDoc()" style="display:none;margin-top:8px;width:100%;background:var(--navy);color:var(--gold);border:1.5px solid var(--gold)">Produce Discussion Document</button>
       </div>
     </div>
   </div>
@@ -1880,11 +1881,17 @@ function runEstate(){
     payoffYear: _preIllus ? _preIllus.payoffYear : null
   }));
   document.getElementById('ledgerBtn').style.display = '';
+  document.getElementById('discussionBtn').style.display = '';
 }
 
 function openLedger(){
   const w = window.open('eta-estate-ledger.html', 'eta_estate_ledger');
   if(!w) window.location.href = 'eta-estate-ledger.html';
+}
+
+function openDiscussionDoc(){
+  const w = window.open('eta-estate-discussion-doc.html', 'eta_estate_discussion_doc');
+  if(!w) window.location.href = 'eta-estate-discussion-doc.html';
 }
 
 function openOnePageSummary(){
