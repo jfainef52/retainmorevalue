@@ -1647,7 +1647,7 @@ function parseCSV(text) {
     return (parts[0]==='year'||parts[0]==='yr') && parts[1]==='age';
   });
   if(hIdx<0) return null;
-  const headers=lines[hIdx].split(',').map(v=>v.replace(/["'\s]/g,'').toLowerCase());
+  const headers=lines[hIdx].split(',').map(v=>v.replace(/["']/g,'').replace(/\s+/g,' ').trim().toLowerCase());
   const fc=(...terms)=>{for(const t of terms){const i=headers.findIndex(h=>h.includes(t));if(i>=0)return i;}return -1;};
 
   const cYr =fc('year','yr')>=0?fc('year','yr'):0;
