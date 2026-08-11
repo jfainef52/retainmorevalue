@@ -1007,9 +1007,12 @@ function simETAPath(carrierRows, bankRows, pdaRows, annualPrem, payYears,
 
     const csvGross = Math.max(0, av - surrChg);
     const totalLoan = bankLoanBal + cumIncomeLoan;
-    const csvNet = Math.max(0, csvGross - totalLoan);
+    // PDA balance for this year (sinking fund still holding undeployed premium dollars)
+    const pdaRow = pdaRows && pdaRows[i] ? pdaRows[i] : null;
+    const pdaBal = pdaRow ? (pdaRow.eoy || 0) : 0;
+    const csvNet = Math.max(0, csvGross + pdaBal - totalLoan);
 
-    out.push({yr, age, av, csvNet, csvGross, bankLoan:bankLoanBal,
+    out.push({yr, age, av, csvNet, csvGross, pdaBal, bankLoan:bankLoanBal,
               incomeLoan:cumIncomeLoan, totalLoan, surrChg, income, credits, ret, idx, O, creditRate});
   }
   return out;
@@ -1837,7 +1840,9 @@ async function generateMC() {
       if(inc>0&&age>=d.is&&age<=d.ie) income=inc*Math.pow(1+cola,age-d.is);
       cumIncomeLoan=cumIncomeLoan*(1+plrR)+income;
       const totalLoan=bankLoan+cumIncomeLoan;
-      csvByAge[age]=Math.max(0,Math.max(0,pathAV[i]-(pathSurr[i]||0))-totalLoan);
+      const pdaRow=(d.pdaRows && d.pdaRows[i]) ? d.pdaRows[i] : null;
+      const pdaBal=pdaRow ? (pdaRow.eoy||0) : 0;
+      csvByAge[age]=Math.max(0,Math.max(0,pathAV[i]-(pathSurr[i]||0))+pdaBal-totalLoan);
       loanByAge[age]=totalLoan;
     }
     return{csvByAge,loanByAge};
