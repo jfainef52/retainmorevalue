@@ -1951,7 +1951,7 @@ async function generateMC() {
       ? incAges.reduce((s,a)=>s+(qpGrossYr1*Math.pow(1+d.cola/100,a-d.is)*(1-(d.fed+d.state)/100)),0)
       : 0;
 
-    // NAV at age 95 on median path
+    // NAV at end of income period (age d.ie) on median path
     const navAt95 = strandPaths[50]?.pathAV
       ? (() => {
           const avArr=strandPaths[50].pathAV;
@@ -1959,10 +1959,12 @@ async function generateMC() {
           const idx95=d.ie-d.age;
           const av=avArr[idx95]||0;
           const sur=surrArr[idx95]||0;
-          const bk=d.bankRows[idx95]?.cum||0;
+          const bk=d.bankRows[idx95]?.cumLoan||0;
+          const pdaRow=(d.pdaRows && d.pdaRows[idx95]) ? d.pdaRows[idx95] : null;
+          const pdaBal=pdaRow ? (pdaRow.eoy||0) : 0;
           let cil=0;
           incAges.forEach((a,j)=>{ cil=cil*(1+d.plr/100)+(bandIncome[50]*Math.pow(1+d.cola/100,j)); });
-          return Math.max(0,av-sur-bk-cil);
+          return Math.max(0,av-sur+pdaBal-bk-cil);
         })()
       : 0;
 
