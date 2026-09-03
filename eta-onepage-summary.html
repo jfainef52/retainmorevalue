@@ -70,6 +70,7 @@ h1{font-family:'Playfair Display',serif;font-weight:600;font-size:26px;color:var
   <div class="meta-row">
     <span><b>Client:</b> <span id="doc-client">M55 ETA7 1M LS Tax</span></span>
     <span><b>Age <span id="doc-age">55</span></b></span>
+    <span id="doc-insured-wrap" style="display:none"><b>Insured:</b> <span id="doc-insured">—</span></span>
     <span><b>Income begins:</b> Age <span id="doc-incstart">70</span></span>
     <span><b>Prepared:</b> <span id="doc-date">July 2026</span></span>
   </div>
@@ -201,6 +202,10 @@ h1{font-family:'Playfair Display',serif;font-weight:600;font-size:26px;color:var
 
     set('doc-client', r.clientName || '—');
     set('doc-age', r.issueAge || '—');
+    if (r.altInsured) {
+      set('doc-insured', (r.insuredName||'—') + ' (Age ' + (r.insuredAge||'—') + (r.insuredRelationship ? ', ' + r.insuredRelationship : '') + ')');
+      var iw = document.getElementById('doc-insured-wrap'); if (iw) iw.style.display = 'inline';
+    }
     set('doc-incstart', incStart);
     set('doc-date', r.date || '—');
     set('doc-date2', r.date || '—');
