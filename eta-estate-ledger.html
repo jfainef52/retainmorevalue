@@ -44,7 +44,9 @@ body{font-family:'IBM Plex Sans',sans-serif;background:#e9e6dd;color:var(--text)
 table{width:100%;border-collapse:collapse;font-family:'IBM Plex Mono',monospace;font-size:9.6px}
 th{background:var(--navy);color:#fff;padding:5px 6px;text-align:right;font-weight:500;
   font-family:'IBM Plex Sans',sans-serif;font-size:7.8px;letter-spacing:.4px;text-transform:uppercase;
-  line-height:1.2;vertical-align:bottom}
+  line-height:1.2;vertical-align:bottom;height:40px}
+tr.tranche td{background:var(--navy);color:#fff}
+tr.tranche td:nth-child(2){font-weight:700;color:var(--gold-lt)}
 th.supp{background:var(--gold);color:var(--navy);font-weight:700}
 th:first-child,td:first-child{text-align:left}
 td{padding:2.7px 6px;text-align:right;border-bottom:1px solid var(--border);white-space:nowrap}
@@ -83,7 +85,7 @@ tr.tot td{border-top:2px solid var(--navy);border-bottom:none;font-weight:700;ba
 <body>
 
 <!-- ══════════ PAGE 1 — THE LEDGER ══════════ -->
-<div class="sheet">
+<div class="sheet" id="sheet1">
   <div class="masthead">
     <div class="kicker">Enhanced Tax Advantage &mdash; Estate &middot; Median Market Sequence</div>
     <div class="who" id="p1-who">&mdash;</div>
@@ -241,17 +243,15 @@ tr.tot td{border-top:2px solid var(--navy);border-bottom:none;font-weight:700;ba
   /* Condensed to fit one page: full detail while the bank loan is live and
      through the first decade of required distributions — that's where the
      mechanics matter — every 5th year thereafter. */
-  function sample(rows){
+  function sample(rows, denseYears){
     var out=[];
     rows.forEach(function(r,i){
       var yr=i+1;
-      var dense = yr<=(payoffYr+1) || (rmdStart && r.a<=rmdStart+4);
+      var dense = yr<=denseYears || yr<=(payoffYr+1) || (rmdStart && r.a<=rmdStart+4);
       if(dense || r.a%5===0 || i===rows.length-1) out.push(r);
     });
     return out;
   }
-  var qShown=sample(qpRows);
-
   var QP_HDR='<tr><th>Yr</th><th>Age(s)</th><th>Growth</th><th>Required<br>Distribution</th>'+
              '<th>Tax<br>Paid</th><th>Cap Gains<br>Drag</th><th>Plan<br>Balance</th><th class="supp">Non-Qualified<br>Estate</th>'+
              '<th class="supp">If Death That Year<br>(Est. + Cap Gains Tax)</th></tr>';
@@ -454,7 +454,7 @@ function stateEstateTax(stateCode, grossEstate, filing){
     return gross-estTax-stTax-cgTax+num(dbOutside,0);
   }
 
-  function qpBody(rows,startBal){
+  function qpBody(rows,startBal,denseYears){
     var h='', prev=startBal, phased=false;
     rows.forEach(function(r){
       if(!phased && r.rmd>0){
@@ -466,7 +466,8 @@ function stateEstateTax(stateCode, grossEstate, filing){
       var cgGain = Math.max(0, r.side - r.basis);
       var yrNo = yearsFwd+1;
       var netIfDeath = (yrNo<=horizonYr) ? $f(netAt(r.qp+r.side, yearsFwd, cgGain, 0, 0)) : '\u2014';
-      h+='<tr><td>'+yrNum(r.a)+'</td><td>'+ageLabel(r.a)+'</td><td>'+(growth?$f(growth):'\u2014')+'</td><td>'+$f(r.rmd)+
+      var isDense = yrNo<=denseYears || yrNo<=(payoffYr+1) || (rmdStart && r.a<=rmdStart+4);
+      h+='<tr'+(isDense?'':' class="tranche"')+'><td>'+yrNum(r.a)+'</td><td>'+ageLabel(r.a)+'</td><td>'+(growth?$f(growth):'\u2014')+'</td><td>'+$f(r.rmd)+
          '</td><td>'+$f(r.tax)+'</td><td>'+(r.drag?$f(r.drag):'\u2014')+'</td><td>'+$f(r.qp)+'</td><td>'+$f(r.side)+
          '</td><td>'+netIfDeath+'</td></tr>';
       prev=r.qp;
@@ -474,7 +475,7 @@ function stateEstateTax(stateCode, grossEstate, filing){
     return h;
   }
 
-  function etaBody(rows){
+  function etaBody(rows, denseYears){
     var h='', phased=false, lapsed=false;
     var cumGiftByYr = (function(){
       var m={}, cum=0;
@@ -521,7 +522,8 @@ function stateEstateTax(stateCode, grossEstate, filing){
       var etaGross = (er?er.qp:0)+(er?er.side:0);
       var etaGain = er ? Math.max(0, er.side-er.basis) : 0;
       var netIfDeath = (yr<=horizonYr) ? $f(netAt(etaGross, yr-1, etaGain, dbOutside, gifts)) : '\u2014';
-      h+='<tr class="'+rowCls+'"><td>'+yrNum(r.a)+'</td><td>'+ageDisplay+'</td><td>'+
+      var isDense = yr<=denseYears || yr<=(payoffYr+1) || (rmdStart && r.a<=rmdStart+4);
+      h+='<tr class="'+rowCls+(isDense?'':' tranche')+'"><td>'+yrNum(r.a)+'</td><td>'+ageDisplay+'</td><td>'+
          planToDeposit+'</td><td>'+depositToPolicy+'</td><td>'+pdaBal+'</td><td>'+
          $f(pdaPlusSv)+'</td><td>'+
          loanCell+'</td><td>'+intCell+'</td><td>'+(c?$f(c.db):'\u2014')+'</td><td>'+nonQual+
@@ -534,24 +536,41 @@ function stateEstateTax(stateCode, grossEstate, filing){
   var totRmd=qpRows.reduce(function(s,r){return s+r.rmd;},0);
   var totDrag=qpRows.reduce(function(s,r){return s+(r.drag||0);},0);
 
-  set('p1-qp', QP_HDR+qpBody(qShown,S.qpBalance)+
-    '<tr class="tot"><td colspan="2">Totals</td><td>&mdash;</td><td>'+$f(totRmd)+'</td><td>'+$f(totTax)+
-    '</td><td>'+$f(totDrag)+'</td><td colspan="3">&mdash;</td></tr>');
+  // Show full year-by-year detail up to `denseYears`, then collapse to every
+  // 5th year (tranche rows, highlighted navy so the jump is obvious rather
+  // than silently changing pace). Re-run at a smaller denseYears if the
+  // requested amount doesn't actually fit the printed 17x11 sheet — measured
+  // against the real rendered height rather than guessed.
+  var lastRow, lastCar;
+  function renderPage1Tables(denseYears){
+    var qShownLocal = sample(qpRows, denseYears);
+    set('p1-qp', QP_HDR+qpBody(qShownLocal,S.qpBalance,denseYears)+
+      '<tr class="tot"><td colspan="2">Totals</td><td>&mdash;</td><td>'+$f(totRmd)+'</td><td>'+$f(totTax)+
+      '</td><td>'+$f(totDrag)+'</td><td colspan="3">&mdash;</td></tr>');
 
-  // The trust-owned death benefit doesn't stop when the QP-side horizon
-  // does — extend the right-side table using the carrier's own rows
-  // (which the modeler now writes out further when an alternate insured is
-  // in use), not just the years the QP/estate-tax side happens to cover.
-  var eShownFull = carRows.map(function(cr){ return {a: S.age + cr.y - 1}; });
-  var eShown = sample(eShownFull.length > qShown.length ? eShownFull : qShown.map(function(r){ return etaByAge[r.a]||{a:r.a,rmd:0}; }));
-  var lastRow = carRows.length ? {a: S.age + carRows[carRows.length-1].y - 1} : qpRows[qpRows.length-1];
-  var lastCar=carByYear[lastRow.a-S.age+1];
-  var dbLabel = (S.altInsured && S.insuredAge)
-    ? 'Net death benefit at insured age '+(S.insuredAge+(lastRow.a-S.age))+' (account holder age '+lastRow.a+')'
-    : 'Net death benefit at age '+S.horizonAge;
-  set('p1-eta', ETA_HDR+etaBody(eShown)+
-    '<tr class="tot"><td colspan="8">'+dbLabel+'</td><td>'+
-    $f(lastCar?lastCar.db:S.netDB)+'</td><td>&mdash;</td><td>&mdash;</td></tr>');
+    // The trust-owned death benefit doesn't stop when the QP-side horizon
+    // does — extend the right-side table using the carrier's own rows
+    // (which the modeler now writes out further when an alternate insured is
+    // in use), not just the years the QP/estate-tax side happens to cover.
+    var eShownFullLocal = carRows.map(function(cr){ return {a: S.age + cr.y - 1}; });
+    var eShownLocal = sample(eShownFullLocal.length > qShownLocal.length ? eShownFullLocal : qShownLocal.map(function(r){ return etaByAge[r.a]||{a:r.a,rmd:0}; }), denseYears);
+    lastRow = carRows.length ? {a: S.age + carRows[carRows.length-1].y - 1} : qpRows[qpRows.length-1];
+    lastCar = carByYear[lastRow.a-S.age+1];
+    var dbLabel = (S.altInsured && S.insuredAge)
+      ? 'Net death benefit at insured age '+(S.insuredAge+(lastRow.a-S.age))+' (account holder age '+lastRow.a+')'
+      : 'Net death benefit at age '+S.horizonAge;
+    set('p1-eta', ETA_HDR+etaBody(eShownLocal,denseYears)+
+      '<tr class="tot"><td colspan="8">'+dbLabel+'</td><td>'+
+      $f(lastCar?lastCar.db:S.netDB)+'</td><td>&mdash;</td><td>&mdash;</td></tr>');
+  }
+
+  var denseYears = 40;
+  renderPage1Tables(denseYears);
+  var sheet1 = document.getElementById('sheet1');
+  while (denseYears > 10 && sheet1.scrollHeight > sheet1.clientHeight + 1) {
+    denseYears -= 5;
+    renderPage1Tables(denseYears);
+  }
 
   /* ── settlement block (unchanged math) ─────────────────────────── */
   var etaQpEnd = etaRows.length ? etaRows[etaRows.length-1].qp : 0;
@@ -689,7 +708,7 @@ function stateEstateTax(stateCode, grossEstate, filing){
     document.getElementById('chart').innerHTML=svg;
   })();
 
-  set('p1-foot','Qualified plan figures reflect the median (50th percentile) of 10,000 bootstrapped simulations using paired S&amp;P 500 and 10-year Treasury calendar years, 1975&ndash;2024. Half of outcomes finish better and half worse. Required minimum distributions follow the 2022 Uniform Lifetime Table beginning at the age required by year of birth, are stacked on taxable Social Security, and are reinvested after tax. Rows are condensed to fit one page \u2014 shown in full while the bank loan is outstanding and through the first decade of required distributions, every fifth year thereafter. The bank loan is refinanced into a participating policy loan at payoff and continues silently within the illustrated death benefit; the policy loan balance itself is not shown. Policy values are taken from the carrier illustration as prepared and are not guaranteed. <b>&ldquo;If Death That Year&rdquo; is shown only through the account holder\u2019s own horizon, age '+S.horizonAge+'</b> \u2014 rows beyond that exist to show how the trust asset itself keeps growing across the insured\u2019s longer lifetime, not to model a second, later death of the account holder; the tax figure isn\u2019t carried past that point so a longer life never appears as a cost to the family.');
+  set('p1-foot','Qualified plan figures reflect the median (50th percentile) of 10,000 bootstrapped simulations using paired S&amp;P 500 and 10-year Treasury calendar years, 1975&ndash;2024. Half of outcomes finish better and half worse. Required minimum distributions follow the 2022 Uniform Lifetime Table beginning at the age required by year of birth, are stacked on taxable Social Security, and are reinvested after tax. Rows are shown in full for the first '+denseYears+' years (and while the bank loan is outstanding, and through the first decade of required distributions, regardless of that cutoff) \u2014 <span style="background:var(--navy);color:#fff;padding:1px 4px;border-radius:2px">navy rows</span> beyond that are condensed to every 5th year. The bank loan is refinanced into a participating policy loan at payoff and continues silently within the illustrated death benefit; the policy loan balance itself is not shown. Policy values are taken from the carrier illustration as prepared and are not guaranteed. <b>&ldquo;If Death That Year&rdquo; is shown only through the account holder\u2019s own horizon, age '+S.horizonAge+'</b> \u2014 rows beyond that exist to show how the trust asset itself keeps growing across the insured\u2019s longer lifetime, not to model a second, later death of the account holder; the tax figure isn\u2019t carried past that point so a longer life never appears as a cost to the family.');
   set('p2-foot','The chart applies the same 40%-above-exemption estate tax calculation used for the final result at every age along the timeline, using the stored median-path balances for each year \u2014 it is not a separate projection. <b>Conservative methodology.</b> Required distributions are taxed as though they were the client\u2019s only ordinary income; the distribution funding the structure is taxed at the highest marginal bracket. Any distortion understates the advantage shown. Hypothetical model \u2014 not a guarantee of future results or tax outcomes. Federal estate tax exemption reflects current law under the One Big Beautiful Bill Act ($15M individual / $30M married, effective for deaths on or after January 1, 2026, indexed) and is subject to legislative change. Death benefit is excluded from the gross estate only where the policy is owned by a properly structured irrevocable trust with an independent trustee and no obligation to satisfy estate liabilities; a policy transferred into trust rather than issued to it is subject to the three-year lookback under IRC 2035. The IRC 691(c) deduction is not modeled. Not tax or legal advice \u2014 consult qualified tax counsel and an estate planning attorney. Not valid without a complete carrier illustration. RetainMoreValue.com \u00b7 EFS Life LLC');
 })();
 </script>
