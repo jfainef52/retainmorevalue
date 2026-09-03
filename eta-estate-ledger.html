@@ -10,7 +10,7 @@
   --off:#f5f3ee; --border:#ddd8ce; --muted:#8a8070; --green:#2a6e45; --green-lt:#e6f2ec;
   --red:#8b2020; --red-lt:#fdf0f0; --text:#1a1a2a; --white:#fff;
 }
-*{box-sizing:border-box;margin:0;padding:0}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact;color-adjust:exact}
 body{font-family:'IBM Plex Sans',sans-serif;background:#e9e6dd;color:var(--text)}
 .sheet{width:17in;height:11in;margin:0 auto 26px;background:var(--white);
   box-shadow:0 8px 40px rgba(0,0,0,.18);padding:.32in .52in;display:flex;flex-direction:column;overflow:hidden}
@@ -45,7 +45,7 @@ table{width:100%;border-collapse:collapse;font-family:'IBM Plex Mono',monospace;
 th{background:var(--navy);color:#fff;padding:5px 6px;text-align:right;font-weight:500;
   font-family:'IBM Plex Sans',sans-serif;font-size:7.8px;letter-spacing:.4px;text-transform:uppercase;
   line-height:1.2;vertical-align:bottom;height:40px}
-tr.tranche td{background:var(--navy);color:#fff}
+tr.tranche td:nth-child(1),tr.tranche td:nth-child(2){background:var(--navy);color:#fff}
 tr.tranche td:nth-child(2){font-weight:700;color:var(--gold-lt)}
 th.supp{background:var(--gold);color:var(--navy);font-weight:700}
 th:first-child,td:first-child{text-align:left}
@@ -129,6 +129,26 @@ tr.tot td{border-top:2px solid var(--navy);border-bottom:none;font-weight:700;ba
   </div>
 
   <div class="foot" id="p2-foot"></div>
+</div>
+
+<!-- ══════════ PAGE 3 — AFTER THE ACCOUNT HOLDER ══════════ -->
+<div class="sheet">
+  <div class="masthead">
+    <div class="kicker">Enhanced Tax Advantage &mdash; Estate &middot; What the Family Holds After Inheritance</div>
+    <div class="who" id="p3-who">&mdash;</div>
+  </div>
+  <div class="metaline" id="p3-meta">&mdash;</div>
+
+  <div class="chart-wrap">
+    <div class="ltitle">Combined Family Wealth &mdash; Years Since Inheritance</div>
+    <div class="legend">
+      <span><i class="sw" style="background:#8a8070"></i>Take No Action, Reinvested</span>
+      <span><i class="sw" style="background:#c9a84c"></i>Enhanced Tax Advantage &mdash; Trust Asset (Illustrated) + Reinvested Balance</span>
+    </div>
+    <svg id="chart3" viewBox="0 0 1500 430" style="width:100%;flex:1;min-height:0"></svg>
+  </div>
+
+  <div class="foot" id="p3-foot"></div>
 </div>
 
 <script>
@@ -572,12 +592,11 @@ function stateEstateTax(stateCode, grossEstate, filing){
   // Started at 40 originally and let on-screen scrollHeight/clientHeight
   // measurement shrink it from there — but that measurement doesn't
   // reliably predict what actually fits once run through the real
-  // print/PDF path, which came back overflowing at 35. 32 is the number
-  // that's been confirmed to actually fit a printed 17x11 sheet, so that's
-  // the starting point now; the shrink-on-overflow safety net stays in case
-  // a longer name, a lapse warning, or other extra content pushes a
-  // specific case past even that.
-  var denseYears = 32;
+  // print/PDF path. 32 still bled past the page; 30 is confirmed to leave
+  // two extra rows of headroom, so that's the starting point now; the
+  // shrink-on-overflow safety net stays in case a longer name, a lapse
+  // warning, or other extra content pushes a specific case past even that.
+  var denseYears = 30;
   renderPage1Tables(denseYears);
   var sheet1 = document.getElementById('sheet1');
   while (denseYears > 10 && sheet1.scrollHeight > sheet1.clientHeight + 1) {
@@ -720,6 +739,96 @@ function stateEstateTax(stateCode, grossEstate, filing){
 
     document.getElementById('chart').innerHTML=svg;
   })();
+
+  set('p3-who', whoNames);
+  set('p3-meta', meta);
+
+  /* ── page 3: what the family holds after the account holder is gone ──
+     The first chart stops at the account holder's own horizon by design —
+     it answers "what happens if death occurs at age X," not "what does the
+     family end up with." This is the second half of that story: once the
+     estate has settled (at the account holder's horizon), what does the
+     combined pool actually do across the years that follow — the insured's
+     own remaining lifetime, not a hypothetical extension of the account
+     holder's.
+     Take No Action's total is grown at a single stated assumption, since
+     there's no illustrated instrument behind it. The ETA path splits in
+     two: the trust asset follows the carrier's own illustrated values
+     (real data, already used throughout this ledger), while the remaining
+     liquid portion (net-to-family minus the trust proceeds) grows at the
+     SAME stated assumption used for the other line, so the two are
+     comparable apples-to-apples on the portion that isn't carrier-illustrated. */
+  var REINVEST_RATE = 0.05;
+  var horizonYr3 = S.horizonAge - S.age + 1;
+  var lastCarrierYr = carRows.length ? carRows[carRows.length-1].y : horizonYr3;
+  var yearsPost = Math.max(0, lastCarrierYr - horizonYr3);
+  var insuredAtHorizon = (S.altInsured && S.insuredAge) ? (S.insuredAge + horizonYr3 - 1) : S.horizonAge;
+  var etaLiquid0 = Math.max(0, (eta.netToHeirs||0) - (eta.ilitProceeds||0));
+  var dnTotal0 = dn.netToHeirs||0;
+  var pts3=[];
+  for (var k=0; k<=yearsPost; k++){
+    var polYr = horizonYr3 + k;
+    var carAtK = carByYear[polYr];
+    var trustVal = carAtK ? carAtK.db : (eta.ilitProceeds||0);
+    var etaTotal = trustVal + etaLiquid0*Math.pow(1+REINVEST_RATE,k);
+    var dnTotalK = dnTotal0*Math.pow(1+REINVEST_RATE,k);
+    pts3.push({yrsPost:k, insuredAge:insuredAtHorizon+k, dn:dnTotalK, eta:etaTotal});
+  }
+
+  (function drawChart3(){
+    var svgEl = document.getElementById('chart3');
+    if (!svgEl || pts3.length<2) { if(svgEl) svgEl.parentNode.parentNode.style.display='none'; return; }
+    var W=1500,H=430,PAD_L=100,PAD_R=150,PAD_T=20,PAD_B=44;
+    var plotW=W-PAD_L-PAD_R, plotH=H-PAD_T-PAD_B;
+    var maxV=0; pts3.forEach(function(p){ maxV=Math.max(maxV,p.dn,p.eta); });
+    maxV=Math.max(1e6,Math.ceil(maxV/1e7)*1e7);
+    var minK=pts3[0].yrsPost, maxK=pts3[pts3.length-1].yrsPost;
+    var x=function(k){ return PAD_L+(k-minK)/(maxK-minK)*plotW; };
+    var y=function(v){ return PAD_T+plotH-(Math.max(0,v)/maxV)*plotH; };
+
+    var svg='';
+    for(var g=0; g<=5; g++){
+      var v=maxV*g/5, yy=y(v);
+      svg+='<line x1="'+PAD_L+'" y1="'+yy+'" x2="'+(W-PAD_R)+'" y2="'+yy+'" stroke="#ddd8ce" stroke-width="1"/>';
+      svg+='<text x="'+(PAD_L-10)+'" y="'+(yy+4)+'" text-anchor="end" font-family="IBM Plex Mono" font-size="14" fill="#8a8070">$'+(v/1e6).toFixed(0)+'M</text>';
+    }
+    pts3.forEach(function(p){
+      if(p.yrsPost%5===0 || p.yrsPost===minK || p.yrsPost===maxK){
+        svg+='<text x="'+x(p.yrsPost)+'" y="'+(H-PAD_B+22)+'" text-anchor="middle" font-family="IBM Plex Sans" font-size="12.5" fill="#8a8070">Yr '+p.yrsPost+(S.altInsured?' &middot; ins. age '+p.insuredAge:'')+'</text>';
+      }
+    });
+    svg+='<text x="'+(PAD_L+plotW/2)+'" y="'+(H-6)+'" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" letter-spacing="1.5" fill="#8a8070">YEARS SINCE THE ACCOUNT HOLDER\u2019S HORIZON (AGE '+S.horizonAge+')</text>';
+
+    function path3(key,color){
+      var d=pts3.map(function(p,i){ return (i===0?'M':'L')+x(p.yrsPost).toFixed(1)+','+y(p[key]).toFixed(1); }).join(' ');
+      return '<path d="'+d+'" fill="none" stroke="'+color+'" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"/>';
+    }
+    svg+=path3('dn','#8a8070');
+    svg+=path3('eta','#c9a84c');
+
+    var last3=pts3[pts3.length-1];
+    var yDn3=y(last3.dn), yEta3=y(last3.eta);
+    var GAP3=20, CLEAR3=8;
+    var upperIsEta3 = yEta3 < yDn3;
+    var upperY3 = Math.min(yDn3,yEta3), lowerY3 = Math.max(yDn3,yEta3);
+    var upperLabelY3 = Math.min(upperY3+GAP3, lowerY3-CLEAR3);
+    var lowerLabelY3 = lowerY3+GAP3;
+    var etaLabelY3 = upperIsEta3 ? upperLabelY3 : lowerLabelY3;
+    var dnLabelY3  = upperIsEta3 ? lowerLabelY3 : upperLabelY3;
+    [['dn',last3.dn,'#8a8070',dnLabelY3],['eta',last3.eta,'#c9a84c',etaLabelY3]].forEach(function(cfg){
+      var v=cfg[1];
+      svg+='<circle cx="'+x(last3.yrsPost)+'" cy="'+y(v)+'" r="5" fill="'+cfg[2]+'"/>';
+      svg+='<text x="'+(x(last3.yrsPost)+12)+'" y="'+cfg[3]+'" text-anchor="start" font-family="Playfair Display" font-weight="600" font-size="17" fill="'+cfg[2]+'">$'+(v/1e6).toFixed(1)+'M</text>';
+    });
+
+    svgEl.innerHTML=svg;
+  })();
+
+  set('p3-foot','Both lines start from each path\u2019s Net to Family figure at the account holder\u2019s horizon (age '+S.horizonAge+') \u2014 the same numbers shown in the settlement table on the previous page. '+
+    '<b>Take No Action</b> is grown at a flat '+(REINVEST_RATE*100).toFixed(0)+'%/yr reinvestment assumption for the whole balance, since nothing about that path is carrier-illustrated. '+
+    '<b>Enhanced Tax Advantage</b> splits: the trust asset ('+$f(eta.ilitProceeds||0)+' at the horizon) follows the carrier\u2019s own illustrated values year by year, same as the trust-owned asset table on the ledger page; the remaining liquid portion ('+$f(etaLiquid0)+') is grown at the same '+(REINVEST_RATE*100).toFixed(0)+'%/yr assumption as the other line, so the comparison is apples-to-apples on the part that isn\u2019t carrier data. '+
+    (REINVEST_RATE<0.06?'A conservative reinvestment rate; a higher assumption would widen the advantage shown here, since it compounds on the trust\u2019s larger base for longer.':'')+
+    ' Hypothetical illustration \u2014 not a guarantee of future results. Not tax or legal advice.');
 
   set('p1-foot','Qualified plan figures reflect the median (50th percentile) of 10,000 bootstrapped simulations using paired S&amp;P 500 and 10-year Treasury calendar years, 1975&ndash;2024. Half of outcomes finish better and half worse. Required minimum distributions follow the 2022 Uniform Lifetime Table beginning at the age required by year of birth, are stacked on taxable Social Security, and are reinvested after tax. Rows are shown in full for the first '+denseYears+' years (and while the bank loan is outstanding, and through the first decade of required distributions, regardless of that cutoff) \u2014 navy rows beyond that are condensed to every 5th year. The bank loan is refinanced into a participating policy loan at payoff and continues silently within the illustrated death benefit; the policy loan balance itself is not shown. Policy values are taken from the carrier illustration as prepared and are not guaranteed. <b>&ldquo;If Death That Year&rdquo; is shown only through the account holder\u2019s own horizon, age '+S.horizonAge+'</b> \u2014 rows beyond that exist to show how the trust asset itself keeps growing across the insured\u2019s longer lifetime, not to model a second, later death of the account holder; the tax figure isn\u2019t carried past that point so a longer life never appears as a cost to the family.');
   set('p2-foot','The chart applies the same 40%-above-exemption estate tax calculation used for the final result at every age along the timeline, using the stored median-path balances for each year \u2014 it is not a separate projection. <b>Conservative methodology.</b> Required distributions are taxed as though they were the client\u2019s only ordinary income; the distribution funding the structure is taxed at the highest marginal bracket. Any distortion understates the advantage shown. Hypothetical model \u2014 not a guarantee of future results or tax outcomes. Federal estate tax exemption reflects current law under the One Big Beautiful Bill Act ($15M individual / $30M married, effective for deaths on or after January 1, 2026, indexed) and is subject to legislative change. Death benefit is excluded from the gross estate only where the policy is owned by a properly structured irrevocable trust with an independent trustee and no obligation to satisfy estate liabilities; a policy transferred into trust rather than issued to it is subject to the three-year lookback under IRC 2035. The IRC 691(c) deduction is not modeled. Not tax or legal advice \u2014 consult qualified tax counsel and an estate planning attorney. Not valid without a complete carrier illustration. RetainMoreValue.com \u00b7 EFS Life LLC');
