@@ -2057,7 +2057,11 @@ function runEstate(){
   // tax, IRMAA, capital-gains drag, and running balances. The life insurance
   // policy side is a single deterministic carrier illustration (no percentile
   // variation), so it's included once, unbanded.
-  const thinQP = r => ({a:r.age, hy:r.year, ret:r.ret, dist:r.dist, rmd:r.rmd,
+  // r.ret is the gross equity/bond blend before the management fee — the fee
+  // is applied as a separate step when the balance compounds, so it's surfaced
+  // here explicitly as its own field rather than left as a silent adjustment
+  // the reader would have to know to apply themselves to reconcile the balance.
+  const thinQP = r => ({a:r.age, hy:r.year, retGross:r.ret, netRet:(1+r.ret)*(1-mgmtFee)-1, dist:r.dist, rmd:r.rmd,
     tax:r.tax, irmaa:r.irmaa, drag:r.drag, qp:r.qp, side:r.side, basis:r.basis, cum:r.cumTax});
   const auditBands = {};
   ['p25','p50','p75'].forEach(k => {
@@ -2072,7 +2076,7 @@ function runEstate(){
     clientName: document.getElementById('clientName').value || '',
     advisor: document.getElementById('advisorName').value || '',
     date: new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}),
-    age: startAge, horizonAge: horizon, sims,
+    age: startAge, horizonAge: horizon, sims, mgmtFee,
     carrier: _illustration.carrier, policyType: _illustration.policyType,
     carrierRows: _illustration.rows.filter(r=>r.year<=Math.max(45,horizon-startAge+1))
       .map(r=>({y:r.year, a:r.age, a2:r.age2, p:Math.round(r.premium),
