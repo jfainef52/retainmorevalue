@@ -895,6 +895,12 @@ function openOnePageSummary(){
     window.location.href = 'eta-onepage-summary.html';
   }
 }
+function openAuditReport(){
+  const w = window.open('eta-audit-report.html', 'eta_audit_report');
+  if (!w) {
+    window.location.href = 'eta-audit-report.html';
+  }
+}
 
 // ══════════════════════════════════════════════════════════
 // PDA CALCULATION
@@ -1004,11 +1010,11 @@ function simETAPath(carrierRows, bankRows, pdaRows, annualPrem, payYears,
     // BonusCharge  = -BCF × AvgMonthlyAV
     // Credits      = AvgMonthlyAV × CappedReturn × BonusCreditFactor + AvgMonthlyAV × PersistencyBonus
     // EOY_AV       = prior_AV + prem - stdChg + BonusCharge + Credits
-    let av_new, credits=0, idx=0, O=0, creditRate=0;
+    let av_new, credits=0, idx=0, O=0, creditRate=0, bonusChg=0;
     if (carrierKey === 'NLG') {
       const premExpChg = carrier.premExpChg || 0;
       const avgMonthlyAV = (av + prem + premExpChg/2 - stdChg/2) / (1 + bcf/2);
-      const bonusChg = avgMonthlyAV * bcf;
+      bonusChg = avgMonthlyAV * bcf;
       idx = Math.min(Math.max(ret, FLOOR), CAP);
       creditRate = idx * bcr + pb;
       credits = avgMonthlyAV * creditRate;
@@ -1025,7 +1031,7 @@ function simETAPath(carrierRows, bankRows, pdaRows, annualPrem, payYears,
       const premLoad = carrier.premCharges || 0;
       const netPrem = yr <= payYears ? Math.max(0, prem - premLoad) : prem;
       O = Math.max(0, (av + netPrem - 0.5*stdChg) / (1 + 0.5*bcf));
-      const bonusChg = O * bcf;
+      bonusChg = O * bcf;
       idx = Math.min(Math.max(ret, FLOOR), CAP);
       creditRate = idx * bcr + pb;
       credits = O * creditRate;
@@ -1041,7 +1047,8 @@ function simETAPath(carrierRows, bankRows, pdaRows, annualPrem, payYears,
     const csvNet = Math.max(0, csvGross + pdaBal - totalLoan);
 
     out.push({yr, age, av, csvNet, csvGross, pdaBal, bankLoan:bankLoanBal,
-              incomeLoan:cumIncomeLoan, totalLoan, surrChg, income, credits, ret, idx, O, creditRate});
+              incomeLoan:cumIncomeLoan, totalLoan, surrChg, income, credits, ret, idx, O, creditRate,
+              prem, stdChg, bonusChg});
   }
   return out;
 }
@@ -1134,7 +1141,7 @@ function simQP(dist, combinedTaxRate, baseRate, issueAge, incStart, incEnd, cola
       const g = Math.min(bestW * Math.pow(1+cola, j), b2);
       const n = g * (1 - taxR);
       b2 = Math.max(0, b2-g);
-      rows.push({yr, age, gross:g, net:n, bal:b2});
+      rows.push({yr, age, gross:g, net:n, bal:b2, ret});
     } else {
       rows.push({yr, age, gross:0, net:0, bal:0, ret});
     }
@@ -1207,7 +1214,7 @@ function simInvestmentAccount(seed, basisPct, ltcgRate, issueAge, incStart, incE
       basisDollar2 = Math.max(0, basisDollar2 - g * curBasisPct);
       b2 = Math.max(0, b2 - g);
       if (j === 0) netW1 = n;
-      rows.push({yr, age, gross: g, net: n, bal: b2, basisPct: curBasisPct * 100});
+      rows.push({yr, age, gross: g, net: n, bal: b2, ret, basisPct: curBasisPct * 100});
     } else {
       rows.push({yr, age, gross: 0, net: 0, bal: 0, ret, basisPct: 0});
     }
@@ -1803,7 +1810,7 @@ async function generateMC() {
     const eqRet=SP_PRICE[y]+0.015;  // price + ~1.5% avg dividend (embedded in equity leg only)
     const bdRet=TB10[y];
     const qpBlended=eqWt*eqRet + bdWt*bdRet - qpFeeAdj;
-    return [SP_PRICE[y], qpBlended];
+    return [SP_PRICE[y], qpBlended, y];
   });
   const poolLabel=`${poolCutoff}–2024 (${d.dataYrs} yrs)`;
 
@@ -1814,7 +1821,7 @@ async function generateMC() {
   const ageRange=[];for(let a=d.age;a<=100;a++) ageRange.push(a);
   const etaByAge={};ageRange.forEach(a=>{etaByAge[a]={av:[],csvNet:[]};});
   const qpByAge={};ageRange.forEach(a=>{qpByAge[a]={gross:[],net:[],bal:[]};});
-  const allPathAV=[],allPathSurr=[],allPathRets=[],allPathQPRets=[],allAvAtInc=[];
+  const allPathAV=[],allPathSurr=[],allPathRets=[],allPathQPRets=[],allAvAtInc=[],allPathYears=[];
   const incStartIdx=d.is-d.age;
 
   for(let sim=0;sim<N;sim++){
@@ -1823,6 +1830,7 @@ async function generateMC() {
     const pairedSeq=bootstrap(nYrs,pairedPool);
     const rets    =pairedSeq.map(p=>p[0]);  // price returns → ETA index crediting
     const qpRets  =pairedSeq.map(p=>p[1]);  // total returns → QP (price + dividends)
+    const yrsUsed =pairedSeq.map(p=>p[2]);  // historical calendar year drawn
     let ePath;
     try {
       ePath=simETAPath(carrier,d.bankRows,d.pdaRows,d.annualPrem,d.payYears,d.payoffYear,d.age,d.is,d.ie,d.cola,d.floor,d.plr,0,rets,d.cap,d.floorRate,d.carrierKey);
@@ -1835,6 +1843,7 @@ async function generateMC() {
     allPathSurr.push(ePath.map(r=>r.surrChg));
     allPathRets.push(rets);
     allPathQPRets.push(qpRets);
+    allPathYears.push(yrsUsed);
     allAvAtInc.push(ePath[incStartIdx]?.av||0);
     const qp=d.isNQP
       ? simInvestmentAccount(d.taxLiability, d.basisPct, d.ltcgRate, d.age, d.is, d.ie, d.cola, qpRets)
@@ -1863,6 +1872,7 @@ async function generateMC() {
       pathSurr: allPathSurr[idx],
       pathRets: allPathRets[idx],
       pathQPRets: allPathQPRets[idx],
+      pathYears: allPathYears[idx],
       simIdx:   idx,
       income:   allPathIncome[idx]
     };
@@ -1911,6 +1921,18 @@ async function generateMC() {
     strandQP[p] = d.isNQP
       ? simInvestmentAccount(d.taxLiability, d.basisPct, d.ltcgRate, d.age, d.is, d.ie, d.cola, strandPaths[p].pathQPRets)
       : simQP(d.dist, d.combined, d.fed+d.state, d.age, d.is, d.ie, d.cola, strandPaths[p].pathQPRets);
+  });
+
+  // Full policy debit/credit detail on each percentile strand's actual return
+  // sequence, this time with the solved income drawn — the original pass
+  // through simETAPath (in the main Monte Carlo loop) used annualIncome=0,
+  // since income wasn't solved yet at that point. For audit-report purposes
+  // only; not used elsewhere in the normal output.
+  const strandPolicy={};
+  PCTS.forEach(p=>{
+    strandPolicy[p] = simETAPath(carrier, d.bankRows, d.pdaRows, d.annualPrem, d.payYears,
+      d.payoffYear, d.age, d.is, d.ie, d.cola, d.floor, d.plr, bandIncome[p],
+      strandPaths[p].pathRets, d.cap, d.floorRate, d.carrierKey);
   });
 
   ageRange.forEach(a=>{
@@ -1962,6 +1984,7 @@ async function generateMC() {
     <button class="ab-btn primary" onclick="window.print()">Print / Export PDF</button>
     <button class="ab-btn" onclick="openDiscussionDoc()" style="background:var(--navy);color:var(--gold);border:1.5px solid var(--gold)">📄 Produce Discussion Document</button>
     <button class="ab-btn" onclick="openOnePageSummary()" style="background:var(--navy);color:var(--gold);border:1.5px solid var(--gold)">📋 Produce One-Page Summary</button>
+    <button class="ab-btn" onclick="openAuditReport()" style="background:transparent;color:var(--muted);border:1.5px solid var(--border)">🔍 Return Sequence &amp; Ledger Audit</button>
   </div>
   <div class="eta-page">${pg1}</div>
   <div class="eta-page page-break">${pg2}</div>
@@ -2022,6 +2045,28 @@ async function generateMC() {
       : 0;
 
     console.log('ETA modeler writing advisor:', typeof adv, JSON.stringify(adv));
+
+    // Audit report data — NOT part of the normal output. Full year-by-year
+    // detail (actual historical return sequence, policy debits/credits, QP
+    // credits/losses) for each of the three percentile strands, written only
+    // when the advisor opens the audit report from the button below.
+    localStorage.setItem('eta_audit_data', JSON.stringify({
+      clientName: d.name, advisor: adv||'', date: dateStr, issueAge: d.age,
+      isNQP: d.isNQP||false, carrierKey: d.carrierKey, incStart: d.is, incEnd: d.ie,
+      cola: d.cola, dataYrs: d.dataYrs, nSims: d.nSims,
+      bands: PCTS.reduce((o,p)=>{
+        o[p] = {
+          income: bandIncome[p],
+          years: strandPaths[p].pathYears,
+          policyRows: strandPolicy[p].map(r=>({yr:r.yr, age:r.age, ret:r.ret, idx:r.idx, creditRate:r.creditRate,
+            prem:r.prem, stdChg:r.stdChg, bonusChg:r.bonusChg, credits:r.credits, av:r.av, income:r.income,
+            incomeLoan:r.incomeLoan, bankLoan:r.bankLoan, totalLoan:r.totalLoan, surrChg:r.surrChg, csvNet:r.csvNet})),
+          qpRows: strandQP[p].rows.map((r,i)=>({yr:r.yr, age:r.age, ret:strandPaths[p].pathQPRets[i], gross:r.gross, net:r.net, bal:r.bal}))
+        };
+        return o;
+      }, {})
+    }));
+
     localStorage.setItem('eta_mc_data', JSON.stringify({
       clientName:     d.name,
       advisor:        adv||'',
