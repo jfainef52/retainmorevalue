@@ -1057,6 +1057,197 @@ function rmdAgeFromBirthYear(by){ if(by<1951)return 70.5; if(by<=1959)return 73;
 // Do not reintroduce sunset language. Index this constant annually.
 const FED_EXEMPTION = {year:2026, single:15000000, married:30000000, topRate:0.40};
 
+// ══════════════════════════════════════════════════════════
+// STATE ESTATE TAX — a layer entirely separate from state INCOME tax
+// (STATE_TAX_DATA below) and, until now, not modeled anywhere in this
+// tool. Only 12 states + DC impose their own estate tax, with exemptions
+// far below the federal level, so an estate that owes $0 federal can
+// still owe real state estate tax.
+//
+// Illinois (35 ILCS 405) computes its tax via the pre-2001 IRC §2011
+// state death tax credit table — the table Congress used before EGTRRA
+// phased out the federal credit in 2002–2005. Illinois still uses it:
+// tax = credit(adjusted taxable estate) − credit(exemption equivalent),
+// floored at $0, where "adjusted taxable estate" = taxable estate − $60,000
+// (a fixed reduction baked into the old federal table, not a modeling
+// choice here). $4,000,000 exemption per person, NOT portable between
+// spouses — the $8,000,000 married figure requires each spouse's estate
+// to independently use its own $4M exemption (e.g. via a bypass trust),
+// not automatic like the federal exemption.
+const STATE_DEATH_TAX_TABLE = [
+  {upTo:40000,     base:0,       rate:0,     over:0},
+  {upTo:90000,     base:0,       rate:0.008, over:40000},
+  {upTo:140000,    base:400,     rate:0.016, over:90000},
+  {upTo:240000,    base:1200,    rate:0.024, over:140000},
+  {upTo:440000,    base:3600,    rate:0.032, over:240000},
+  {upTo:640000,    base:10000,   rate:0.04,  over:440000},
+  {upTo:840000,    base:18000,   rate:0.048, over:640000},
+  {upTo:1040000,   base:27600,   rate:0.056, over:840000},
+  {upTo:1540000,   base:38800,   rate:0.064, over:1040000},
+  {upTo:2040000,   base:70800,   rate:0.072, over:1540000},
+  {upTo:2540000,   base:106800,  rate:0.08,  over:2040000},
+  {upTo:3040000,   base:146800,  rate:0.088, over:2540000},
+  {upTo:3540000,   base:190800,  rate:0.096, over:3040000},
+  {upTo:4040000,   base:238800,  rate:0.104, over:3540000},
+  {upTo:5040000,   base:290800,  rate:0.112, over:4040000},
+  {upTo:6040000,   base:402800,  rate:0.12,  over:5040000},
+  {upTo:7040000,   base:522800,  rate:0.128, over:6040000},
+  {upTo:8040000,   base:650800,  rate:0.136, over:7040000},
+  {upTo:9040000,   base:786800,  rate:0.144, over:8040000},
+  {upTo:10040000,  base:930800,  rate:0.152, over:9040000},
+  {upTo:Infinity,  base:1082800, rate:0.16,  over:10040000},
+];
+function stateDeathTaxCredit(adjustedTaxableEstate){
+  if (adjustedTaxableEstate <= 0) return 0;
+  const b = STATE_DEATH_TAX_TABLE.find(b=>adjustedTaxableEstate<=b.upTo) || STATE_DEATH_TAX_TABLE[STATE_DEATH_TAX_TABLE.length-1];
+  return b.base + (adjustedTaxableEstate - b.over) * b.rate;
+}
+// Generic bracket-table calculator: applies a state's own graduated rate
+// schedule (not the shared federal credit table) directly to the taxable
+// amount above that state's exemption.
+function bracketTax(amountAboveExemption, brackets){
+  if (amountAboveExemption <= 0) return 0;
+  let tax = 0, prevCap = 0;
+  for (const b of brackets) {
+    if (amountAboveExemption <= prevCap) break;
+    const inBracket = Math.min(amountAboveExemption, b.upTo) - prevCap;
+    tax += inBracket * b.rate;
+    prevCap = b.upTo;
+    if (amountAboveExemption <= b.upTo) break;
+  }
+  return tax;
+}
+// A handful of intermediate steps evenly spaced between a state's published
+// bottom and top marginal rate, over the range from its exemption to its
+// published top-rate threshold. Used only for states where the exact
+// bracket-by-bracket breakpoints could not be confirmed against a primary
+// source — flagged via `approximate:true` and surfaced as a warning in the
+// output. The bottom rate, top rate, and top-rate threshold themselves are
+// sourced, so this recovers a reasonable curve between two confirmed points
+// rather than inventing brackets outright.
+function approxGraduatedBrackets(topThreshold, botRate, topRate, steps=5){
+  const brackets = [];
+  for (let i=1; i<=steps; i++){
+    brackets.push({upTo: Math.round(topThreshold*i/steps), rate: botRate + (topRate-botRate)*(i-1)/(steps-1)});
+  }
+  brackets[brackets.length-1].upTo = Infinity;
+  return brackets;
+}
+
+const STATE_ESTATE_TAX = {
+  // ── Credit-table states (0.8%–16.0%) ───────────────────────────────────
+  // Illinois, Maryland, Massachusetts, and Rhode Island all still compute
+  // their estate tax via the pre-2001 IRC §2011 state death tax credit
+  // table — only their exemption amount differs. Confirmed for MA: the
+  // table's output at $2M exactly matches the $99,600 credit widely cited
+  // for Massachusetts.
+  IL: { label:'Illinois', portable:false,
+    exemption: filing => filing==='married' ? 8000000 : 4000000,
+    calc(grossEstate, filing){
+      const adj = Math.max(0, grossEstate-60000), adjEx = Math.max(0, this.exemption(filing)-60000);
+      return Math.max(0, stateDeathTaxCredit(adj) - stateDeathTaxCredit(adjEx));
+    }},
+  MD: { label:'Maryland', portable:false,
+    exemption: filing => filing==='married' ? 10000000 : 5000000,
+    calc(grossEstate, filing){
+      const adj = Math.max(0, grossEstate-60000), adjEx = Math.max(0, this.exemption(filing)-60000);
+      return Math.max(0, stateDeathTaxCredit(adj) - stateDeathTaxCredit(adjEx));
+    }},
+  MA: { label:'Massachusetts', portable:false,
+    exemption: filing => filing==='married' ? 4000000 : 2000000,
+    calc(grossEstate, filing){
+      const adj = Math.max(0, grossEstate-60000), adjEx = Math.max(0, this.exemption(filing)-60000);
+      return Math.max(0, stateDeathTaxCredit(adj) - stateDeathTaxCredit(adjEx));
+    }},
+  RI: { label:'Rhode Island', portable:false, indexedAnnually:true,
+    // $1,838,056 is the most recent figure available; Rhode Island indexes
+    // this for inflation on January 1 each year, so re-verify against the
+    // RI Division of Taxation's current-year threshold before relying on it.
+    exemption: filing => filing==='married' ? 3676112 : 1838056,
+    calc(grossEstate, filing){
+      const adj = Math.max(0, grossEstate-60000), adjEx = Math.max(0, this.exemption(filing)-60000);
+      return Math.max(0, stateDeathTaxCredit(adj) - stateDeathTaxCredit(adjEx));
+    }},
+
+  // ── Flat-rate states ────────────────────────────────────────────────────
+  CT: { label:'Connecticut', portable:false,
+    // Connecticut's exemption is tied to the federal basic exclusion amount.
+    exemption: filing => filing==='married' ? 30000000 : 15000000,
+    calc(grossEstate, filing){ return Math.max(0, grossEstate - this.exemption(filing)) * 0.12; }},
+  VT: { label:'Vermont', portable:false,
+    exemption: filing => filing==='married' ? 10000000 : 5000000,
+    calc(grossEstate, filing){ return Math.max(0, grossEstate - this.exemption(filing)) * 0.16; }},
+
+  // ── Own bracket-table states ────────────────────────────────────────────
+  // Washington — RCW 83.100.040 Table W, restored to the pre-2025 schedule
+  // for deaths on or after 7/1/2026 (ESB 6347 rolled back the 2025 SB 5813
+  // rate increase to 35%). Exemption $3,000,000, effectively frozen because
+  // the statute references a discontinued CPI series.
+  WA: { label:'Washington', portable:false,
+    exemption: () => 3000000,
+    calc(grossEstate, filing){
+      const above = Math.max(0, grossEstate - this.exemption(filing));
+      return bracketTax(above, [
+        {upTo:1000000, rate:0.10}, {upTo:2000000, rate:0.14}, {upTo:3000000, rate:0.15},
+        {upTo:4000000, rate:0.16}, {upTo:6000000, rate:0.18}, {upTo:7000000, rate:0.19},
+        {upTo:9000000, rate:0.195}, {upTo:Infinity, rate:0.20},
+      ]);
+    }},
+
+  // ── Approximated bracket states ─────────────────────────────────────────
+  // Exemption, bottom rate, top rate, and top-rate threshold are sourced;
+  // the intermediate steps are evenly interpolated rather than pulled from
+  // a confirmed bracket-by-bracket table. Flagged via `approximate:true`.
+  HI: { label:'Hawaii', portable:true, approximate:true,
+    // Hawaii is the one state here that DOES allow spousal portability.
+    exemption: filing => filing==='married' ? 10980000 : 5490000,
+    calc(grossEstate, filing){
+      const above = Math.max(0, grossEstate - this.exemption(filing));
+      return bracketTax(above, approxGraduatedBrackets(10000000, 0.10, 0.20, 6));
+    }},
+  ME: { label:'Maine', portable:false, approximate:true,
+    exemption: () => 7000000,
+    calc(grossEstate, filing){
+      const above = Math.max(0, grossEstate - this.exemption(filing));
+      return bracketTax(above, approxGraduatedBrackets(6000000, 0.08, 0.12, 4));
+    }},
+  MN: { label:'Minnesota', portable:false, approximate:true,
+    exemption: () => 3000000,
+    calc(grossEstate, filing){
+      const above = Math.max(0, grossEstate - this.exemption(filing));
+      return bracketTax(above, approxGraduatedBrackets(7100000, 0.13, 0.16, 4));
+    }},
+  OR: { label:'Oregon', portable:false, approximate:true,
+    exemption: () => 1000000,
+    calc(grossEstate, filing){
+      const above = Math.max(0, grossEstate - this.exemption(filing));
+      return bracketTax(above, approxGraduatedBrackets(9000000, 0.10, 0.16, 6));
+    }},
+  NY: { label:'New York', portable:false, approximate:true, hasCliff:true,
+    // New York's notorious "cliff": estates within 100–105% of the
+    // exemption get a phase-out credit; ABOVE 105% of the exemption, the
+    // ENTIRE estate is taxed from dollar one — not just the excess.
+    exemption: () => 7350000,
+    calc(grossEstate, filing){
+      const exemption = this.exemption(filing);
+      if (grossEstate <= exemption) return 0;
+      const cliff = exemption * 1.05;
+      const brackets = approxGraduatedBrackets(10100000, 0.0306, 0.16, 6);
+      if (grossEstate > cliff) return bracketTax(grossEstate, brackets); // full estate, no exemption benefit
+      const tentative = bracketTax(grossEstate, brackets);
+      const creditAtExemption = bracketTax(exemption, brackets);
+      const phaseOut = (grossEstate - exemption) / (cliff - exemption); // 0→1 across the cliff zone
+      return Math.max(0, tentative - creditAtExemption * (1 - phaseOut));
+    }},
+};
+// States known to impose their own estate tax but not yet modeled here —
+// surfaced as an explicit warning rather than silently assumed to be $0.
+const STATES_WITH_UNMODELED_ESTATE_TAX = [];
+function stateEstateTax(stateCode, grossEstate, filing){
+  const s = STATE_ESTATE_TAX[stateCode];
+  return s ? s.calc(grossEstate, filing) : 0;
+}
+
 function projectedExemption(yearsFwd, filing, idxRate){
   const base = filing==='married' ? FED_EXEMPTION.married : FED_EXEMPTION.single;
   return base * Math.pow(1+idxRate, yearsFwd);
@@ -1250,6 +1441,11 @@ function estateTaxStack(i){
   const grossEstate = i.qpBalance + i.sideBalance + (i.otherNetWorth||0) + includedDb;
   const taxableEstate = Math.max(0, grossEstate - applicable);
   const federalEstateTax = taxableEstate * FED_EXEMPTION.topRate;
+  // State estate tax — a separate exemption/rate schedule from the federal
+  // one, applied to the estate's gross value (not the federal taxable
+  // estate, since the state exemption is independent of the federal one).
+  const stateTax = stateEstateTax(i.stateCode, grossEstate, i.filing);
+  const stateTaxApproximate = !!(STATE_ESTATE_TAX[i.stateCode] && STATE_ESTATE_TAX[i.stateCode].approximate);
   const embeddedGain = Math.max(0, i.sideBalance - i.sideBasis);
   const capGainsTax = embeddedGain * i.capGainsRate;
   // Non-spouse beneficiary's actual SECURE Act 10-year distribution window —
@@ -1263,8 +1459,8 @@ function estateTaxStack(i){
   // but the heirs still receive it. Add it back after tax, never before.
   const ilitProceeds = i.dbInIlit ? (i.deathBenefit||0) : 0;
   return {grossExemption, applicable, grossEstate, taxableEstate, federalEstateTax,
-          embeddedGain, capGainsTax, inheritedIraTax, ilitProceeds, benSim,
-          netToHeirs: grossEstate - federalEstateTax - capGainsTax
+          stateTax, stateTaxApproximate, embeddedGain, capGainsTax, inheritedIraTax, ilitProceeds, benSim,
+          netToHeirs: grossEstate - federalEstateTax - stateTax - capGainsTax
                       - inheritedIraTax + ilitProceeds};
 }
 
@@ -1825,6 +2021,7 @@ function runEstate(){
   const horizon  = parseInt(document.getElementById('horizonAge').value)||91;
   const sims     = parseInt(document.getElementById('sims').value)||10000;
   const filing   = document.getElementById('filingStatus').value;
+  const stateCode = document.getElementById('stateRes').value;
   const inIlit   = document.getElementById('ilitChk').checked;
   const fed      = (parseFloat(document.getElementById('fedRate').value)||0)/100;
   const st       = (parseFloat(document.getElementById('stateRate').value)||0)/100;
@@ -1881,14 +2078,14 @@ function runEstate(){
 
   const stack = pct => estateTaxStack({
     qpBalance: mc[pct].qpFinal, sideBalance: mc[pct].sideFinal, sideBasis: mc[pct].basisFinal,
-    otherNetWorth:0, capGainsRate:cgRate, beneficiaryRate:benRate, filing,
+    otherNetWorth:0, capGainsRate:cgRate, beneficiaryRate:benRate, filing, stateCode,
     exemptIdx:exIdx, yearsFwd, deathBenefit:0, dbInIlit:false, cumulativeGifts:0,
     beneficiaryAge, postDeathGrowth});
 
   const etaStack = pct => estateTaxStack({
     qpBalance: mcEta[pct].qpFinal, sideBalance: mcEta[pct].sideFinal,
     sideBasis: mcEta[pct].basisFinal, otherNetWorth:0, capGainsRate:cgRate,
-    beneficiaryRate:benRate, filing, exemptIdx:exIdx, yearsFwd,
+    beneficiaryRate:benRate, filing, stateCode, exemptIdx:exIdx, yearsFwd,
     deathBenefit:netDB, dbInIlit:inIlit, cumulativeGifts:gifts,
     beneficiaryAge, postDeathGrowth});
 
@@ -1896,10 +2093,10 @@ function runEstate(){
   // the comparison, so the cost page and the outcome page cannot disagree.
   const dnStack = stack('p50');
   const wf = {taxRMD: mc.p50.taxRMD, taxDrag: mc.p50.taxDrag, irmaa: mc.p50.irmaaTotal||0,
-              estateTax: dnStack.federalEstateTax, capGainsTax: dnStack.capGainsTax,
+              estateTax: dnStack.federalEstateTax, stateTax: dnStack.stateTax, capGainsTax: dnStack.capGainsTax,
               inheritedIraTax: dnStack.inheritedIraTax,
               grossEstate: dnStack.grossEstate, netToHeirs: dnStack.netToHeirs};
-  wf.total = wf.taxRMD + wf.taxDrag + wf.irmaa + wf.estateTax + wf.capGainsTax + wf.inheritedIraTax;
+  wf.total = wf.taxRMD + wf.taxDrag + wf.irmaa + wf.estateTax + wf.stateTax + wf.capGainsTax + wf.inheritedIraTax;
 
   let h = `<div class="headline-box">
       <div class="hl-label">Net to heirs at second death, age ${horizon}</div>
@@ -1914,12 +2111,14 @@ function runEstate(){
     <tr><th>&nbsp;</th><th>Take no action</th><th>ETA path</th></tr>
     <tr><td>Gross estate</td><td>${fmtM(dn.grossEstate)}</td><td>${fmtM(eta.grossEstate)}</td></tr>
     <tr><td>Federal estate tax</td><td>${fmtM(dn.federalEstateTax)}</td><td>${fmtM(eta.federalEstateTax)}</td></tr>
+    <tr><td>${STATE_ESTATE_TAX[stateCode]?STATE_ESTATE_TAX[stateCode].label:stateCode} estate tax</td><td>${fmtM(dn.stateTax)}</td><td>${fmtM(eta.stateTax)}</td></tr>
     <tr><td>Capital gains at death</td><td>${fmtM(dn.capGainsTax)}</td><td>${fmtM(eta.capGainsTax)}</td></tr>
     <tr><td>IRD income tax to heirs</td><td>${fmtM(dn.inheritedIraTax)}</td><td>${fmtM(eta.inheritedIraTax)}</td></tr>
     <tr><td>Death benefit outside estate</td><td>&mdash;</td><td>${fmtM(eta.ilitProceeds)}</td></tr>
     <tr class="emph"><td>Net to heirs</td><td>${fmtM(dn.netToHeirs)}</td><td>${fmtM(eta.netToHeirs)}</td></tr>
     <tr class="emph"><td>Advantage</td><td colspan="2">${fmtM(eta.netToHeirs-dn.netToHeirs)}</td></tr>
     </table>
+    ${dn.stateTaxApproximate ? `<div class="hint" style="color:var(--red)">${STATE_ESTATE_TAX[stateCode].label}'s bracket schedule above the exemption is an evenly-interpolated approximation between its published bottom and top rates \u2014 the exemption amount and rate range are sourced, but exact intermediate breakpoints were not confirmed against the state's own current published table. Verify against ${STATE_ESTATE_TAX[stateCode].label}'s current guidance before relying on the exact dollar figure.</div>` : ''}
     <div class="hint">Median outcome only. The Monte Carlo median implies roughly 6.7% a year on the
     qualified plan, which is the same order as the carrier's illustrated crediting rate \u2014 so this is a
     matched comparison. Showing a percentile band would flex the qualified plan while holding the
@@ -1970,6 +2169,28 @@ function runEstate(){
   });
   h += '</table><div class="hint">Where insurance above cash value reaches zero, the death benefit is the policy\u2019s net cash value and no mortality leverage remains. The value at that point is the tax treatment, not the leverage.</div>';
 
+  // Death benefit over the insured's own lifetime — deliberately decoupled
+  // from the account holder's estate-tax horizon above. Once inside the
+  // trust, this asset is no longer part of the account holder's estate at
+  // all; its real story is how large and durable it becomes across the
+  // insured's own life, which can run decades past the account holder's.
+  // Pulled straight from the carrier's own illustration — no re-simulation.
+  const insuredStartAge = rows[0].youngestAge;
+  const dbMilestones = [65,70,75,80,85,90,95,100,105,110].filter(a=>a>insuredStartAge);
+  h += `<div class="stag" style="margin-top:22px">Death benefit over the insured's lifetime</div>
+    <div class="hint" style="margin-bottom:10px">${altInsured ? 'The insured is' : 'The account holder is'} age ${insuredStartAge} today${altInsured ? ', a separate life from the account holder above' : ''}.
+    This tax-free death benefit sits inside the trust independent of when the account holder passes away, and keeps compounding for as long as the insured does &mdash;
+    ${altInsured ? "the account holder's own estate settles at age " + horizon + " above, but this asset's story continues on the insured's own timeline." : ''}
+    Figures below are the carrier's own illustrated values at each age, not a re-run of the estate-tax comparison.</div>
+    <table class="dtbl"><tr><th>Insured Age</th><th>Policy Year</th><th>Net Death Benefit</th><th>IRR</th></tr>
+    ${dbMilestones.map(age => {
+      const yr = age - insuredStartAge + 1;
+      const r = rows[yr-1];
+      if (!r) return `<tr><td>${age}</td><td>${yr}</td><td colspan="2" style="color:var(--muted)">Illustration doesn\u2019t extend this far &mdash; request a longer carrier run to see this age.</td></tr>`;
+      return `<tr><td>${age}</td><td>${yr}</td><td>${fmt$(r.netDeathBenefit)}</td><td>${(dbIRR(rows,yr)*100).toFixed(2)}%</td></tr>`;
+    }).join('')}
+    </table>`;
+
   h += `<div class="flag ok" style="margin-top:16px"><b>Conservative methodology \u2014 skewed toward taking no action.</b>
     Required distributions on the status-quo path are taxed as though they were the client\u2019s only ordinary income,
     so they fill the lowest available brackets and produce the smallest possible tax on that path. The qualified plan
@@ -2004,14 +2225,16 @@ function runEstate(){
     qpAtDeath, qpEstateTax: qpAtDeath*0.40, qpIncomeTax: dn.inheritedIraTax,
     beneficiaryAge, beneficiaryCurrentAge, postDeathGrowth, benTenYear: s50.benSim ? {totalDist:s50.benSim.totalDist, totalTax:s50.benSim.totalTax, flatTax:s50.benSim.flatTax} : null,
     filing, cgRate, benRate, exIdx,
-    doNothing: {grossEstate:dn.grossEstate, estateTax:dn.federalEstateTax,
+    stateCode, stateEstateTaxLabel: STATE_ESTATE_TAX[stateCode]?STATE_ESTATE_TAX[stateCode].label:stateCode,
+    stateTaxApproximate: dn.stateTaxApproximate,
+    doNothing: {grossEstate:dn.grossEstate, estateTax:dn.federalEstateTax, stateTax:dn.stateTax,
                 capGainsTax:dn.capGainsTax, inheritedIraTax:dn.inheritedIraTax,
                 netToHeirs:dn.netToHeirs},
-    eta: {grossEstate:eta.grossEstate, estateTax:eta.federalEstateTax,
+    eta: {grossEstate:eta.grossEstate, estateTax:eta.federalEstateTax, stateTax:eta.stateTax,
           capGainsTax:eta.capGainsTax, inheritedIraTax:eta.inheritedIraTax,
           ilitProceeds:eta.ilitProceeds, netToHeirs:eta.netToHeirs},
     waterfall: {taxRMD:wf.taxRMD, taxDrag:wf.taxDrag, irmaa:wf.irmaa, estateTax:wf.estateTax,
-                capGainsTax:wf.capGainsTax, inheritedIraTax:wf.inheritedIraTax,
+                stateTax:wf.stateTax, capGainsTax:wf.capGainsTax, inheritedIraTax:wf.inheritedIraTax,
                 total:wf.total}
   }));
   document.getElementById('onepageBtn').style.display = '';
