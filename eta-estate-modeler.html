@@ -649,6 +649,7 @@ table.sc-ldg tfoot td.gold-col { color:var(--gold); }
         <button class="ab-btn" id="onepageBtn" onclick="openOnePageSummary()" style="display:none;margin-top:10px;width:100%;background:var(--navy);color:var(--gold);border:1.5px solid var(--gold)">Produce One-Page Summary</button>
         <button class="ab-btn" id="ledgerBtn" onclick="openLedger()" style="display:none;margin-top:8px;width:100%;background:var(--navy);color:var(--gold);border:1.5px solid var(--gold)">Produce Ledger (17&times;11)</button>
         <button class="ab-btn" id="discussionBtn" onclick="openDiscussionDoc()" style="display:none;margin-top:8px;width:100%;background:var(--navy);color:var(--gold);border:1.5px solid var(--gold)">Produce Discussion Document</button>
+        <button class="ab-btn" id="auditBtn" onclick="openAuditReport()" style="display:none;margin-top:8px;width:100%;background:transparent;color:var(--muted);border:1.5px solid var(--border)">🔍 Return Sequence &amp; Ledger Audit</button>
       </div>
     </div>
   </div>
@@ -2035,6 +2036,37 @@ function runEstate(){
   }));
   document.getElementById('ledgerBtn').style.display = '';
   document.getElementById('discussionBtn').style.display = '';
+
+  // Audit report data — NOT part of the normal output. For each of the three
+  // QP percentile strands (do-nothing and ETA-side), the actual seeded
+  // simulation replayed year-by-year: historical year, blended return, RMD,
+  // tax, IRMAA, capital-gains drag, and running balances. The life insurance
+  // policy side is a single deterministic carrier illustration (no percentile
+  // variation), so it's included once, unbanded.
+  const thinQP = r => ({a:r.age, hy:r.year, ret:r.ret, dist:r.dist, rmd:r.rmd,
+    tax:r.tax, irmaa:r.irmaa, drag:r.drag, qp:r.qp, side:r.side, basis:r.basis, cum:r.cumTax});
+  const auditBands = {};
+  ['p25','p50','p75'].forEach(k => {
+    auditBands[k] = {
+      income: mc[k].qpFinal + mc[k].sideFinal,
+      doNothingRows: rebuildQPLedger(cfg, paired, mc.seed, mc[k].simIndex).map(thinQP),
+      etaRows: rebuildQPLedger(Object.assign({},cfg,{annualDist:dist/payYears,distYears:payYears}),
+                 paired, mcEta.seed, mcEta[k].simIndex).map(thinQP)
+    };
+  });
+  localStorage.setItem('eta_estate_audit_data', JSON.stringify({
+    clientName: document.getElementById('clientName').value || '',
+    advisor: document.getElementById('advisorName').value || '',
+    date: new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}),
+    age: startAge, horizonAge: horizon, sims,
+    carrier: _illustration.carrier, policyType: _illustration.policyType,
+    carrierRows: _illustration.rows.filter(r=>r.year<=Math.max(45,horizon-startAge+1))
+      .map(r=>({y:r.year, a:r.age, a2:r.age2, p:Math.round(r.premium),
+        l:Math.round(r.loan), lb:Math.round(r.loanBalance), av:Math.round(r.grossAV),
+        sv:Math.round(r.surrValue), db:Math.round(r.netDeathBenefit)})),
+    bands: auditBands
+  }));
+  document.getElementById('auditBtn').style.display = '';
 }
 
 function openLedger(){
@@ -2045,6 +2077,11 @@ function openLedger(){
 function openDiscussionDoc(){
   const w = window.open('eta-estate-discussion-doc.html', 'eta_estate_discussion_doc');
   if(!w) window.location.href = 'eta-estate-discussion-doc.html';
+}
+
+function openAuditReport(){
+  const w = window.open('eta-estate-audit-report.html', 'eta_estate_audit_report');
+  if(!w) window.location.href = 'eta-estate-audit-report.html';
 }
 
 function openOnePageSummary(){
