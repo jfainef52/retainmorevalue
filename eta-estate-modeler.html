@@ -446,6 +446,14 @@ table.sc-ldg tfoot td.gold-col { color:var(--gold); }
           <div class="field" id="age2Wrap" style="display:none"><label class="fl">Second Insured Age</label><input type="number" id="issueAge2" placeholder="e.g. 58" min="18" max="85" oninput="recalcAll()"/></div>
         </div>
 
+        <div class="fg">
+          <label class="fl">Account Holder Date of Birth</label>
+          <div class="field"><input type="date" id="accountHolderDOB" oninput="recalcAll()"/></div>
+          <div class="hint">Determines the exact RMD starting age (73 for those born 1951&ndash;1959, 75 for 1960 or later, per SECURE 2.0) &mdash; age alone is ambiguous by up to a year depending on whether the birthday
+            has occurred yet this calendar year, which is enough to land on the wrong side of that cutoff. Applies whether or not the insured is a different person from the account holder. Falls back to an age-based
+            estimate if left blank.</div>
+        </div>
+
         <div class="chk-row">
           <input type="checkbox" id="altInsuredChk" onchange="toggleAltInsured()"/>
           <label for="altInsuredChk">Insure a different person — account holder is too old or uninsurable</label>
@@ -1829,7 +1837,13 @@ function runEstate(){
   // illustration's age column belongs to the insured, not the account
   // holder, so it can no longer be used to derive the timeline directly.
   const startAge = altInsured ? (getAccountHolderAge()||rows[0].youngestAge) : rows[0].youngestAge;
-  const birthYr  = new Date().getFullYear() - startAge;
+  // Exact birth year from DOB when available — an age-derived birth year is
+  // ambiguous by up to a year (depends on whether the birthday has occurred
+  // yet this calendar year), which is enough to land on the wrong side of
+  // the 1959/1960 RMD-age cutoff (73 vs 75). Falls back to the age-based
+  // estimate if DOB isn't entered.
+  const dobVal = document.getElementById('accountHolderDOB').value;
+  const birthYr = dobVal ? new Date(dobVal+'T00:00:00').getFullYear() : (new Date().getFullYear() - startAge);
   const rmdAge   = rmdAgeFromBirthYear(birthYr);
   const yearsFwd = horizon - startAge;
   // Beneficiary's age at inheritance = their current age plus however many
