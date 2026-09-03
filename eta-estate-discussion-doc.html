@@ -307,6 +307,7 @@
       <div class="cover-prepared">
         Prepared for
         <strong id="cover-client">&mdash;</strong>
+        <div id="cover-insured-wrap" style="display:none;font-size:11px;font-weight:400;margin-top:4px;opacity:.75">Policy insured: <span id="cover-insured">&mdash;</span></div>
       </div>
       <div style="text-align:right">
         <div style="font-size:9px;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,.25)" id="cover-date">&mdash;</div>
@@ -369,6 +370,8 @@
         <div class="cost-bar-row"><div class="cost-bar-top"><span class="cost-bar-label">Capital gains tax at death</span><span class="cost-bar-val" id="cost-cg">&mdash;</span></div><div class="cost-bar-track"><div class="cost-bar-fill" id="cost-cg-bar" style="width:0%"></div></div></div>
         <div class="cost-bar-row"><div class="cost-bar-top"><span class="cost-bar-label">Income tax your heirs owe on what remains in the plan</span><span class="cost-bar-val" id="cost-ird">&mdash;</span></div><div class="cost-bar-track"><div class="cost-bar-fill" id="cost-ird-bar" style="width:0%"></div></div></div>
       </div>
+      <div id="cost-ird-note" style="display:none;font-size:9.5px;color:rgba(255,255,255,.55);margin-top:6px;line-height:1.5">Under the SECURE Act, a non-spouse beneficiary must empty an inherited retirement plan within 10 years &mdash; not stretch it over their lifetime.
+        That forced income often lands in a beneficiary's peak earning years, stacked on top of whatever else they already earn.</div>
       <div class="cost-callout-box" id="cost-callout">
         <div class="cost-callout-num" id="cost-cents">25&cent;</div>
         <div class="cost-callout-text">On the dollar reaches your family, of the balance projected to remain inside your qualified retirement plan at death. The rest is divided between the estate tax and the income tax your beneficiaries owe.</div>
@@ -702,6 +705,10 @@
     if (r.spouseName) names += ' & ' + r.spouseName;
     setHTML('cover-client', names);
     set('cover-date', r.date || '\u2014');
+    if (r.altInsured) {
+      set('cover-insured', (r.insuredName||'\u2014') + ' (Age ' + (r.insuredAge||'\u2014') + (r.insuredRelationship ? ', ' + r.insuredRelationship : '') + ')');
+      var civ = document.getElementById('cover-insured-wrap'); if (civ) civ.style.display = 'block';
+    }
 
     set('cost-horizon', r.horizonAge || '\u2014');
     set('out-horizon',  r.horizonAge || '\u2014');
@@ -712,6 +719,7 @@
     set('cost-est',  $f(wf.estateTax));
     set('cost-cg',   $f(wf.capGainsTax));
     set('cost-ird',  $f(wf.inheritedIraTax));
+    if (r.beneficiaryAge) { var irdNote = document.getElementById('cost-ird-note'); if (irdNote) irdNote.style.display = 'block'; }
 
     // Bar widths proportional to the largest layer, so the reader sees at a
     // glance which layers actually drive the total rather than reading six
