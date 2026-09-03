@@ -442,8 +442,28 @@ table.sc-ldg tfoot td.gold-col { color:var(--gold); }
         </div>
 
         <div class="fg fr">
-          <div class="field"><label class="fl" id="age1Label">Insured Age</label><input type="number" id="issueAge" placeholder="e.g. 60" min="18" max="85" oninput="recalcAll();rebuildPayoffDropdown()"/></div>
+          <div class="field"><label class="fl" id="age1Label">Insured Age</label><input type="number" id="issueAge" placeholder="e.g. 60" min="0" max="85" oninput="recalcAll();rebuildPayoffDropdown()"/></div>
           <div class="field" id="age2Wrap" style="display:none"><label class="fl">Second Insured Age</label><input type="number" id="issueAge2" placeholder="e.g. 58" min="18" max="85" oninput="recalcAll()"/></div>
+        </div>
+
+        <div class="chk-row">
+          <input type="checkbox" id="altInsuredChk" onchange="toggleAltInsured()"/>
+          <label for="altInsuredChk">Insure a different person — account holder is too old or uninsurable</label>
+        </div>
+        <div id="altInsuredPanel" style="display:none">
+          <div class="hint" style="margin-bottom:10px">The Insured Age field above becomes the alternate insured's age — used to request the carrier illustration.
+            Estate tax, RMD timing, and the QP distribution's early-withdrawal penalty all continue to use the account holder's real age, entered here.</div>
+          <div class="fg fr">
+            <div class="field"><label class="fl">Account Holder Current Age</label><input type="number" id="accountHolderAge" placeholder="e.g. 74" min="18" max="100" oninput="recalcAll()"/></div>
+            <div class="field"><label class="fl">Relationship of Insured to Account Holder</label><input type="text" id="insuredRelationship" placeholder="ex. Grandson"/></div>
+          </div>
+          <div class="fg fr">
+            <div class="field"><label class="fl">Insured Name</label><input type="text" id="insuredName" placeholder="ex. Tyler Doyle"/></div>
+            <div class="field"><label class="fl">Insured Gender</label><select id="insuredGender"><option value="F">Female</option><option value="M">Male</option></select></div>
+          </div>
+          <div class="field"><label class="fl">Insured Health Class</label>
+            <select id="insuredHealth"><option value="PP">Preferred Plus</option><option value="P">Preferred</option><option value="SP">Standard Plus</option><option value="S">Standard</option></select>
+          </div>
         </div>
 
         <div class="fg fr">
@@ -557,7 +577,9 @@ table.sc-ldg tfoot td.gold-col { color:var(--gold); }
     <div class="card">
       <div class="card-hdr"><div class="step">Step 2</div><h2>Carrier Illustration</h2></div>
       <div class="card-body">
-        <div class="carrier-instr">Upload the illustration returned by the designer. NLG exports the quickview <b>.csv</b>; Pacific Life exports the <b>.xlsx</b> workbook. Values are taken from the carrier as-is &mdash; no accumulated value is rebuilt here.</div>
+        <div class="carrier-instr">Upload the illustration returned by the designer. NLG exports the quickview <b>.csv</b>; Pacific Life exports the <b>.xlsx</b> workbook. Values are taken from the carrier as-is &mdash; no accumulated value is rebuilt here.
+          <div id="altInsuredNote" style="display:none;margin-top:10px;padding-top:8px;border-top:1px solid rgba(201,168,76,.2)"></div>
+        </div>
         <div class="upload-zone" id="upload-zone" ondrop="onDrop(event)" ondragover="event.preventDefault()" onclick="document.getElementById('fileInput').click()">
           <div class="uz-icon">&#8681;</div>
           <div class="uz-title">Drop illustration or click to browse</div>
@@ -596,6 +618,15 @@ table.sc-ldg tfoot td.gold-col { color:var(--gold); }
           <div class="field"><label class="fl">Beneficiary Rate %</label><input type="number" id="benRate" value="35" step="0.1"/></div>
           <div class="field"><label class="fl">Exemption Index %</label><input type="number" id="exIdx" value="2.5" step="0.1"/></div>
         </div>
+        <div class="fg fr3">
+          <div class="field"><label class="fl">Beneficiary Current Age</label><input type="number" id="beneficiaryCurrentAge" placeholder="e.g. 42" min="0" max="90"/></div>
+          <div class="field"><label class="fl">Post-Death Account Growth %</label><input type="number" id="postDeathGrowth" value="5.00" step="0.25"/></div>
+          <div class="field"></div>
+        </div>
+        <div class="hint">Non-spouse beneficiary, SECURE Act 10-year rule. Enter the beneficiary's age today &mdash; their age at inheritance is derived automatically from the account holder's current age and the Horizon Age below,
+          so this field doesn't need updating every time the horizon changes. The account owner is always well past the required beginning date at the modeled horizon, so the final IRS regulations (effective 2025) require the
+          beneficiary to take annual life-expectancy RMDs in years 1&ndash;9 (IRS Table I, reduce-by-one method) and empty the account by year 10 &mdash; not a single lump distribution. The Beneficiary Rate above is applied to each
+          year's forced distribution, stacked on whatever else the beneficiary earns that year; a beneficiary in peak earning years should generally use a top-bracket rate here, not their everyday rate.</div>
         <div class="fg fr">
           <div class="field"><label class="fl">Social Security (today's $)</label><input type="text" id="ssAnnual" value="$62,172" oninput="formatCurrency(this)"/></div>
         </div>
@@ -1150,6 +1181,55 @@ function rebuildQPLedger(cfg, paired, seed, simIndex){
   return rows;
 }
 
+/* IRS Publication 590-B, Table I — Single Life Expectancy. Effective for
+   distribution calendar years beginning on or after 1/1/2022 (T.D. 9930).
+   Used to compute the non-spouse beneficiary's required annual distributions
+   in years 1–9 of the SECURE Act 10-year window (reduce-by-one method). */
+const SINGLE_LIFE_TABLE = {
+  20:65.0,21:64.1,22:63.1,23:62.1,24:61.1,25:60.2,26:59.2,27:58.2,28:57.3,29:56.3,
+  30:55.3,31:54.4,32:53.4,33:52.5,34:51.5,35:50.5,36:49.6,37:48.6,38:47.7,39:46.7,
+  40:45.7,41:44.8,42:43.8,43:42.9,44:41.9,45:41.0,46:40.0,47:39.0,48:38.1,49:37.1,
+  50:36.2,51:35.3,52:34.3,53:33.4,54:32.5,55:31.6,56:30.6,57:29.8,58:28.9,59:28.0,
+  60:27.1,61:26.2,62:25.4,63:24.5,64:23.7,65:22.9,66:22.0,67:21.2,68:20.4,69:19.6,
+  70:18.8,71:18.0,72:17.2,73:16.4,74:15.6,75:14.8,76:14.1,77:13.3,78:12.6,79:11.9,
+  80:11.2,81:10.5,82:9.9,83:9.3,84:8.7,85:8.1,86:7.6,87:7.1,88:6.6,89:6.1,
+  90:5.7,91:5.3,92:4.9,93:4.6,94:4.3,95:4.0,96:3.7,97:3.4,98:3.2,99:3.0,100:2.8
+};
+function singleLifeFactor(age){
+  const a = Math.max(20, Math.min(100, Math.round(age)));
+  return SINGLE_LIFE_TABLE[a];
+}
+
+/* Non-spouse beneficiary's SECURE Act 10-year distribution window.
+   The owner dies on/after their required beginning date throughout this
+   modeler (the horizon age is always well past RMD age), so the final IRS
+   regulations (July 2024, effective 2025) require the beneficiary to take
+   annual life-expectancy RMDs in years 1–9, using the reduce-by-one method
+   on Table I, then empty the account by the end of year 10. The account
+   continues to grow, untaxed, on the undistributed balance — growth a flat
+   "balance × rate" approximation ignores. Returns the year-by-year schedule
+   and the total tax across the window. */
+function beneficiaryTenYearDistribution(balance, beneficiaryAge, growthRate, taxRate){
+  const factor0 = singleLifeFactor(beneficiaryAge);
+  const rows = [];
+  let bal = balance, totalDist = 0, totalTax = 0;
+  for (let yr = 1; yr <= 10; yr++) {
+    bal = bal * (1 + growthRate); // a year of continued (tax-deferred) growth
+    let dist;
+    if (yr < 10) {
+      const factor = Math.max(1, factor0 - (yr - 1));
+      dist = Math.min(bal, bal / factor);
+    } else {
+      dist = bal; // year 10: account must be fully emptied
+    }
+    bal -= dist;
+    const tax = dist * taxRate;
+    totalDist += dist; totalTax += tax;
+    rows.push({yr, age: beneficiaryAge + yr - 1, dist, tax, balEnd: bal});
+  }
+  return {rows, totalDist, totalTax, flatTax: balance * taxRate};
+}
+
 /* Tax stack at death. Layers, in order:
    gross estate -> federal estate tax -> cap gains on side account gain
    -> beneficiary income tax on inherited IRA (SECURE Act 10-year rule)
@@ -1163,12 +1243,18 @@ function estateTaxStack(i){
   const federalEstateTax = taxableEstate * FED_EXEMPTION.topRate;
   const embeddedGain = Math.max(0, i.sideBalance - i.sideBasis);
   const capGainsTax = embeddedGain * i.capGainsRate;
-  const inheritedIraTax = i.qpBalance * i.beneficiaryRate;
+  // Non-spouse beneficiary's actual SECURE Act 10-year distribution window —
+  // not a flat balance × rate approximation — when a beneficiary age has
+  // been supplied. Falls back to the flat estimate otherwise.
+  const benSim = i.beneficiaryAge
+    ? beneficiaryTenYearDistribution(i.qpBalance, i.beneficiaryAge, i.postDeathGrowth||0, i.beneficiaryRate)
+    : null;
+  const inheritedIraTax = benSim ? benSim.totalTax : i.qpBalance * i.beneficiaryRate;
   // An ILIT-owned death benefit is outside the gross estate for TAX purposes,
   // but the heirs still receive it. Add it back after tax, never before.
   const ilitProceeds = i.dbInIlit ? (i.deathBenefit||0) : 0;
   return {grossExemption, applicable, grossEstate, taxableEstate, federalEstateTax,
-          embeddedGain, capGainsTax, inheritedIraTax, ilitProceeds,
+          embeddedGain, capGainsTax, inheritedIraTax, ilitProceeds, benSim,
           netToHeirs: grossEstate - federalEstateTax - capGainsTax
                       - inheritedIraTax + ilitProceeds};
 }
@@ -1483,6 +1569,20 @@ function showPhase(n){
   document.getElementById('tab2').classList.toggle('active', n===2);
 }
 
+function toggleAltInsured() {
+  const on = document.getElementById('altInsuredChk').checked;
+  document.getElementById('altInsuredPanel').style.display = on ? 'block' : 'none';
+  recalcAll();
+}
+// Account holder's real age — drives RMD timing, estate-tax timeline, and the
+// early-withdrawal penalty on the QP distribution. Mirrors the Insured Age
+// field unless an alternate insured is in use.
+function getAccountHolderAge() {
+  const alt = document.getElementById('altInsuredChk').checked;
+  if (alt) return parseInt(document.getElementById('accountHolderAge').value)||0;
+  return parseInt(document.getElementById('issueAge').value)||0;
+}
+
 function setPolicyType(t){
   policyType = t;
   document.getElementById('ptSingle').classList.toggle('active', t==='single');
@@ -1509,7 +1609,7 @@ function useBrackets(){ return document.getElementById('bracketChk').checked; }
 function distributionTax(){
   const dist = parseNum('distribution');
   const st   = (parseFloat(document.getElementById('stateRate').value)||0)/100;
-  const age  = parseInt(document.getElementById('issueAge').value)||0;
+  const age  = getAccountHolderAge();
   const preAmt  = Math.min(parseNum('preAmount'), dist);
   const postAmt = Math.max(0, dist - preAmt);
   const under   = age < 59.5;
@@ -1616,8 +1716,23 @@ function recalcAll(){
   const required  = payoffRow ? payoffRow.prevLoan : 0;
   document.getElementById('reqLoan').textContent = fmt$(required);
   document.getElementById('reqLoanSub').innerHTML =
-    `Bank balance entering year ${payoffYear} (age ${issueAge+payoffYear-1}) on ${fmt$(bl.financedTax)} financed at inception. ` +
+    `Bank balance entering year ${payoffYear} (insured age ${issueAge+payoffYear-1}) on ${fmt$(bl.financedTax)} financed at inception. ` +
     `Give this figure to the policy designer &mdash; the illustrated policy loan must retire it.`;
+
+  const altNote = document.getElementById('altInsuredNote');
+  if (document.getElementById('altInsuredChk').checked) {
+    const iName = document.getElementById('insuredName').value.trim()||'Alternate Insured';
+    const iGender = document.getElementById('insuredGender').value;
+    const iHealth = document.getElementById('insuredHealth').value;
+    const rel = document.getElementById('insuredRelationship').value.trim();
+    const ahAge = getAccountHolderAge();
+    altNote.innerHTML = `<b>Request this illustration on:</b> ${iName} · Age ${issueAgeVal} ${iGender} · ${iHealth}` +
+      (rel ? ` · ${rel} of the account holder` : '') +
+      `<br><b>Account holder for tax/estate purposes:</b> ${document.getElementById('clientName').value.trim()||'—'}, Age ${ahAge||'—'}`;
+    altNote.style.display = 'block';
+  } else {
+    altNote.style.display = 'none';
+  }
 
   let b = '<tr><th>Yr</th><th>Age</th><th>Phase</th><th>Rate</th><th>Begin</th><th>Interest</th><th>End</th></tr>';
   bl.rows.filter(r => r.yr <= Math.min(payoffYear+2, 45)).forEach(r => {
@@ -1696,6 +1811,8 @@ function runEstate(){
   const cgRate   = (parseFloat(document.getElementById('cgRate').value)||0)/100;
   const benRate  = (parseFloat(document.getElementById('benRate').value)||0)/100;
   const exIdx    = (parseFloat(document.getElementById('exIdx').value)||0)/100;
+  const beneficiaryCurrentAge = parseInt(document.getElementById('beneficiaryCurrentAge').value)||0;
+  const postDeathGrowth = (parseFloat(document.getElementById('postDeathGrowth').value)||0)/100;
   const horizon  = parseInt(document.getElementById('horizonAge').value)||91;
   const sims     = parseInt(document.getElementById('sims').value)||10000;
   const filing   = document.getElementById('filingStatus').value;
@@ -1704,10 +1821,19 @@ function runEstate(){
   const st       = (parseFloat(document.getElementById('stateRate').value)||0)/100;
 
   const rows = _illustration.rows;
-  const startAge = rows[0].youngestAge;
+  const altInsured = document.getElementById('altInsuredChk').checked;
+  // Estate/RMD timeline always runs on the account holder's real age. In the
+  // common case (no alternate insured) that equals the illustration's own
+  // starting age, same as before. With an alternate insured, the uploaded
+  // illustration's age column belongs to the insured, not the account
+  // holder, so it can no longer be used to derive the timeline directly.
+  const startAge = altInsured ? (getAccountHolderAge()||rows[0].youngestAge) : rows[0].youngestAge;
   const birthYr  = new Date().getFullYear() - startAge;
   const rmdAge   = rmdAgeFromBirthYear(birthYr);
   const yearsFwd = horizon - startAge;
+  // Beneficiary's age at inheritance = their current age plus however many
+  // years forward the account holder's own projected death is.
+  const beneficiaryAge = beneficiaryCurrentAge ? beneficiaryCurrentAge + yearsFwd : 0;
 
   const cfg = {qpBalance:qp, currentAge:startAge, horizonAge:horizon, rmdAge,
     equityAlloc:eqAlloc, mgmtFee, fedRate:fed, stateRate:st, nonQpGrossRate:nonQp,
@@ -1730,20 +1856,26 @@ function runEstate(){
     paired, sims, 20260801);
 
   // ETA side: carrier ledger, deterministic. Net DB is already net of loan.
-  const row = rows.find(r => r.youngestAge === horizon) || rows[rows.length-1];
+  // Looked up by policy year (horizon - account-holder start age) rather than
+  // by age match, since the illustration's age column tracks the insured,
+  // who may be a different age than the account holder.
+  const horizonYear = horizon - startAge + 1;
+  const row = rows.find(r => r.year === horizonYear) || rows.find(r => r.youngestAge === horizon) || rows[rows.length-1];
   const netDB = row.netDeathBenefit;
   const gifts = _illustration.totalPremium;
 
   const stack = pct => estateTaxStack({
     qpBalance: mc[pct].qpFinal, sideBalance: mc[pct].sideFinal, sideBasis: mc[pct].basisFinal,
     otherNetWorth:0, capGainsRate:cgRate, beneficiaryRate:benRate, filing,
-    exemptIdx:exIdx, yearsFwd, deathBenefit:0, dbInIlit:false, cumulativeGifts:0});
+    exemptIdx:exIdx, yearsFwd, deathBenefit:0, dbInIlit:false, cumulativeGifts:0,
+    beneficiaryAge, postDeathGrowth});
 
   const etaStack = pct => estateTaxStack({
     qpBalance: mcEta[pct].qpFinal, sideBalance: mcEta[pct].sideFinal,
     sideBasis: mcEta[pct].basisFinal, otherNetWorth:0, capGainsRate:cgRate,
     beneficiaryRate:benRate, filing, exemptIdx:exIdx, yearsFwd,
-    deathBenefit:netDB, dbInIlit:inIlit, cumulativeGifts:gifts});
+    deathBenefit:netDB, dbInIlit:inIlit, cumulativeGifts:gifts,
+    beneficiaryAge, postDeathGrowth});
 
   // Waterfall is derived from the SAME median path and the SAME stack used in
   // the comparison, so the cost page and the outcome page cannot disagree.
@@ -1795,6 +1927,23 @@ function runEstate(){
     (${filing==='married'?'$30M married':'$15M single'} indexed ${(exIdx*100).toFixed(1)}% for ${yearsFwd} years).
     Gifts to the trust of ${fmt$(gifts)} reduce the exemption available at death dollar for dollar.</div>`;
 
+  if (s50.benSim) {
+    const bs = s50.benSim;
+    h += `<div class="stag" style="margin-top:22px">Non-spouse beneficiary &mdash; SECURE Act 10-year distribution window</div>
+      <div class="hint" style="margin-bottom:10px">Qualified plan balance of ${fmtM(mc.p50.qpFinal)} at the account holder's death, age ${horizon}, inherited by a
+      non-spouse beneficiary age ${beneficiaryAge} that year (age ${beneficiaryCurrentAge} today). The account owner is past the required beginning date, so annual RMDs are required in years 1&ndash;9 (IRS Table I, reduce-by-one method,
+      starting factor ${singleLifeFactor(beneficiaryAge).toFixed(1)}), with the balance fully distributed by year 10. Balance continues growing at ${(postDeathGrowth*100).toFixed(2)}% while undistributed.</div>
+      <table class="dtbl">
+      <tr><th>Year</th><th>Beneficiary Age</th><th>Required Distribution</th><th>Tax (${(benRate*100).toFixed(1)}%)</th><th>Balance Remaining</th></tr>
+      ${bs.rows.map(r=>`<tr${r.yr===10?' class="emph"':''}><td>${r.yr}</td><td>${r.age}</td><td>${fmt$(r.dist)}</td><td>${fmt$(r.tax)}</td><td>${fmt$(r.balEnd)}</td></tr>`).join('')}
+      <tr class="emph"><td colspan="2">Total</td><td>${fmt$(bs.totalDist)}</td><td>${fmt$(bs.totalTax)}</td><td>&mdash;</td></tr>
+      </table>
+      <div class="hint">Total tax of ${fmt$(bs.totalTax)} across the 10-year window vs. ${fmt$(bs.flatTax)} under a flat single-year rate assumption &mdash;
+      the difference is continued growth on the undistributed balance during the window. Most of that balance lands in years the beneficiary is likely still working,
+      stacking on top of their own income; if the beneficiary's peak-earning bracket runs above ${(benRate*100).toFixed(0)}%, raise the Beneficiary Rate above to match.
+      The ETA path avoids this window entirely &mdash; life insurance death benefit passes as a single income-tax-free payment, not a forced 10-year distribution.</div>`;
+  }
+
   h += `<div class="stag" style="margin-top:22px">IRR on net death benefit</div>
     <table class="dtbl"><tr><th>Policy year</th><th>Age</th><th>Net DB</th><th>IRR</th><th>Insurance above cash value</th></tr>`;
   [5,10,15,20,25,30,35,40].forEach(y => {
@@ -1830,11 +1979,15 @@ function runEstate(){
     advisor:    document.getElementById('advisorName').value || '',
     date: new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}),
     age: startAge, horizonAge: horizon, policyType: _illustration.policyType,
+    altInsured, insuredName: altInsured ? (document.getElementById('insuredName').value.trim()||'—') : '',
+    insuredAge: altInsured ? (parseInt(document.getElementById('issueAge').value)||0) : startAge,
+    insuredRelationship: altInsured ? (document.getElementById('insuredRelationship').value.trim()||'') : '',
     carrier: _illustration.carrier, scenario: _illustration.activeScenario,
     qpBalance: qp, totalPremium: _illustration.totalPremium,
     financedTax: _preIllus ? _preIllus.dist * _preIllus.combined/100 : 0,
     netDB, ilit: inIlit,
-    qpAtDeath, qpEstateTax: qpAtDeath*0.40, qpIncomeTax: qpAtDeath*benRate,
+    qpAtDeath, qpEstateTax: qpAtDeath*0.40, qpIncomeTax: dn.inheritedIraTax,
+    beneficiaryAge, beneficiaryCurrentAge, postDeathGrowth, benTenYear: s50.benSim ? {totalDist:s50.benSim.totalDist, totalTax:s50.benSim.totalTax, flatTax:s50.benSim.flatTax} : null,
     filing, cgRate, benRate, exIdx,
     doNothing: {grossEstate:dn.grossEstate, estateTax:dn.federalEstateTax,
                 capGainsTax:dn.capGainsTax, inheritedIraTax:dn.inheritedIraTax,
