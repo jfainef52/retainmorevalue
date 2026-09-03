@@ -386,6 +386,34 @@ table.sc-ldg tfoot td.gold-col { color:var(--gold); }
               <select id="health"><option value="PP">Preferred Plus</option><option value="P">Preferred</option><option value="SP">Standard Plus</option><option value="S">Standard</option></select>
             </div>
           </div>
+
+          <div class="chk-row">
+            <input type="checkbox" id="altInsuredChk" onchange="toggleAltInsured()"/>
+            <label for="altInsuredChk">Insure a different person — account holder is too old or uninsurable</label>
+          </div>
+          <div id="altInsuredPanel" style="display:none">
+            <div class="nqp-note">
+              <strong>How this works:</strong> The account holder's own age still drives the distribution timing, tax
+              calculations, and income schedule below. Only the life insurance policy itself is issued on the
+              alternate insured named here — the carrier illustration should be run for <em>their</em> age, gender,
+              and health.
+            </div>
+            <div class="fg fr">
+              <div class="field"><label class="fl">Insured Name</label><input type="text" id="insuredName" placeholder="ex. Sarah Chavez-Valdez"/></div>
+              <div class="field"><label class="fl">Insured Age</label><input type="number" id="insuredAge" placeholder="e.g. 28" min="0" max="85"/></div>
+            </div>
+            <div class="fg fr">
+              <div class="field"><label class="fl">Insured Gender</label><select id="insuredGender"><option value="F">Female</option><option value="M">Male</option></select></div>
+              <div class="field"><label class="fl">Insured Health Class</label>
+                <select id="insuredHealth"><option value="PP">Preferred Plus</option><option value="P">Preferred</option><option value="SP">Standard Plus</option><option value="S">Standard</option></select>
+              </div>
+            </div>
+            <div class="fg">
+              <label class="fl">Relationship to Account Holder</label>
+              <div class="field"><input type="text" id="insuredRelationship" placeholder="ex. Daughter, Grandson, Spouse"/></div>
+            </div>
+          </div>
+
             <div class="field"><label class="fl">State of Residence</label>
               <select id="stateRes" onchange="onStateChange()">
                 <option value="AL">Alabama (5.00%)</option><option value="AK">Alaska (0%)</option><option value="AZ">Arizona (2.50%)</option><option value="AR">Arkansas (4.40%)</option><option value="CA">California (13.30%)</option><option value="CO">Colorado (4.40%)</option><option value="CT">Connecticut (6.99%)</option><option value="DE">Delaware (6.60%)</option><option value="FL">Florida (0%)</option><option value="GA">Georgia (5.39%)</option><option value="HI">Hawaii (11.00%)</option><option value="ID">Idaho (5.80%)</option><option value="IL">Illinois (4.95%)</option><option value="IN">Indiana (3.05%)</option><option value="IA">Iowa (5.70%)</option><option value="KS">Kansas (5.70%)</option><option value="KY">Kentucky (4.50%)</option><option value="LA">Louisiana (4.25%)</option><option value="ME">Maine (7.15%)</option><option value="MD" selected>Maryland (5.75%)</option><option value="MA">Massachusetts (5.00%)</option><option value="MI">Michigan (4.25%)</option><option value="MN">Minnesota (9.85%)</option><option value="MS">Mississippi (4.70%)</option><option value="MO">Missouri (4.80%)</option><option value="MT">Montana (6.75%)</option><option value="NE">Nebraska (6.84%)</option><option value="NV">Nevada (0%)</option><option value="NH">New Hampshire (0%)</option><option value="NJ">New Jersey (10.75%)</option><option value="NM">New Mexico (5.90%)</option><option value="NY">New York (10.90%)</option><option value="NC">North Carolina (4.50%)</option><option value="ND">North Dakota (2.50%)</option><option value="OH">Ohio (3.75%)</option><option value="OK">Oklahoma (4.75%)</option><option value="OR">Oregon (9.90%)</option><option value="PA">Pennsylvania (3.07%)</option><option value="RI">Rhode Island (5.99%)</option><option value="SC">South Carolina (6.40%)</option><option value="SD">South Dakota (0%)</option><option value="TN">Tennessee (0%)</option><option value="TX">Texas (0%)</option><option value="UT">Utah (4.65%)</option><option value="VT">Vermont (8.75%)</option><option value="VA">Virginia (5.75%)</option><option value="WA">Washington (0%)</option><option value="WV">West Virginia (5.12%)</option><option value="WI">Wisconsin (7.65%)</option><option value="WY">Wyoming (0%)</option>
@@ -1195,6 +1223,14 @@ function bootstrap(n,arr){const o=new Array(n);for(let i=0;i<n;i++)o[i]=arr[Math
 let _prog=null, _csvFile=null, _sourceMode='qp';
 
 // ══════════════════════════════════════════════════════════
+// ALTERNATE INSURED TOGGLE
+// ══════════════════════════════════════════════════════════
+function toggleAltInsured() {
+  const on = document.getElementById('altInsuredChk').checked;
+  document.getElementById('altInsuredPanel').style.display = on ? 'block' : 'none';
+}
+
+// ══════════════════════════════════════════════════════════
 // SOURCE MODE TOGGLE
 // ══════════════════════════════════════════════════════════
 function setSourceMode(mode) {
@@ -1377,6 +1413,18 @@ function calculate() {
   const stateCode = document.getElementById('stateRes').value;
   const advisorName = document.getElementById('advisorName').value.trim();
 
+  // Alternate insured — the account holder's own age/gender/health still
+  // drive every distribution, tax, and income calculation above. These
+  // fields only change who the carrier illustration and policy are issued on.
+  const altInsured = document.getElementById('altInsuredChk').checked;
+  const insuredName = altInsured ? (document.getElementById('insuredName').value.trim()||'Alternate Insured') : name;
+  const insuredAgeRaw = altInsured ? parseInt(document.getElementById('insuredAge').value) : age;
+  const insuredGender = altInsured ? document.getElementById('insuredGender').value : gender;
+  const insuredHealth = altInsured ? document.getElementById('insuredHealth').value : health;
+  const insuredRelationship = altInsured ? document.getElementById('insuredRelationship').value.trim() : '';
+  if (altInsured && isNaN(insuredAgeRaw)) return alert('Insured age required when using an alternate insured.');
+  const insuredAge = isNaN(insuredAgeRaw) ? age : insuredAgeRaw;
+
   if (isNaN(age)||age<18||age>80) return alert('Issue age required (18–80).');
   if (isNQP) {
     if (taxOrDist < 10000) return alert('Tax liability must be at least $10,000.');
@@ -1419,7 +1467,8 @@ function calculate() {
            maxLoanLTV, excessLiquidity, sofrRate, sofrSpread, bankRate, rateEnv,
            payoffYear, plr, bankRows, payoffBalance, carrierKey, is, ie, cola,
            floor, cap, floorRate, nSims, dataYrs, qpFee, qpEqWt, basisPct, ltcgRate,
-           gender, health, stateCode, advisorName};
+           gender, health, stateCode, advisorName,
+           altInsured, insuredName, insuredAge, insuredGender, insuredHealth, insuredRelationship};
 
   // Build PDA schedule table
   let pdaTableRows='';
@@ -1440,23 +1489,27 @@ function calculate() {
           <h4>Carrier Illustration Instructions <span class="tag">${carrierName}</span></h4>
           <div class="ig">
             <div>
-              <div class="ii"><span class="ik">Insured</span><span class="iv">${name} · Age ${age} ${gender}</span></div>
-              <div class="ii"><span class="ik">Health Rating</span><span class="iv">${health}</span></div>
+              <div class="ii"><span class="ik">Insured</span><span class="iv">${insuredName} · Age ${insuredAge} ${insuredGender}</span></div>
+              <div class="ii"><span class="ik">Health Rating</span><span class="iv">${insuredHealth}</span></div>
+              ${altInsured ? `<div class="ii"><span class="ik">Relationship to Account Holder</span><span class="iv">${insuredRelationship||'—'} of ${name}</span></div>` : ''}
               <div class="ii"><span class="ik">Product</span><span class="iv">${carrierName}</span></div>
               <div class="ii"><span class="ik">Annual Premium (Yrs 1–${payYears})</span><span class="iv hl">${$f(annualPrem)}/yr</span></div>
               <div class="ii"><span class="ik">Total Premiums (${payYears} yrs)</span><span class="iv hl">${$f(totalPrem)}</span></div>
-              <div class="ii"><span class="ik">Income Start Age</span><span class="iv hl">Age ${is}</span></div>
-              <div class="ii"><span class="ik">Income End Age</span><span class="iv hl">Age ${ie}</span></div>
+              <div class="ii"><span class="ik">Income Start Age</span><span class="iv hl">Age ${is} <span style="opacity:.6">(account holder)</span></span></div>
+              <div class="ii"><span class="ik">Income End Age</span><span class="iv hl">Age ${ie} <span style="opacity:.6">(account holder)</span></span></div>
             </div>
             <div>
               <div class="ii"><span class="ik">COLA on Income</span><span class="iv hl">${cola}% annually</span></div>
               <div class="ii"><span class="ik">PLR (carrier loan rate)</span><span class="iv hl">${plr.toFixed(2)}%</span></div>
-              <div class="ii"><span class="ik">Bank Loan Payoff Year</span><span class="iv hl">Year ${payoffYear} (Age ${age+payoffYear-1})</span></div>
+              <div class="ii"><span class="ik">Bank Loan Payoff Year</span><span class="iv hl">Year ${payoffYear}${altInsured ? ` (Insured Age ${insuredAge+payoffYear-1})` : ` (Age ${age+payoffYear-1})`}</span></div>
               <div class="ii"><span class="ik">Payoff Amount (via policy loan)</span><span class="iv hl">${$f(payoffBalance)}</span></div>
               <div class="ii"><span class="ik">IUL Cap / Floor</span><span class="iv">${cap.toFixed(2)}% / ${floorRate.toFixed(2)}%</span></div>
-              <div class="ii"><span class="ik">Run illustration to age</span><span class="iv">100</span></div>
+              <div class="ii"><span class="ik">Run illustration to insured age</span><span class="iv">${insuredAge + (100-age)}</span></div>
             </div>
           </div>
+          ${altInsured ? `<div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(201,168,76,.2);font-size:10.5px;color:var(--muted);line-height:1.5">
+            <b style="color:var(--navy)">Account holder for tax/distribution purposes:</b> ${name}, Age ${age} — all tax, RMD, and income-timing figures above are based on the account holder, not the insured.
+          </div>` : ''}
           ${loanOverrideActive ? `
           <div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(201,168,76,.2)">
             <div class="ig">
@@ -1974,6 +2027,10 @@ async function generateMC() {
       advisor:        adv||'',
       date:           dateStr,
       issueAge:       d.age,
+      altInsured:       d.altInsured||false,
+      insuredName:      d.insuredName||d.name,
+      insuredAge:       d.insuredAge||d.age,
+      insuredRelationship: d.insuredRelationship||'',
       dist:           d.dist,
       taxLiability:   d.taxLiability||0,
       isNQP:          d.isNQP||false,
