@@ -96,7 +96,7 @@ tr.tot td{border-top:2px solid var(--navy);border-bottom:none;font-weight:700;ba
       <table id="p1-qp"></table>
     </div>
     <div class="col">
-      <div class="ltitle">Enhanced Tax Advantage &mdash; Trust-Owned Asset</div>
+      <div class="ltitle">Enhanced Tax Advantage &mdash; Trust-Owned Asset<span id="p1-eta-insured"></span></div>
       <table id="p1-eta"></table>
     </div>
   </div>
@@ -151,6 +151,10 @@ tr.tot td{border-top:2px solid var(--navy);border-bottom:none;font-weight:700;ba
   var whoNames=(S.clientName||'\u2014')+(S.spouseName?' &amp; '+S.spouseName:'');
 
   ['p1-who','p2-who'].forEach(function(id){ set(id, whoNames); });
+  if (S.altInsured && S.insuredName) {
+    set('p1-eta-insured', ' <em style="font-weight:400">&middot; Insured: '+S.insuredName+
+      (S.insuredRelationship ? ' ('+S.insuredRelationship+' of '+(S.clientName||'account holder')+')' : '')+'</em>');
+  }
   var meta='<b>Client:</b> '+whoNames+
     ' &nbsp;|&nbsp; <b>Advisor:</b> '+(S.advisor||'\u2014')+
     ' &nbsp;|&nbsp; <b>Distribution:</b> '+$f(S.qpBalance)+
@@ -211,7 +215,7 @@ tr.tot td{border-top:2px solid var(--navy);border-bottom:none;font-weight:700;ba
 
   var QP_HDR='<tr><th>Yr</th><th>Age(s)</th><th>Growth</th><th>Required<br>Distribution</th>'+
              '<th>Tax<br>Paid</th><th>Plan<br>Balance</th><th class="supp">Non-Qualified<br>Estate</th></tr>';
-  var ETA_HDR='<tr><th>Yr</th><th>Age(s)</th><th>Plan &rarr;<br>Deposit</th><th>Deposit &rarr;<br>Policy</th>'+
+  var ETA_HDR='<tr><th>Yr</th><th>'+(S.altInsured?'Insured Age':'Age(s)')+'</th><th>Plan &rarr;<br>Deposit</th><th>Deposit &rarr;<br>Policy</th>'+
               '<th>PDA<br>Balance</th><th>PDA + Net<br>Surrender</th>'+
               '<th>Bank Loan<br>Balance</th><th>Bank<br>Interest</th><th>Net Death<br>Benefit</th>'+
               '<th class="supp">Non-Qualified<br>Estate</th></tr>';
@@ -236,6 +240,12 @@ tr.tot td{border-top:2px solid var(--navy);border-bottom:none;font-weight:700;ba
     rows.forEach(function(r){
       var yr=r.a-S.age+1, c=carByYear[yr], bk=bankByYr[yr], pd=pdaByYr[yr];
       var er=etaByAge[r.a];
+      // This column represents the trust-owned policy, which is on the
+      // insured's own life — when the insured is a different person than
+      // the account holder, its age track must be the insured's, not the
+      // account holder's (r.a). Only the RMD phase-in banner below keys off
+      // the account holder's real RMD start age, since that's a QP event.
+      var ageDisplay = (S.altInsured && S.insuredAge) ? (S.insuredAge + yr - 1) : ageLabel(r.a, yr);
       if(!phased && r.rmd>0){
         h+='<tr class="phase"><td colspan="10">Required Distribution Phase &mdash; begins age '+rmdStart+'</td></tr>';
         phased=true;
@@ -257,7 +267,7 @@ tr.tot td{border-top:2px solid var(--navy);border-bottom:none;font-weight:700;ba
       if(yr<payoffYr){ loanCell=bk?$f(bk.end):'\u2014'; intCell=bk?$f(bk.int):'\u2014'; }
       else if(yr===payoffYr){ loanCell='Retired \u2014 '+(bk?$f(bk.beg):'\u2014'); intCell='\u2014'; }
       else { loanCell='\u2014'; intCell='\u2014'; }
-      h+='<tr class="'+rowCls+'"><td>'+yrNum(r.a)+'</td><td>'+ageLabel(r.a,yr)+'</td><td>'+
+      h+='<tr class="'+rowCls+'"><td>'+yrNum(r.a)+'</td><td>'+ageDisplay+'</td><td>'+
          planToDeposit+'</td><td>'+depositToPolicy+'</td><td>'+pdaBal+'</td><td>'+
          $f(pdaPlusSv)+'</td><td>'+
          loanCell+'</td><td>'+intCell+'</td><td>'+(c?$f(c.db):'\u2014')+'</td><td>'+nonQual+'</td></tr>';
@@ -276,8 +286,11 @@ tr.tot td{border-top:2px solid var(--navy);border-bottom:none;font-weight:700;ba
   qShown.forEach(function(r){ eShown.push(etaByAge[r.a]||{a:r.a,rmd:0}); });
   var lastRow=qpRows[qpRows.length-1];
   var lastCar=carByYear[lastRow.a-S.age+1];
+  var dbLabel = (S.altInsured && S.insuredAge)
+    ? 'Net death benefit at account holder\u2019s age '+S.horizonAge+' (insured age '+(S.insuredAge+(lastRow.a-S.age))+')'
+    : 'Net death benefit at age '+S.horizonAge;
   set('p1-eta', ETA_HDR+etaBody(eShown)+
-    '<tr class="tot"><td colspan="8">Net death benefit at age '+S.horizonAge+'</td><td>'+
+    '<tr class="tot"><td colspan="8">'+dbLabel+'</td><td>'+
     $f(lastCar?lastCar.db:S.netDB)+'</td><td>&mdash;</td></tr>');
 
   /* ── settlement block (unchanged math) ─────────────────────────── */
