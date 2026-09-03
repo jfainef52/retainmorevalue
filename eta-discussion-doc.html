@@ -944,7 +944,8 @@
     set('doc-inc-ages',   (r.incStart||65) + '–' + (r.incEnd||95));
     set('doc-inc-ages2',  (r.incStart||65) + '–' + (r.incEnd||95));
     set('doc-tax-r',      r.baseRate ? r.baseRate.toFixed(2) : '37.75');
-    set('doc-outcomes-meta', 'Age ' + r.issueAge + ' · ' + sourceDesc + ' · ' + (r.payYears||7) + '-year funding · ' + (r.nSims||10000).toLocaleString() + ' simulations · 1975–2024 (50 yrs) · Version ' + (r.version||'—'));
+    var insuredMeta = r.altInsured ? (' · Policy insured: ' + (r.insuredName||'—') + ', Age ' + (r.insuredAge||'—') + (r.insuredRelationship ? ' (' + r.insuredRelationship + ')' : '')) : '';
+    set('doc-outcomes-meta', 'Age ' + r.issueAge + ' · ' + sourceDesc + ' · ' + (r.payYears||7) + '-year funding · ' + (r.nSims||10000).toLocaleString() + ' simulations · 1975–2024 (50 yrs) · Version ' + (r.version||'—') + insuredMeta);
     set('doc-eta-yr1',    $f(r.etaYr1Med));
     set('doc-eta-total',  $f(r.etaTotalMed));
     set('doc-qp-total',   $f(r.qpTotalMed));
