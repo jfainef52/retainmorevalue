@@ -214,119 +214,14 @@ tr.tot td{border-top:2px solid var(--navy);border-bottom:none;font-weight:700;ba
   var qShown=sample(qpRows);
 
   var QP_HDR='<tr><th>Yr</th><th>Age(s)</th><th>Growth</th><th>Required<br>Distribution</th>'+
-             '<th>Tax<br>Paid</th><th>Plan<br>Balance</th><th class="supp">Non-Qualified<br>Estate</th></tr>';
+             '<th>Tax<br>Paid</th><th>Cap Gains<br>Drag</th><th>Plan<br>Balance</th><th class="supp">Non-Qualified<br>Estate</th>'+
+             '<th class="supp">If Death That Year<br>(Est. + Cap Gains Tax)</th></tr>';
   var ETA_HDR='<tr><th>Yr</th><th>'+(S.altInsured?'Insured Age':'Age(s)')+'</th><th>Plan &rarr;<br>Deposit</th><th>Deposit &rarr;<br>Policy</th>'+
               '<th>PDA<br>Balance</th><th>PDA + Net<br>Surrender</th>'+
               '<th>Bank Loan<br>Balance</th><th>Bank<br>Interest</th><th>Net Death<br>Benefit</th>'+
-              '<th class="supp">Non-Qualified<br>Estate</th></tr>';
+              '<th class="supp">Non-Qualified<br>Estate</th>'+
+              '<th class="supp">If Death That Year<br>(Est. + Cap Gains Tax)</th></tr>';
 
-  function qpBody(rows,startBal){
-    var h='', prev=startBal, phased=false;
-    rows.forEach(function(r){
-      if(!phased && r.rmd>0){
-        h+='<tr class="phase"><td colspan="7">Required Distribution Phase &mdash; begins age '+rmdStart+'</td></tr>';
-        phased=true;
-      }
-      var growth=r.qp+r.rmd-prev;
-      h+='<tr><td>'+yrNum(r.a)+'</td><td>'+ageLabel(r.a)+'</td><td>'+(growth?$f(growth):'\u2014')+'</td><td>'+$f(r.rmd)+
-         '</td><td>'+$f(r.tax)+'</td><td>'+$f(r.qp)+'</td><td>'+$f(r.side)+'</td></tr>';
-      prev=r.qp;
-    });
-    return h;
-  }
-
-  function etaBody(rows){
-    var h='', phased=false;
-    rows.forEach(function(r){
-      var yr=r.a-S.age+1, c=carByYear[yr], bk=bankByYr[yr], pd=pdaByYr[yr];
-      var er=etaByAge[r.a];
-      // This column represents the trust-owned policy, which is on the
-      // insured's own life — when the insured is a different person than
-      // the account holder, its age track must be the insured's, not the
-      // account holder's (r.a). Only the RMD phase-in banner below keys off
-      // the account holder's real RMD start age, since that's a QP event.
-      var ageDisplay = (S.altInsured && S.insuredAge) ? (S.insuredAge + yr - 1) : ageLabel(r.a, yr);
-      if(!phased && r.rmd>0){
-        h+='<tr class="phase"><td colspan="10">Required Distribution Phase &mdash; begins age '+rmdStart+'</td></tr>';
-        phased=true;
-      }
-      var rowCls = (yr===payoffYr) ? 'payoff' : '';
-      var planToDeposit = (yr===1) ? $f(S.qpBalance) : '\u2014';
-      var depositToPolicy = pd ? $f(pd.prem) : (c&&c.p ? $f(c.p) : '\u2014');
-      var pdaBal = pd ? $f(pd.eoy) : '\u2014';
-      var pdaPlusSv = (pd?pd.eoy:0) + (c?c.sv:0);
-      var nonQual = er ? $f(er.side) : '\u2014';
-      // The bank ledger row AT the payoff year has already switched to the
-      // carrier (policy-loan) rate for that year's growth — its 'end'/'int'
-      // describe policy-loan interest, not bank interest. The figure that
-      // matches Phase 1's "required policy loan at payoff" is 'beg': the
-      // balance carried IN to the payoff year, i.e. the end of the prior year.
-      // No bank interest accrues in the payoff year itself, since the debt is
-      // retired before that year's growth would apply.
-      var loanCell, intCell;
-      if(yr<payoffYr){ loanCell=bk?$f(bk.end):'\u2014'; intCell=bk?$f(bk.int):'\u2014'; }
-      else if(yr===payoffYr){ loanCell='Retired \u2014 '+(bk?$f(bk.beg):'\u2014'); intCell='\u2014'; }
-      else { loanCell='\u2014'; intCell='\u2014'; }
-      h+='<tr class="'+rowCls+'"><td>'+yrNum(r.a)+'</td><td>'+ageDisplay+'</td><td>'+
-         planToDeposit+'</td><td>'+depositToPolicy+'</td><td>'+pdaBal+'</td><td>'+
-         $f(pdaPlusSv)+'</td><td>'+
-         loanCell+'</td><td>'+intCell+'</td><td>'+(c?$f(c.db):'\u2014')+'</td><td>'+nonQual+'</td></tr>';
-    });
-    return h;
-  }
-
-  var totTax=qpRows.reduce(function(s,r){return s+r.tax;},0);
-  var totRmd=qpRows.reduce(function(s,r){return s+r.rmd;},0);
-
-  set('p1-qp', QP_HDR+qpBody(qShown,S.qpBalance)+
-    '<tr class="tot"><td colspan="2">Totals</td><td>&mdash;</td><td>'+$f(totRmd)+'</td><td>'+$f(totTax)+
-    '</td><td colspan="2">&mdash;</td></tr>');
-
-  var eShown=[];
-  qShown.forEach(function(r){ eShown.push(etaByAge[r.a]||{a:r.a,rmd:0}); });
-  var lastRow=qpRows[qpRows.length-1];
-  var lastCar=carByYear[lastRow.a-S.age+1];
-  var dbLabel = (S.altInsured && S.insuredAge)
-    ? 'Net death benefit at account holder\u2019s age '+S.horizonAge+' (insured age '+(S.insuredAge+(lastRow.a-S.age))+')'
-    : 'Net death benefit at age '+S.horizonAge;
-  set('p1-eta', ETA_HDR+etaBody(eShown)+
-    '<tr class="tot"><td colspan="8">'+dbLabel+'</td><td>'+
-    $f(lastCar?lastCar.db:S.netDB)+'</td><td>&mdash;</td></tr>');
-
-  /* ── settlement block (unchanged math) ─────────────────────────── */
-  var etaQpEnd = etaRows.length ? etaRows[etaRows.length-1].qp : 0;
-  var dnExempt  = (dn.estateTax||0)>0 ? (dn.grossEstate||0)-(dn.estateTax||0)/0.40 : (dn.grossEstate||0);
-  var etaExempt = (eta.estateTax||0)>0 ? (eta.grossEstate||0)-(eta.estateTax||0)/0.40 : (eta.grossEstate||0);
-  set('p2-hz', S.horizonAge);
-  set('p2-settle', (function(){
-    function row(cls,label,qp,nonq,gross,exempt,estTax,stTax,cg,ird,db,net){
-      return '<tr'+(cls?' class="'+cls+'"':'')+'><td>'+label+'</td>'+
-        '<td>'+$M(qp)+'</td><td>'+$M(nonq)+'</td><td>'+$M(gross)+'</td>'+
-        '<td>'+$M(exempt)+'</td><td>'+$M(Math.max(0,gross-exempt))+'</td>'+
-        '<td>'+$M(estTax)+'</td><td>'+$M(stTax)+'</td><td>'+$M(cg)+'</td><td>'+$M(ird)+'</td>'+
-        '<td>'+(db?$M(db):'\u2014')+'</td><td>'+$M(net)+'</td></tr>';
-    }
-    return '<tr><th>&nbsp;</th><th>Qualified Plan<br>Remaining</th><th>Non-Qualified<br>Estate</th>'+
-      '<th>Gross<br>Estate</th><th>Exemption<br>Available</th><th>Taxable<br>Estate</th>'+
-      '<th>Federal<br>Estate Tax</th><th>'+(S.stateEstateTaxLabel||S.stateCode||'State')+'<br>Estate Tax</th><th>Capital Gains<br>at Death</th><th>Income Tax<br>to Heirs</th>'+
-      '<th>Death Benefit<br>Outside Estate</th><th>Net to<br>Family</th></tr>'+
-      row('','Take no action', S.qpAtDeath||0, (dn.grossEstate||0)-(S.qpAtDeath||0),
-          dn.grossEstate||0, dnExempt, dn.estateTax||0, dn.stateTax||0, dn.capGainsTax||0,
-          dn.inheritedIraTax||0, 0, dn.netToHeirs||0)+
-      row('tot','Enhanced Tax Advantage', etaQpEnd, Math.max(0,(eta.grossEstate||0)-etaQpEnd),
-          eta.grossEstate||0, etaExempt, eta.estateTax||0, eta.stateTax||0, eta.capGainsTax||0,
-          eta.inheritedIraTax||0, eta.ilitProceeds||0, eta.netToHeirs||0);
-  })());
-  if (S.stateTaxApproximate) {
-    document.getElementById('p2-settle').insertAdjacentHTML('afterend',
-      '<div class="hint" style="color:#8b2020;margin-top:6px">'+(S.stateEstateTaxLabel||S.stateCode)+
-      '\u2019s bracket schedule above the exemption is an evenly-interpolated approximation, not a confirmed bracket-by-bracket table \u2014 verify against the state\u2019s current guidance before relying on the exact figure.</div>');
-  }
-
-  /* ── the graph: net-to-heirs at every age, both paths ────────────
-     Recomputed year by year from the same stored ledger rows, applying the
-     same 40%-above-exemption logic used for the final result at every point
-     along the timeline instead of only at the horizon. Not a new model. */
   var TOP_RATE=0.40;
   function exemptionAt(yearsFwd){
     var base=(S.filing==='married')?30000000:15000000;
@@ -519,6 +414,135 @@ function stateEstateTax(stateCode, grossEstate, filing){
     var cgTax=num(cgGain,0)*(S.cgRate||0.20);
     return gross-estTax-stTax-cgTax+num(dbOutside,0);
   }
+
+  function qpBody(rows,startBal){
+    var h='', prev=startBal, phased=false;
+    rows.forEach(function(r){
+      if(!phased && r.rmd>0){
+        h+='<tr class="phase"><td colspan="9">Required Distribution Phase &mdash; begins age '+rmdStart+'</td></tr>';
+        phased=true;
+      }
+      var growth=r.qp+r.rmd-prev;
+      var yearsFwd = r.a - S.age;
+      var cgGain = Math.max(0, r.side - r.basis);
+      var netIfDeath = netAt(r.qp+r.side, yearsFwd, cgGain, 0, 0);
+      h+='<tr><td>'+yrNum(r.a)+'</td><td>'+ageLabel(r.a)+'</td><td>'+(growth?$f(growth):'\u2014')+'</td><td>'+$f(r.rmd)+
+         '</td><td>'+$f(r.tax)+'</td><td>'+(r.drag?$f(r.drag):'\u2014')+'</td><td>'+$f(r.qp)+'</td><td>'+$f(r.side)+
+         '</td><td>'+$f(netIfDeath)+'</td></tr>';
+      prev=r.qp;
+    });
+    return h;
+  }
+
+  function etaBody(rows){
+    var h='', phased=false;
+    var cumGiftByYr = (function(){
+      var m={}, cum=0;
+      carRows.forEach(function(cr){ cum += (cr.p||0); m[cr.y]=cum; });
+      return m;
+    })();
+    rows.forEach(function(r){
+      var yr=r.a-S.age+1, c=carByYear[yr], bk=bankByYr[yr], pd=pdaByYr[yr];
+      var er=etaByAge[r.a];
+      // This column represents the trust-owned policy, which is on the
+      // insured's own life — when the insured is a different person than
+      // the account holder, its age track must be the insured's, not the
+      // account holder's (r.a). Only the RMD phase-in banner below keys off
+      // the account holder's real RMD start age, since that's a QP event.
+      var ageDisplay = (S.altInsured && S.insuredAge) ? (S.insuredAge + yr - 1) : ageLabel(r.a, yr);
+      var rmdVal = (r.rmd!=null) ? r.rmd : (er ? er.rmd : 0);
+      if(!phased && rmdVal>0){
+        h+='<tr class="phase"><td colspan="11">Required Distribution Phase &mdash; begins age '+rmdStart+'</td></tr>';
+        phased=true;
+      }
+      var rowCls = (yr===payoffYr) ? 'payoff' : '';
+      var planToDeposit = (yr===1) ? $f(S.qpBalance) : '\u2014';
+      var depositToPolicy = pd ? $f(pd.prem) : (c&&c.p ? $f(c.p) : '\u2014');
+      var pdaBal = pd ? $f(pd.eoy) : '\u2014';
+      var pdaPlusSv = (pd?pd.eoy:0) + (c?c.sv:0);
+      var nonQual = er ? $f(er.side) : '\u2014';
+      // The bank ledger row AT the payoff year has already switched to the
+      // carrier (policy-loan) rate for that year's growth — its 'end'/'int'
+      // describe policy-loan interest, not bank interest. The figure that
+      // matches Phase 1's "required policy loan at payoff" is 'beg': the
+      // balance carried IN to the payoff year, i.e. the end of the prior year.
+      // No bank interest accrues in the payoff year itself, since the debt is
+      // retired before that year's growth would apply.
+      var loanCell, intCell;
+      if(yr<payoffYr){ loanCell=bk?$f(bk.end):'\u2014'; intCell=bk?$f(bk.int):'\u2014'; }
+      else if(yr===payoffYr){ loanCell='Retired \u2014 '+(bk?$f(bk.beg):'\u2014'); intCell='\u2014'; }
+      else { loanCell='\u2014'; intCell='\u2014'; }
+      var gifts = cumGiftByYr[yr]||0;
+      var dbOutside = (S.ilit && c) ? c.db : 0;
+      var etaGross = (er?er.qp:0)+(er?er.side:0);
+      var etaGain = er ? Math.max(0, er.side-er.basis) : 0;
+      var netIfDeath = netAt(etaGross, yr-1, etaGain, dbOutside, gifts);
+      h+='<tr class="'+rowCls+'"><td>'+yrNum(r.a)+'</td><td>'+ageDisplay+'</td><td>'+
+         planToDeposit+'</td><td>'+depositToPolicy+'</td><td>'+pdaBal+'</td><td>'+
+         $f(pdaPlusSv)+'</td><td>'+
+         loanCell+'</td><td>'+intCell+'</td><td>'+(c?$f(c.db):'\u2014')+'</td><td>'+nonQual+
+         '</td><td>'+$f(netIfDeath)+'</td></tr>';
+    });
+    return h;
+  }
+
+  var totTax=qpRows.reduce(function(s,r){return s+r.tax;},0);
+  var totRmd=qpRows.reduce(function(s,r){return s+r.rmd;},0);
+  var totDrag=qpRows.reduce(function(s,r){return s+(r.drag||0);},0);
+
+  set('p1-qp', QP_HDR+qpBody(qShown,S.qpBalance)+
+    '<tr class="tot"><td colspan="2">Totals</td><td>&mdash;</td><td>'+$f(totRmd)+'</td><td>'+$f(totTax)+
+    '</td><td>'+$f(totDrag)+'</td><td colspan="3">&mdash;</td></tr>');
+
+  // The trust-owned death benefit doesn't stop when the QP-side horizon
+  // does — extend the right-side table using the carrier's own rows
+  // (which the modeler now writes out further when an alternate insured is
+  // in use), not just the years the QP/estate-tax side happens to cover.
+  var eShownFull = carRows.map(function(cr){ return {a: S.age + cr.y - 1}; });
+  var eShown = sample(eShownFull.length > qShown.length ? eShownFull : qShown.map(function(r){ return etaByAge[r.a]||{a:r.a,rmd:0}; }));
+  var lastRow = carRows.length ? {a: S.age + carRows[carRows.length-1].y - 1} : qpRows[qpRows.length-1];
+  var lastCar=carByYear[lastRow.a-S.age+1];
+  var dbLabel = (S.altInsured && S.insuredAge)
+    ? 'Net death benefit at insured age '+(S.insuredAge+(lastRow.a-S.age))+' (account holder age '+lastRow.a+')'
+    : 'Net death benefit at age '+S.horizonAge;
+  set('p1-eta', ETA_HDR+etaBody(eShown)+
+    '<tr class="tot"><td colspan="8">'+dbLabel+'</td><td>'+
+    $f(lastCar?lastCar.db:S.netDB)+'</td><td>&mdash;</td><td>&mdash;</td></tr>');
+
+  /* ── settlement block (unchanged math) ─────────────────────────── */
+  var etaQpEnd = etaRows.length ? etaRows[etaRows.length-1].qp : 0;
+  var dnExempt  = (dn.estateTax||0)>0 ? (dn.grossEstate||0)-(dn.estateTax||0)/0.40 : (dn.grossEstate||0);
+  var etaExempt = (eta.estateTax||0)>0 ? (eta.grossEstate||0)-(eta.estateTax||0)/0.40 : (eta.grossEstate||0);
+  set('p2-hz', S.horizonAge);
+  set('p2-settle', (function(){
+    function row(cls,label,qp,nonq,gross,exempt,estTax,stTax,cg,ird,db,net){
+      return '<tr'+(cls?' class="'+cls+'"':'')+'><td>'+label+'</td>'+
+        '<td>'+$M(qp)+'</td><td>'+$M(nonq)+'</td><td>'+$M(gross)+'</td>'+
+        '<td>'+$M(exempt)+'</td><td>'+$M(Math.max(0,gross-exempt))+'</td>'+
+        '<td>'+$M(estTax)+'</td><td>'+$M(stTax)+'</td><td>'+$M(cg)+'</td><td>'+$M(ird)+'</td>'+
+        '<td>'+(db?$M(db):'\u2014')+'</td><td>'+$M(net)+'</td></tr>';
+    }
+    return '<tr><th>&nbsp;</th><th>Qualified Plan<br>Remaining</th><th>Non-Qualified<br>Estate</th>'+
+      '<th>Gross<br>Estate</th><th>Exemption<br>Available</th><th>Taxable<br>Estate</th>'+
+      '<th>Federal<br>Estate Tax</th><th>'+(S.stateEstateTaxLabel||S.stateCode||'State')+'<br>Estate Tax</th><th>Capital Gains<br>at Death</th><th>Income Tax<br>to Heirs</th>'+
+      '<th>Death Benefit<br>Outside Estate</th><th>Net to<br>Family</th></tr>'+
+      row('','Take no action', S.qpAtDeath||0, (dn.grossEstate||0)-(S.qpAtDeath||0),
+          dn.grossEstate||0, dnExempt, dn.estateTax||0, dn.stateTax||0, dn.capGainsTax||0,
+          dn.inheritedIraTax||0, 0, dn.netToHeirs||0)+
+      row('tot','Enhanced Tax Advantage', etaQpEnd, Math.max(0,(eta.grossEstate||0)-etaQpEnd),
+          eta.grossEstate||0, etaExempt, eta.estateTax||0, eta.stateTax||0, eta.capGainsTax||0,
+          eta.inheritedIraTax||0, eta.ilitProceeds||0, eta.netToHeirs||0);
+  })());
+  if (S.stateTaxApproximate) {
+    document.getElementById('p2-settle').insertAdjacentHTML('afterend',
+      '<div class="hint" style="color:#8b2020;margin-top:6px">'+(S.stateEstateTaxLabel||S.stateCode)+
+      '\u2019s bracket schedule above the exemption is an evenly-interpolated approximation, not a confirmed bracket-by-bracket table \u2014 verify against the state\u2019s current guidance before relying on the exact figure.</div>');
+  }
+
+  /* ── the graph: net-to-heirs at every age, both paths ────────────
+     Recomputed year by year from the same stored ledger rows, applying the
+     same 40%-above-exemption logic used for the final result at every point
+     along the timeline instead of only at the horizon. Not a new model. */
 
   /* IRS Publication 590-B, Table I — same table used in the modeler, kept in
      sync here so the chart's endpoint matches the settlement table above,
