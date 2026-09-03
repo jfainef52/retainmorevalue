@@ -86,6 +86,7 @@ h1{font-family:'Playfair Display',serif;font-weight:600;font-size:21.42px;color:
   <div class="meta-row">
     <span><b>Client:</b> <span id="doc-client">Sample Client</span></span>
     <span><b>Age <span id="doc-age">60</span></b></span>
+    <span id="doc-insured-wrap" style="display:none"><b>Insured:</b> <span id="doc-insured">—</span></span>
     <span><b>Planning horizon:</b> Age <span id="doc-horizon">91</span></span>
     <span><b>Prepared:</b> <span id="doc-date">August 2026</span></span>
   </div>
@@ -223,6 +224,10 @@ h1{font-family:'Playfair Display',serif;font-weight:600;font-size:21.42px;color:
     set('doc-client', names);
     set('doc-age', r.age || '\u2014');
     set('doc-horizon', r.horizonAge || '\u2014');
+    if (r.altInsured) {
+      set('doc-insured', (r.insuredName||'\u2014') + ' (Age ' + (r.insuredAge||'\u2014') + (r.insuredRelationship ? ', ' + r.insuredRelationship : '') + ')');
+      var iw = document.getElementById('doc-insured-wrap'); if (iw) iw.style.display = 'inline';
+    }
     set('doc-date', r.date || '\u2014');
     set('doc-date2', r.date || '\u2014');
     set('doc-advisor', (r.advisor ? String(r.advisor).replace(' \u2014 Advisor','').trim() : 'Sample') + ' \u2014 Advisor');
