@@ -90,6 +90,7 @@ tr.tot td{border-top:2px solid var(--navy);border-bottom:none;font-weight:700;ba
   </div>
   <div class="metaline" id="p1-meta">&mdash;</div>
   <div class="cards" id="p1-cards"></div>
+  <div id="p1-flags"></div>
   <div class="duo">
     <div class="col">
       <div class="ltitle">Qualified Plan &mdash; Take No Action <em>&middot; 50th percentile</em></div>
@@ -172,6 +173,44 @@ tr.tot td{border-top:2px solid var(--navy);border-bottom:none;font-weight:700;ba
   var qpRows=L.qpRows||[], carRows=L.carrierRows||[], etaRows=L.etaQpRows||[], bankRows=L.bank||[];
   var rmdStart=null;
   qpRows.forEach(function(r){ if(rmdStart===null && r.rmd>0) rmdStart=r.a; });
+
+  // "If Death That Year" only makes sense through the account holder's own
+  // horizon — the point the model treats as their death. Rows shown beyond
+  // that exist purely to illustrate how the trust asset itself keeps
+  // growing across the insured's longer lifetime, not to model a second,
+  // later death of the account holder. Continuing to compute and shrink a
+  // dollar figure past that point would visually read as "the family is
+  // worse off if this person lives longer" — exactly the wrong takeaway for
+  // a life insurance illustration to invite, even unintentionally. So the
+  // column simply stops being computed there, rather than trailing off.
+  var horizonYr = S.horizonAge - S.age + 1;
+
+  // The carrier's own flags (lapse marker, MEC status, etc.) were captured
+  // by the modeler but never surfaced here before — a lapsed policy would
+  // just show up as the death benefit column silently going blank with no
+  // explanation, which reads as a broken table rather than what it is: the
+  // carrier's own illustration saying the policy runs out of death benefit.
+  var lapseRow = carRows.find(function(r){ return r.db<=0; });
+  var flagsHtml = '';
+  if (lapseRow) {
+    var lapseAge = (S.altInsured && S.insuredAge) ? (S.insuredAge+lapseRow.y-1) : lapseRow.a;
+    flagsHtml += '<div style="background:#fdecec;border:1.4px solid #8b2020;border-radius:4px;padding:8px 12px;margin-bottom:10px;font-size:10.5px;color:#5c1414">'+
+      '<b>Policy lapses in year '+lapseRow.y+'</b> ('+(S.altInsured?'insured':'')+' age '+lapseAge+') in this illustration &mdash; the death benefit runs to $0 with the loan still outstanding, which makes the gain ordinary income to the owner with no death benefit left to pay it. '+
+      'This is the carrier\u2019s own illustrated result, not a projection made here. Rows at and after the lapse show $0 death benefit for that reason.</div>';
+  }
+  if (S.altInsured && S.insuredAge && carRows.length) {
+    var lastCarrierInsuredAge = S.insuredAge + carRows[carRows.length-1].y - 1;
+    if (!lapseRow && lastCarrierInsuredAge < 100) {
+      flagsHtml += '<div style="background:#f7f0e0;border:1.4px solid #c9a84c;border-radius:4px;padding:8px 12px;margin-bottom:10px;font-size:10.5px;color:#4a3c10">'+
+        '<b>Uploaded illustration ends at insured age '+lastCarrierInsuredAge+'</b> ('+carRows.length+' policy years) \u2014 this is as far as the trust-owned asset table below can go with the current upload. '+
+        'To see the death benefit out to insured age 100, request a longer illustration from the carrier (policy year '+(100-S.insuredAge+1)+') and re-run the modeler.</div>';
+    }
+  }
+  (L.flags||[]).forEach(function(fl){
+    flagsHtml += '<div style="background:#f7f0e0;border:1.4px solid #c9a84c;border-radius:4px;padding:8px 12px;margin-bottom:10px;font-size:10.5px;color:#4a3c10">'+fl+'</div>';
+  });
+  set('p1-flags', flagsHtml);
+
 
   var isSurv = L.policyType==='survivorship';
   function yrNum(age){ return age - S.age + 1; }
@@ -425,17 +464,18 @@ function stateEstateTax(stateCode, grossEstate, filing){
       var growth=r.qp+r.rmd-prev;
       var yearsFwd = r.a - S.age;
       var cgGain = Math.max(0, r.side - r.basis);
-      var netIfDeath = netAt(r.qp+r.side, yearsFwd, cgGain, 0, 0);
+      var yrNo = yearsFwd+1;
+      var netIfDeath = (yrNo<=horizonYr) ? $f(netAt(r.qp+r.side, yearsFwd, cgGain, 0, 0)) : '\u2014';
       h+='<tr><td>'+yrNum(r.a)+'</td><td>'+ageLabel(r.a)+'</td><td>'+(growth?$f(growth):'\u2014')+'</td><td>'+$f(r.rmd)+
          '</td><td>'+$f(r.tax)+'</td><td>'+(r.drag?$f(r.drag):'\u2014')+'</td><td>'+$f(r.qp)+'</td><td>'+$f(r.side)+
-         '</td><td>'+$f(netIfDeath)+'</td></tr>';
+         '</td><td>'+netIfDeath+'</td></tr>';
       prev=r.qp;
     });
     return h;
   }
 
   function etaBody(rows){
-    var h='', phased=false;
+    var h='', phased=false, lapsed=false;
     var cumGiftByYr = (function(){
       var m={}, cum=0;
       carRows.forEach(function(cr){ cum += (cr.p||0); m[cr.y]=cum; });
@@ -454,6 +494,10 @@ function stateEstateTax(stateCode, grossEstate, filing){
       if(!phased && rmdVal>0){
         h+='<tr class="phase"><td colspan="11">Required Distribution Phase &mdash; begins age '+rmdStart+'</td></tr>';
         phased=true;
+      }
+      if(!lapsed && c && c.db<=0){
+        h+='<tr class="phase" style="background:#fdecec;color:#8b2020"><td colspan="11"><b>Policy lapses this year</b> \u2014 death benefit runs to $0 in the carrier\u2019s own illustration; remaining rows below show $0 death benefit for that reason.</td></tr>';
+        lapsed=true;
       }
       var rowCls = (yr===payoffYr) ? 'payoff' : '';
       var planToDeposit = (yr===1) ? $f(S.qpBalance) : '\u2014';
@@ -476,12 +520,12 @@ function stateEstateTax(stateCode, grossEstate, filing){
       var dbOutside = (S.ilit && c) ? c.db : 0;
       var etaGross = (er?er.qp:0)+(er?er.side:0);
       var etaGain = er ? Math.max(0, er.side-er.basis) : 0;
-      var netIfDeath = netAt(etaGross, yr-1, etaGain, dbOutside, gifts);
+      var netIfDeath = (yr<=horizonYr) ? $f(netAt(etaGross, yr-1, etaGain, dbOutside, gifts)) : '\u2014';
       h+='<tr class="'+rowCls+'"><td>'+yrNum(r.a)+'</td><td>'+ageDisplay+'</td><td>'+
          planToDeposit+'</td><td>'+depositToPolicy+'</td><td>'+pdaBal+'</td><td>'+
          $f(pdaPlusSv)+'</td><td>'+
          loanCell+'</td><td>'+intCell+'</td><td>'+(c?$f(c.db):'\u2014')+'</td><td>'+nonQual+
-         '</td><td>'+$f(netIfDeath)+'</td></tr>';
+         '</td><td>'+netIfDeath+'</td></tr>';
     });
     return h;
   }
@@ -645,7 +689,7 @@ function stateEstateTax(stateCode, grossEstate, filing){
     document.getElementById('chart').innerHTML=svg;
   })();
 
-  set('p1-foot','Qualified plan figures reflect the median (50th percentile) of 10,000 bootstrapped simulations using paired S&amp;P 500 and 10-year Treasury calendar years, 1975&ndash;2024. Half of outcomes finish better and half worse. Required minimum distributions follow the 2022 Uniform Lifetime Table beginning at the age required by year of birth, are stacked on taxable Social Security, and are reinvested after tax. Rows are condensed to fit one page \u2014 shown in full while the bank loan is outstanding and through the first decade of required distributions, every fifth year thereafter. The bank loan is refinanced into a participating policy loan at payoff and continues silently within the illustrated death benefit; the policy loan balance itself is not shown. Policy values are taken from the carrier illustration as prepared and are not guaranteed.');
+  set('p1-foot','Qualified plan figures reflect the median (50th percentile) of 10,000 bootstrapped simulations using paired S&amp;P 500 and 10-year Treasury calendar years, 1975&ndash;2024. Half of outcomes finish better and half worse. Required minimum distributions follow the 2022 Uniform Lifetime Table beginning at the age required by year of birth, are stacked on taxable Social Security, and are reinvested after tax. Rows are condensed to fit one page \u2014 shown in full while the bank loan is outstanding and through the first decade of required distributions, every fifth year thereafter. The bank loan is refinanced into a participating policy loan at payoff and continues silently within the illustrated death benefit; the policy loan balance itself is not shown. Policy values are taken from the carrier illustration as prepared and are not guaranteed. <b>&ldquo;If Death That Year&rdquo; is shown only through the account holder\u2019s own horizon, age '+S.horizonAge+'</b> \u2014 rows beyond that exist to show how the trust asset itself keeps growing across the insured\u2019s longer lifetime, not to model a second, later death of the account holder; the tax figure isn\u2019t carried past that point so a longer life never appears as a cost to the family.');
   set('p2-foot','The chart applies the same 40%-above-exemption estate tax calculation used for the final result at every age along the timeline, using the stored median-path balances for each year \u2014 it is not a separate projection. <b>Conservative methodology.</b> Required distributions are taxed as though they were the client\u2019s only ordinary income; the distribution funding the structure is taxed at the highest marginal bracket. Any distortion understates the advantage shown. Hypothetical model \u2014 not a guarantee of future results or tax outcomes. Federal estate tax exemption reflects current law under the One Big Beautiful Bill Act ($15M individual / $30M married, effective for deaths on or after January 1, 2026, indexed) and is subject to legislative change. Death benefit is excluded from the gross estate only where the policy is owned by a properly structured irrevocable trust with an independent trustee and no obligation to satisfy estate liabilities; a policy transferred into trust rather than issued to it is subject to the three-year lookback under IRC 2035. The IRC 691(c) deduction is not modeled. Not tax or legal advice \u2014 consult qualified tax counsel and an estate planning attorney. Not valid without a complete carrier illustration. RetainMoreValue.com \u00b7 EFS Life LLC');
 })();
 </script>
