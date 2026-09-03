@@ -265,6 +265,10 @@ table.dual tbody tr.payoff-yr td { background:rgba(201,168,76,.1) !important; fo
 table.dual tbody tr.income-yr td { background:rgba(42,110,69,.03); }
 table.dual tbody tr.income-yr td.inc-val { color:var(--green); font-weight:700; }
 table.dual tbody tr.post-yr td { background:rgba(201,168,76,.02); }
+table.dual tbody tr.rmd-yr td { background:rgba(139,32,32,.05); }
+table.dual tbody tr.rmd-yr td.inc-val { color:var(--red); font-weight:700; }
+table.sc-ldg tbody tr.rmd-yr td { background:rgba(139,32,32,.05); }
+table.sc-ldg tbody tr.rmd-yr td.green-col { color:var(--red); font-weight:600; }
 
 table.dual tfoot td {
   padding:5px 6px; text-align:center; font-weight:700;
@@ -379,6 +383,9 @@ table.sc-ldg tfoot td.gold-col { color:var(--gold); }
           <div class="fg fr">
             <div class="field"><label class="fl">Client Name</label><input type="text" id="clientName" placeholder="ex. Amy Chavez-Valdez"/></div>
             <div class="field"><label class="fl">Issue Age</label><input type="number" id="issueAge" placeholder="e.g. 49" min="18" max="80" oninput="recalcAll();rebuildPayoffDropdown()"/></div>
+          </div>
+          <div class="fg fr">
+            <div class="field"><label class="fl">Account Holder Date of Birth</label><input type="date" id="dob"/><div class="hint">Drives the exact RMD start age (73 vs. 75 under SECURE 2.0). Leave blank to fall back to an age-based estimate, which is ambiguous by up to a year around the 1959/1960 birth-year cutoff.</div></div>
           </div>
           <div class="fg fr">
             <div class="field"><label class="fl">Gender</label><select id="gender"><option value="F">Female</option><option value="M">Male</option></select></div>
@@ -1089,12 +1096,54 @@ function solveIncomeFromAV(avSeries, surrSeries, bankRows, annualPrem, payYears,
 }
 
 // ══════════════════════════════════════════════════════════
+// REQUIRED MINIMUM DISTRIBUTIONS (RMD) — SECURE 2.0 Act
+// Uniform Lifetime Table (Table III), IRS Reg. 1.401(a)(9)-9,
+// effective for distribution calendar years beginning 2022.
+// ══════════════════════════════════════════════════════════
+const RMD_ULT = {72:27.4,73:26.5,74:25.5,75:24.6,76:23.7,77:22.9,78:22.0,79:21.1,80:20.2,
+  81:19.4,82:18.5,83:17.7,84:16.8,85:16.0,86:15.2,87:14.4,88:13.7,89:12.9,90:12.2,
+  91:11.5,92:10.8,93:10.1,94:9.5,95:8.9,96:8.4,97:7.8,98:7.3,99:6.8,100:6.4,
+  101:6.0,102:5.6,103:5.2,104:4.9,105:4.6,106:4.3,107:4.1,108:3.9,109:3.7,110:3.5,
+  111:3.4,112:3.3,113:3.1,114:3.0,115:2.9};
+function rmdDivisor(age) {
+  const a = Math.max(72, Math.min(115, Math.round(age)));
+  return RMD_ULT[a] || RMD_ULT[115];
+}
+// SECURE 2.0: RMD start age is 73 for those born 1951–1959, 75 for born
+// 1960 or later. (Anyone born before 1951 is already past RMD age across
+// this tool's issue-age range, so no earlier-age branch is needed.)
+function rmdStartAgeFromBirthYear(birthYear) {
+  if (!birthYear) return null;
+  return birthYear >= 1960 ? 75 : 73;
+}
+// Resolve RMD start age from an explicit DOB when given (exact); otherwise
+// fall back to an age-based birth-year estimate — ambiguous by up to a year
+// around the 1959/1960 cutoff depending on whether the birthday has occurred
+// yet this calendar year, same caveat as the estate modeler's DOB fallback.
+function resolveRmdAge(dobStr, issueAge) {
+  let birthYear;
+  if (dobStr) {
+    const parsed = new Date(dobStr);
+    if (!isNaN(parsed)) birthYear = parsed.getFullYear();
+  }
+  if (!birthYear) birthYear = new Date().getFullYear() - issueAge;
+  return rmdStartAgeFromBirthYear(birthYear);
+}
+
+// ══════════════════════════════════════════════════════════
 // QP COMPARATOR
 // Distribution stays in QP, grows tax-deferred at S&P total return
 // Taxable withdrawals at combined rate (fed+state+penalty)
 // Solved to deplete to $0 at incEnd
+// rmdAge (optional): if set and earlier than incStart, forces mandatory
+// taxable RMD withdrawals from rmdAge through incStart-1 — the QP can't
+// just sit and compound during those years even though the client hasn't
+// elected to start lifestyle income yet. From incStart on, RMD is also
+// enforced as a floor under the solved withdrawal (almost always moot,
+// since the solved withdrawal is designed to deplete the account and so
+// already exceeds the RMD minimum, but kept for correctness).
 // ══════════════════════════════════════════════════════════
-function simQP(dist, combinedTaxRate, baseRate, issueAge, incStart, incEnd, colaRate, returns) {
+function simQP(dist, combinedTaxRate, baseRate, issueAge, incStart, incEnd, colaRate, returns, rmdAge=null) {
   // returns = net blended QP return already: (eqWt×(price+div) + bdWt×bond) − fee
   // No separate fee application needed here
   // baseRate = fed + state (after 59.5, no penalty)
@@ -1103,13 +1152,22 @@ function simQP(dist, combinedTaxRate, baseRate, issueAge, incStart, incEnd, cola
   const nYrs = returns.length;
   const startIdx = incStart - issueAge;
   const incomeYrs = incEnd - incStart + 1;
+  const hasEarlyRmd = !!(rmdAge && rmdAge < incStart);
 
   function taxRateForAge(age) {
     return age < 59.5 ? combinedTaxRate/100 : baseRate/100;
   }
 
+  // Walk to income start, applying growth each year and, once age >= rmdAge,
+  // subtracting that year's forced RMD before continuing to grow the rest.
   let bal = dist;
-  for (let i=0; i<Math.min(startIdx,nYrs); i++) bal = bal*(1-fee)*(1+returns[i]);
+  for (let i=0; i<Math.min(startIdx,nYrs); i++) {
+    const age = issueAge + i;
+    bal = bal*(1-fee)*(1+returns[i]);
+    if (hasEarlyRmd && age >= rmdAge) {
+      bal = Math.max(0, bal - bal/rmdDivisor(age));
+    }
+  }
   const balAtStart = bal;
 
   // Binary search for gross withdrawal — using the tax rate at income start age
@@ -1133,12 +1191,24 @@ function simQP(dist, combinedTaxRate, baseRate, issueAge, incStart, incEnd, cola
     const yr=i+1, age=issueAge+yr-1, ret=returns[i]||0;
     if (age < incStart) {
       b2 = b2*(1-fee)*(1+ret);
-      rows.push({yr, age, gross:0, net:0, bal:b2, ret});
+      if (hasEarlyRmd && age >= rmdAge) {
+        const taxR = taxRateForAge(age);
+        const g = b2/rmdDivisor(age);
+        const n = g * (1 - taxR);
+        b2 = Math.max(0, b2 - g);
+        rows.push({yr, age, gross:g, net:n, bal:b2, ret, isRmd:true});
+      } else {
+        rows.push({yr, age, gross:0, net:0, bal:b2, ret});
+      }
     } else if (age <= incEnd) {
       const j = age - incStart;
       const taxR = taxRateForAge(age);
       b2 = b2*(1-fee)*(1+ret);
-      const g = Math.min(bestW * Math.pow(1+cola, j), b2);
+      let g = Math.min(bestW * Math.pow(1+cola, j), b2);
+      if (rmdAge && age >= rmdAge) {
+        const rmdMin = Math.min(b2/rmdDivisor(age), b2);
+        g = Math.max(g, rmdMin);
+      }
       const n = g * (1 - taxR);
       b2 = Math.max(0, b2-g);
       rows.push({yr, age, gross:g, net:n, bal:b2, ret});
@@ -1382,6 +1452,8 @@ function updateLoanOverride() {
 function calculate() {
   const name = document.getElementById('clientName').value.trim()||'Sample Client';
   const age = parseInt(document.getElementById('issueAge').value);
+  const dob = document.getElementById('dob').value;
+  const rmdAge = resolveRmdAge(dob, age);
   const isNQP = _sourceMode === 'nqp';
   const taxOrDist = parseNum('distribution');
   // NQP: user enters tax liability; IUL funding = 2× tax
@@ -1468,7 +1540,7 @@ function calculate() {
   const {rows: bankRows} = buildBankLoan(dist, combined, sofrRate, sofrSpread, payoffYear, plr, age, 100, financedTax);
   const payoffBalance = bankRows[payoffYear-1]?.prevLoan || financedTax;
 
-  _prog = {name, age, dist, taxLiability, isNQP, fed, state, penalty, combined,
+  _prog = {name, age, dob, rmdAge, dist, taxLiability, isNQP, fed, state, penalty, combined,
            pdaFee, pdaRate, payYears, pdaNet, afterTaxRate, annualPrem, totalPrem,
            pdaRows, financedTax, taxObligation, loanOverrideActive, loanLTVPct,
            maxLoanLTV, excessLiquidity, sofrRate, sofrSpread, bankRate, rateEnv,
@@ -1504,6 +1576,7 @@ function calculate() {
               <div class="ii"><span class="ik">Total Premiums (${payYears} yrs)</span><span class="iv hl">${$f(totalPrem)}</span></div>
               <div class="ii"><span class="ik">Income Start Age</span><span class="iv hl">Age ${is} <span style="opacity:.6">(account holder)</span></span></div>
               <div class="ii"><span class="ik">Income End Age</span><span class="iv hl">Age ${ie} <span style="opacity:.6">(account holder)</span></span></div>
+              <div class="ii"><span class="ik">QP Required Minimum Distribution Age</span><span class="iv ${rmdAge < is ? 'hl' : ''}">Age ${rmdAge}${dob ? '' : ' (est. from issue age — enter DOB for exact age)'}${rmdAge < is ? ` — forced RMDs precede elected income` : ''}</span></div>
             </div>
             <div>
               <div class="ii"><span class="ik">COLA on Income</span><span class="iv hl">${cola}% annually</span></div>
@@ -1847,7 +1920,7 @@ async function generateMC() {
     allAvAtInc.push(ePath[incStartIdx]?.av||0);
     const qp=d.isNQP
       ? simInvestmentAccount(d.taxLiability, d.basisPct, d.ltcgRate, d.age, d.is, d.ie, d.cola, qpRets)
-      : simQP(d.dist, d.combined, d.fed+d.state, d.age, d.is, d.ie, d.cola, qpRets);
+      : simQP(d.dist, d.combined, d.fed+d.state, d.age, d.is, d.ie, d.cola, qpRets, d.rmdAge);
     qp.rows.forEach(row=>{if(qpByAge[row.age]){qpByAge[row.age].gross.push(row.gross);qpByAge[row.age].net.push(row.net);qpByAge[row.age].bal.push(row.bal);}});
   }
 
@@ -1920,7 +1993,7 @@ async function generateMC() {
   PCTS.forEach(p=>{
     strandQP[p] = d.isNQP
       ? simInvestmentAccount(d.taxLiability, d.basisPct, d.ltcgRate, d.age, d.is, d.ie, d.cola, strandPaths[p].pathQPRets)
-      : simQP(d.dist, d.combined, d.fed+d.state, d.age, d.is, d.ie, d.cola, strandPaths[p].pathQPRets);
+      : simQP(d.dist, d.combined, d.fed+d.state, d.age, d.is, d.ie, d.cola, strandPaths[p].pathQPRets, d.rmdAge);
   });
 
   // Full policy debit/credit detail on each percentile strand's actual return
@@ -1951,9 +2024,13 @@ async function generateMC() {
   fill.style.width='95%';await tick();
 
   const incomeAges=ageRange.filter(a=>a>=d.is&&a<=d.ie);
+  // QP distributions include any forced RMD years before income start, in
+  // addition to the income-phase years — ETA totals stay scoped to incomeAges
+  // since the ETA side has no RMDs of its own.
+  const qpDistAges=ageRange.filter(a=>(a>=d.is&&a<=d.ie)||(d.rmdAge&&a>=d.rmdAge&&a<d.is));
   const totalByBand={};PCTS.forEach(p=>{totalByBand[p]=incomeAges.reduce((s,a)=>s+(etaPct[a][p]?.income||0),0);});
-  const totalMedQPNet=incomeAges.reduce((s,a)=>s+(qpPct[a]?.[50]?.net||0),0);
-  const totalMedQPGross=incomeAges.reduce((s,a)=>s+(qpPct[a]?.[50]?.gross||0),0);
+  const totalMedQPNet=qpDistAges.reduce((s,a)=>s+(qpPct[a]?.[50]?.net||0),0);
+  const totalMedQPGross=qpDistAges.reduce((s,a)=>s+(qpPct[a]?.[50]?.gross||0),0);
 
   const rateEnvLabel=d.rateEnv==='ease'?'easing — 4% floor':d.rateEnv==='tight'?'tightening stress test':'flat / stable';
 
@@ -2175,15 +2252,25 @@ function buildPage1(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
   ageRange.forEach(a => {
     const yr = a - d.age + 1;
     const isIncome = a >= d.is && a <= d.ie;
+    const isRmdOnly = !!(d.rmdAge && a >= d.rmdAge && a < d.is);
+    const isQpDist = isIncome || isRmdOnly;
     const isFund = yr <= d.payYears;
     const isPayoff = yr === d.payoffYear;
     const isPost = a > d.ie;
 
-    // Section headers
+    // Section headers — split accumulation into a true no-distribution
+    // stretch and, when RMD age falls before income start, a forced-RMD
+    // stretch where the QP must take taxable withdrawals it hasn't elected.
     let secHdr = '';
     if (yr === 1 && prevSection !== 'fund') {
-      secHdr = `ACCUMULATION PHASE — YEARS 1–${d.is - d.age} (NO DISTRIBUTIONS)`;
-      prevSection = 'fund';
+      const accEndAge = isRmdOnly ? d.rmdAge - 1 : (d.rmdAge && d.rmdAge < d.is ? d.rmdAge - 1 : d.is - 1);
+      const accYrs = accEndAge - d.age + 1;
+      secHdr = accYrs > 0 ? `ACCUMULATION PHASE — YEARS 1–${accYrs} (NO DISTRIBUTIONS)` : `REQUIRED MINIMUM DISTRIBUTIONS — BEGIN AGE ${d.rmdAge}`;
+      prevSection = accYrs > 0 ? 'fund' : 'rmd';
+    }
+    if (isRmdOnly && prevSection !== 'rmd') {
+      secHdr = `REQUIRED MINIMUM DISTRIBUTIONS — YEARS ${a - d.age + 1}–${d.is - d.age} (FORCED RMDs BEGIN AGE ${d.rmdAge}, PRECEDE ELECTED INCOME)`;
+      prevSection = 'rmd';
     }
     if (isIncome && prevSection !== 'income') {
       secHdr = `DISTRIBUTION PHASE — YEARS ${d.is - d.age + 1}–${d.ie - d.age + 1} (INCOME DISTRIBUTIONS BEGIN)`;
@@ -2195,7 +2282,7 @@ function buildPage1(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
     const bankRow = d.bankRows[yr - 1] || {};
     const pdaRow = d.pdaRows ? d.pdaRows[yr - 1] : null;
 
-    const rowCls = isPayoff ? 'payoff-yr' : isIncome ? 'income-yr' : isFund ? 'fund-yr' : 'post-yr';
+    const rowCls = isPayoff ? 'payoff-yr' : isIncome ? 'income-yr' : isRmdOnly ? 'rmd-yr' : isFund ? 'fund-yr' : 'post-yr';
 
     if (secHdr) {
       leftRows  += `<tr class="sec-hdr"><td colspan="8">${secHdr}</td></tr>`;
@@ -2213,15 +2300,15 @@ function buildPage1(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
     // Tax paid = gross - net (simQP already applied age-aware rate)
     const qpTax = qpGross - qpNet;
     // QP growth = EOY + gross withdrawal - BOY (reverse-engineer the return)
-    const qpGrowth = isIncome ? (qpEOY + qpGross - qpBOY) : (qpEOY - qpBOY);
+    const qpGrowth = isQpDist ? (qpEOY + qpGross - qpBOY) : (qpEOY - qpBOY);
 
     leftRows += `<tr class="${rowCls}">
       <td>${yr}</td><td>${a}</td>
       <td>${$f(qpBOY)}</td>
       <td>${qpGrowth !== 0 ? $f(qpGrowth) : '—'}</td>
-      <td>${isIncome && qpTax > 0 ? $f(qpTax) : '—'}</td>
-      <td class="${isIncome ? 'inc-val' : ''}">${isIncome ? $f(qpGross) : '—'}</td>
-      <td class="${isIncome ? 'inc-val' : ''}">${isIncome ? $f(qpNet) : '—'}</td>
+      <td>${isQpDist && qpTax > 0 ? $f(qpTax) : '—'}</td>
+      <td class="${isQpDist ? 'inc-val' : ''}">${isQpDist ? $f(qpGross) + (isRmdOnly ? ' <span style="font-size:8px;color:var(--red)">(RMD)</span>' : '') : '—'}</td>
+      <td class="${isQpDist ? 'inc-val' : ''}">${isQpDist ? $f(qpNet) : '—'}</td>
       <td>${$f(qpEOY)}</td>
     </tr>`;
 
@@ -2252,8 +2339,11 @@ function buildPage1(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
     </tr>`;
   });
 
-  // Totals
-  const totalQPGross = incomeAges.reduce((s,a) => s + (qpPct[a]?.[50]?.gross || 0), 0);
+  // Totals — include forced RMD years (before income start) alongside the
+  // income-phase years, so this reconciles with the RMD-inclusive totals
+  // passed in from the caller.
+  const qpDistAges = ageRange.filter(a => (a >= d.is && a <= d.ie) || (d.rmdAge && a >= d.rmdAge && a < d.is));
+  const totalQPGross = qpDistAges.reduce((s,a) => s + (qpPct[a]?.[50]?.gross || 0), 0);
   const totalTax = totalQPGross - totalMedQPNet;
 
   const leftFoot = `<tr>
@@ -2471,11 +2561,13 @@ function buildPage3(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
                     totalMedQPNet, dateStr, adv, poolLabel, N) {
   const baseRate = d.fed + d.state;
 
-  // Display: every income year; 5-yr tranches for non-income years
+  // Display: every income year and every forced-RMD year; 5-yr tranches
+  // for years with no distribution activity at all.
   const displayAges = [];
   ageRange.forEach(a => {
     const isIncome = a >= d.is && a <= d.ie;
-    if (isIncome) { displayAges.push({a, tranche:false}); return; }
+    const isRmdOnly = !!(d.rmdAge && a >= d.rmdAge && a < d.is);
+    if (isIncome || isRmdOnly) { displayAges.push({a, tranche:false}); return; }
     if (a === ageRange[0] || a % 5 === 0 || a === d.is - 1 || a === d.ie + 5 || a === ageRange[ageRange.length-1]) {
       displayAges.push({a, tranche:true});
     }
@@ -2486,11 +2578,19 @@ function buildPage3(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
   displayAges.forEach(({a, tranche}) => {
     const yr = a - d.age + 1;
     const isIncome = a >= d.is && a <= d.ie;
+    const isRmdOnly = !!(d.rmdAge && a >= d.rmdAge && a < d.is);
+    const isQpDist = isIncome || isRmdOnly;
     const isPayoff = yr === d.payoffYear;
     const isPost = a > d.ie;
 
     let secHdr = '';
-    if (yr === 1 && prevSection !== 'acc') { secHdr = `ACCUMULATION PHASE — YEARS 1–${d.is - d.age} (NO DISTRIBUTIONS)`; prevSection = 'acc'; }
+    if (yr === 1 && prevSection !== 'acc') {
+      const accEndAge = (d.rmdAge && d.rmdAge < d.is) ? d.rmdAge - 1 : d.is - 1;
+      const accYrs = accEndAge - d.age + 1;
+      secHdr = accYrs > 0 ? `ACCUMULATION PHASE — YEARS 1–${accYrs} (NO DISTRIBUTIONS)` : `REQUIRED MINIMUM DISTRIBUTIONS — BEGIN AGE ${d.rmdAge}`;
+      prevSection = accYrs > 0 ? 'acc' : 'rmd';
+    }
+    if (isRmdOnly && prevSection !== 'rmd') { secHdr = `REQUIRED MINIMUM DISTRIBUTIONS — YEARS ${a - d.age + 1}–${d.is - d.age} (FORCED RMDs BEGIN AGE ${d.rmdAge}, PRECEDE ELECTED INCOME)`; prevSection = 'rmd'; }
     if (isIncome && prevSection !== 'inc') { secHdr = `DISTRIBUTION PHASE — YEARS ${d.is - d.age + 1}–${d.ie - d.age + 1} (INCOME BEGINS — AGES ${d.is}–${d.ie})`; prevSection = 'inc'; }
     if (isPost && prevSection !== 'post') { secHdr = `POST-INCOME — ASSET CONTINUES TO GROW`; prevSection = 'post'; }
 
@@ -2499,7 +2599,7 @@ function buildPage3(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
     const e75 = etaPct[a]?.[75] || {};
     const qp  = qpPct[a]?.[50]  || {};
 
-    const rowCls = isPayoff ? 'payoff-yr' : isIncome ? 'income-yr' : '';
+    const rowCls = isPayoff ? 'payoff-yr' : isIncome ? 'income-yr' : isRmdOnly ? 'rmd-yr' : '';
     const yrCell  = tranche ? `<td style="font-weight:700;background:rgba(201,168,76,.08)">${yr}</td>` : `<td>${yr}</td>`;
     const ageCell = tranche ? `<td style="font-weight:700;color:var(--gold);background:rgba(201,168,76,.08)">${a}</td>` : `<td>${a}</td>`;
 
@@ -2507,7 +2607,7 @@ function buildPage3(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
 
     rows += `<tr class="${rowCls}">
       ${yrCell}${ageCell}
-      <td class="${isIncome ? 'green-col' : ''}">${isIncome ? $f(qp.net) : '—'}</td>
+      <td class="${isQpDist ? 'green-col' : ''}">${isQpDist ? $f(qp.net) + (isRmdOnly ? ' <span style="font-size:8px;color:var(--red)">(RMD)</span>' : '') : '—'}</td>
       <td>${$f(qp.bal)}</td>
       <td style="border-left:2px solid rgba(201,168,76,.25)">${isIncome ? $f(e25.income) : '—'}</td>
       <td class="${isIncome ? 'gold-col' : ''}">${isIncome ? $f(e50.income) : '—'}</td>
