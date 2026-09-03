@@ -1933,6 +1933,7 @@ function recalcAll(){
     const ahAge = getAccountHolderAge();
     altNote.innerHTML = `<b>Request this illustration on:</b> ${iName} · Age ${issueAgeVal} ${iGender} · ${iHealth}` +
       (rel ? ` · ${rel} of the account holder` : '') +
+      `<br><b>Run illustration through insured age 100</b> \u2014 that\u2019s policy year ${100-issueAgeVal+1}. A shorter request will cut the death-benefit ledger off early even though this tool can display the full length.` +
       `<br><b>Account holder for tax/estate purposes:</b> ${document.getElementById('clientName').value.trim()||'—'}, Age ${ahAge||'—'}`;
     altNote.style.display = 'block';
   } else {
@@ -2244,12 +2245,17 @@ function runEstate(){
   const thin = r => ({y:r.year, a:r.age, a2:r.age2, p:Math.round(r.premium),
     l:Math.round(r.loan), lb:Math.round(r.loanBalance), av:Math.round(r.grossAV),
     sv:Math.round(r.surrValue), db:Math.round(r.netDeathBenefit)});
+  // When an alternate insured is in use, the trust-owned death benefit is
+  // the real story out to the insured's own age 100 — not bounded by the
+  // account holder's horizon, which only governs the QP/estate-tax side.
+  const insuredStartAgeForLedger = rows[0].youngestAge;
+  const carrierYrCap = Math.max(45, horizon-startAge+1, altInsured ? (100-insuredStartAgeForLedger+1) : 0);
   localStorage.setItem('eta_estate_ledger', JSON.stringify({
     carrier:_illustration.carrier, policyType:_illustration.policyType,
     scenario:_illustration.activeScenario,
     creditingRate:_illustration.scenarios ? _illustration.scenarios[_illustration.activeScenario] : null,
     policy:_illustration.policy, flags:_illustration.flags,
-    carrierRows:_illustration.rows.filter(r=>r.year<=Math.max(45,horizon-startAge+1)).map(thin),
+    carrierRows:_illustration.rows.filter(r=>r.year<=carrierYrCap).map(thin),
     // cfg already carries useBrackets/filing/bracketIdx/ssAnnual/ssStartAge/
     // includeIrmaa/medicarePeople from the block above — no need to restate them.
     qpRows: rebuildQPLedger(cfg, paired, mc.seed, mc.p50.simIndex)
