@@ -171,13 +171,13 @@ tr.tot td{border-top:2px solid var(--navy);border-bottom:none;font-weight:700;ba
 
   var isSurv = L.policyType==='survivorship';
   function yrNum(age){ return age - S.age + 1; }
-  function ageLabel(age){
+  function ageLabel(age, yr){
     if(!isSurv) return String(age);
-    var c=carByAge[age];
+    var c=carByYear[yr!=null?yr:yrNum(age)];
     return c && c.a2!=null ? (c.a+'/'+c.a2) : String(age);
   }
-  var carByAge={}, etaByAge={}, bankByYr={};
-  carRows.forEach(function(r){ carByAge[(r.a2!=null?Math.min(r.a,r.a2):r.a)]=r; });
+  var carByYear={}, etaByAge={}, bankByYr={};
+  carRows.forEach(function(r){ carByYear[r.y]=r; });
   etaRows.forEach(function(r){ etaByAge[r.a]=r; });
   bankRows.forEach(function(r){ bankByYr[r.y]=r; });
   var pdaByYr={};
@@ -234,7 +234,7 @@ tr.tot td{border-top:2px solid var(--navy);border-bottom:none;font-weight:700;ba
   function etaBody(rows){
     var h='', phased=false;
     rows.forEach(function(r){
-      var c=carByAge[r.a], yr=r.a-S.age+1, bk=bankByYr[yr], pd=pdaByYr[yr];
+      var yr=r.a-S.age+1, c=carByYear[yr], bk=bankByYr[yr], pd=pdaByYr[yr];
       var er=etaByAge[r.a];
       if(!phased && r.rmd>0){
         h+='<tr class="phase"><td colspan="10">Required Distribution Phase &mdash; begins age '+rmdStart+'</td></tr>';
@@ -257,7 +257,7 @@ tr.tot td{border-top:2px solid var(--navy);border-bottom:none;font-weight:700;ba
       if(yr<payoffYr){ loanCell=bk?$f(bk.end):'\u2014'; intCell=bk?$f(bk.int):'\u2014'; }
       else if(yr===payoffYr){ loanCell='Retired \u2014 '+(bk?$f(bk.beg):'\u2014'); intCell='\u2014'; }
       else { loanCell='\u2014'; intCell='\u2014'; }
-      h+='<tr class="'+rowCls+'"><td>'+yrNum(r.a)+'</td><td>'+ageLabel(r.a)+'</td><td>'+
+      h+='<tr class="'+rowCls+'"><td>'+yrNum(r.a)+'</td><td>'+ageLabel(r.a,yr)+'</td><td>'+
          planToDeposit+'</td><td>'+depositToPolicy+'</td><td>'+pdaBal+'</td><td>'+
          $f(pdaPlusSv)+'</td><td>'+
          loanCell+'</td><td>'+intCell+'</td><td>'+(c?$f(c.db):'\u2014')+'</td><td>'+nonQual+'</td></tr>';
@@ -274,7 +274,8 @@ tr.tot td{border-top:2px solid var(--navy);border-bottom:none;font-weight:700;ba
 
   var eShown=[];
   qShown.forEach(function(r){ eShown.push(etaByAge[r.a]||{a:r.a,rmd:0}); });
-  var lastCar=carByAge[qpRows[qpRows.length-1].a];
+  var lastRow=qpRows[qpRows.length-1];
+  var lastCar=carByYear[lastRow.a-S.age+1];
   set('p1-eta', ETA_HDR+etaBody(eShown)+
     '<tr class="tot"><td colspan="8">Net death benefit at age '+S.horizonAge+'</td><td>'+
     $f(lastCar?lastCar.db:S.netDB)+'</td><td>&mdash;</td></tr>');
@@ -324,23 +325,48 @@ tr.tot td{border-top:2px solid var(--navy);border-bottom:none;font-weight:700;ba
     return gross-estTax-cgTax+num(dbOutside,0);
   }
 
+  /* IRS Publication 590-B, Table I — same table used in the modeler, kept in
+     sync here so the chart's endpoint matches the settlement table above,
+     which now uses the actual SECURE Act 10-year distribution rather than a
+     flat balance × rate approximation. */
+  var SINGLE_LIFE_TABLE={20:65.0,21:64.1,22:63.1,23:62.1,24:61.1,25:60.2,26:59.2,27:58.2,28:57.3,29:56.3,
+    30:55.3,31:54.4,32:53.4,33:52.5,34:51.5,35:50.5,36:49.6,37:48.6,38:47.7,39:46.7,
+    40:45.7,41:44.8,42:43.8,43:42.9,44:41.9,45:41.0,46:40.0,47:39.0,48:38.1,49:37.1,
+    50:36.2,51:35.3,52:34.3,53:33.4,54:32.5,55:31.6,56:30.6,57:29.8,58:28.9,59:28.0,
+    60:27.1,61:26.2,62:25.4,63:24.5,64:23.7,65:22.9,66:22.0,67:21.2,68:20.4,69:19.6,
+    70:18.8,71:18.0,72:17.2,73:16.4,74:15.6,75:14.8,76:14.1,77:13.3,78:12.6,79:11.9,
+    80:11.2,81:10.5,82:9.9,83:9.3,84:8.7,85:8.1,86:7.6,87:7.1,88:6.6,89:6.1,
+    90:5.7,91:5.3,92:4.9,93:4.6,94:4.3,95:4.0,96:3.7,97:3.4,98:3.2,99:3.0,100:2.8};
+  function singleLifeFactor(age){ return SINGLE_LIFE_TABLE[Math.max(20,Math.min(100,Math.round(age)))]; }
+  function benTenYearTax(balance, yearsFwd){
+    if(!S.beneficiaryCurrentAge) return balance*(S.benRate||0.35);
+    var benAge=S.beneficiaryCurrentAge+yearsFwd, factor0=singleLifeFactor(benAge);
+    var bal=balance, tax=0, rate=S.benRate||0.35, g=1+(S.postDeathGrowth||0);
+    for(var yr=1;yr<=10;yr++){
+      bal*=g;
+      var dist = yr<10 ? Math.min(bal, bal/Math.max(1,factor0-(yr-1))) : bal;
+      bal-=dist; tax+=dist*rate;
+    }
+    return tax;
+  }
+
   var pts=[], cumGift=0, giftIdx=0;
   qpRows.forEach(function(r){
     var yf=r.a-S.age;
     var dnGross=r.qp+r.side;
     var dnGain=Math.max(0,r.side-r.basis);
-    var dnIrd=r.qp*(S.benRate||0.35);
+    var dnIrd=benTenYearTax(r.qp,yf);
     var dnNet=netAt(dnGross,yf,dnGain,0,0)-dnIrd;
 
     while(giftIdx<carRows.length && carRows[giftIdx].y<=(r.a-S.age+1)){
       cumGift+=(carRows[giftIdx].p||0); giftIdx++;
     }
     var er=etaByAge[r.a]||{qp:0,side:0,basis:0};
-    var c=carByAge[r.a];
+    var c=carByYear[r.a-S.age+1];
     var db=(S.ilit && c)?c.db:0;
     var etaGross=er.qp+er.side;
     var etaGain=Math.max(0,er.side-er.basis);
-    var etaIrd=er.qp*(S.benRate||0.35);
+    var etaIrd=benTenYearTax(er.qp,yf);
     var etaNet=netAt(etaGross,yf,etaGain,db,cumGift)-etaIrd;
 
     pts.push({age:r.a, dn:dnNet, eta:etaNet});
