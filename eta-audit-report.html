@@ -29,14 +29,19 @@ body{font-family:'IBM Plex Sans',sans-serif;background:var(--off);color:var(--te
 .section h2{font-family:'Playfair Display',serif;font-size:14px;color:var(--navy);margin-bottom:4px}
 .section .sub{font-size:10.5px;color:var(--muted);margin-bottom:12px;line-height:1.5}
 table{width:100%;border-collapse:collapse;font-size:10.3px}
-table.ledger{min-width:1400px}
+table.ledger{min-width:1520px}
 thead tr.grp th{background:var(--navy);color:rgba(255,255,255,.7);font-size:8.5px;letter-spacing:.6px;text-transform:uppercase;padding:6px 8px;text-align:center}
+thead tr.grp th.grp-policy{background:var(--navy-2)}
+thead tr.grp th.grp-qp{background:#2b4a2f}
 thead tr.cols th{background:var(--off);color:var(--navy);font-size:9px;letter-spacing:.2px;padding:6px 7px;text-align:right;border-bottom:1.5px solid var(--gold);white-space:nowrap}
 thead tr.cols th:first-child, thead tr.cols th:nth-child(2){text-align:left}
 tbody td{padding:4px 7px;text-align:right;border-bottom:1px solid var(--border);font-family:'IBM Plex Mono',monospace;white-space:nowrap}
 tbody td:first-child, tbody td:nth-child(2){text-align:left;font-family:'IBM Plex Sans',sans-serif}
 tbody tr:nth-child(even){background:rgba(245,243,238,.6)}
 tbody tr.inc-start td{border-top:2px solid var(--gold)}
+.col-policy{background:rgba(21,38,64,.035)}
+.col-qp{background:rgba(42,74,47,.045)}
+.grp-divider{border-left:2.5px solid var(--gold) !important}
 .yr-badge{display:inline-block;background:var(--gold-pale);color:var(--navy);border-radius:2px;padding:1px 5px;font-size:9.5px;font-weight:600}
 .wrap-x{overflow-x:auto}
 .foot-note{font-size:9.5px;color:var(--muted);margin-top:10px;line-height:1.5}
@@ -103,21 +108,22 @@ tbody tr.inc-start td{border-top:2px solid var(--gold)}
       rows += '<tr'+(incStartRow?' class="inc-start"':'')+'>'+
         '<td>'+yr+'</td><td>'+pr.age+'</td>'+
         '<td><span class="yr-badge">'+(hist!==undefined?hist:'\u2014')+'</span></td>'+
-        '<td>'+pct(pr.ret)+'</td>'+
-        '<td>'+$f(pr.prem)+'</td>'+
-        '<td>'+$f(pr.stdChg)+'</td>'+
-        '<td>'+$f(pr.bonusChg)+'</td>'+
-        '<td>'+pct(pr.creditRate)+'</td>'+
-        '<td>'+$f(pr.credits)+'</td>'+
-        '<td>'+$f(pr.av)+'</td>'+
-        '<td>'+$f(pr.income)+'</td>'+
-        '<td>'+$f(pr.incomeLoan)+'</td>'+
-        '<td>'+$f(pr.bankLoan)+'</td>'+
-        '<td>'+$f(pr.csvNet)+'</td>'+
-        '<td>'+pct(qr.ret)+'</td>'+
-        '<td>'+$f(qr.gross)+'</td>'+
-        '<td>'+$f(qr.net)+'</td>'+
-        '<td>'+$f(qr.bal)+'</td>'+
+        '<td class="col-policy grp-divider">'+pct(pr.ret)+'</td>'+
+        '<td class="col-policy">'+$f(pr.prem)+'</td>'+
+        '<td class="col-policy">'+$f(pr.stdChg)+'</td>'+
+        '<td class="col-policy">'+$f(pr.bonusChg)+'</td>'+
+        '<td class="col-policy">'+pct(pr.creditRate)+'</td>'+
+        '<td class="col-policy">'+$f(pr.stdCredit)+'</td>'+
+        '<td class="col-policy">'+$f(pr.credits)+'</td>'+
+        '<td class="col-policy">'+$f(pr.av)+'</td>'+
+        '<td class="col-policy">'+$f(pr.income)+'</td>'+
+        '<td class="col-policy">'+$f(pr.incomeLoan)+'</td>'+
+        '<td class="col-policy">'+$f(pr.bankLoan)+'</td>'+
+        '<td class="col-policy">'+$f(pr.csvNet)+'</td>'+
+        '<td class="col-qp grp-divider">'+pct(qr.ret)+'</td>'+
+        '<td class="col-qp">'+$f(qr.gross)+'</td>'+
+        '<td class="col-qp">'+$f(qr.net)+'</td>'+
+        '<td class="col-qp">'+$f(qr.bal)+'</td>'+
         '</tr>';
     });
 
@@ -127,19 +133,24 @@ tbody tr.inc-start td{border-top:2px solid var(--gold)}
       ' simulations \u2014 the one whose solved income landed at the '+p+'th percentile. '+
       'Every figure below is reproduced by re-running the policy and '+(r.isNQP?'investment account':'qualified plan')+
       ' models on that exact sequence, so it reconciles to the Monte Carlo output shown in the normal ledger. '+
-      'Income begins at age '+r.incStart+' (highlighted row).</div>'+
+      'Income begins at age '+r.incStart+' (highlighted row). '+
+      'The gold vertical rule marks where each side\u2019s columns begin \u2014 shaded blue for the policy, green for the '+(r.isNQP?'investment account':'qualified plan')+'.</div>'+
       '<div class="wrap-x"><table class="ledger">'+
       '<thead>'+
-      '<tr class="grp"><th colspan="3">Timeline</th><th>Market</th><th colspan="9">Life Insurance Policy \u2014 Debits &amp; Credits</th><th colspan="4">'+(r.isNQP?'Investment Account':'Qualified Plan')+' \u2014 Return &amp; Distributions</th></tr>'+
+      '<tr class="grp"><th colspan="3">Timeline</th>'+
+      '<th class="grp-policy" colspan="12">Life Insurance Policy \u2014 Debits &amp; Credits</th>'+
+      '<th class="grp-qp" colspan="4">'+(r.isNQP?'Investment Account':'Qualified Plan')+' \u2014 Return &amp; Distributions</th></tr>'+
       '<tr class="cols">'+
       '<th>Yr</th><th>Age</th><th>Hist. Yr</th>'+
-      '<th>Index Return</th>'+
-      '<th>Premium</th><th>Std Charges</th><th>Bonus/BCF Chg</th><th>Credit Rate</th><th>Credits</th><th>AV</th>'+
-      '<th>Income Drawn</th><th>Income Loan Bal</th><th>Bank Loan Bal</th><th>CSV Net</th>'+
-      '<th>Blended Return</th><th>Gross Dist.</th><th>Net Dist.</th><th>Balance</th>'+
+      '<th class="col-policy grp-divider">Index Return</th>'+
+      '<th class="col-policy">Premium</th><th class="col-policy">Std Charges</th><th class="col-policy">Bonus/BCF Chg</th>'+
+      '<th class="col-policy">Credit Rate</th><th class="col-policy">Std Credit</th><th class="col-policy">Total Credit</th><th class="col-policy">AV</th>'+
+      '<th class="col-policy">Income Drawn</th><th class="col-policy">Income Loan Bal</th><th class="col-policy">Bank Loan Bal</th><th class="col-policy">CSV Net</th>'+
+      '<th class="col-qp grp-divider">Blended Return</th><th class="col-qp">Gross Dist.</th><th class="col-qp">Net Dist.</th><th class="col-qp">Balance</th>'+
       '</tr></thead><tbody>'+rows+'</tbody></table></div>'+
       '<div class="foot-note">Index Return = the ETA policy\u2019s price-return crediting input for that year (pre floor/cap). '+
-      'Credit Rate = capped/floored index return \u00d7 bonus credit factor + persistency bonus \u2014 the rate actually applied to the average monthly account value. '+
+      'Std Credit = AV \u00d7 Index Return alone, with no bonus credit factor or persistency bonus \u2014 what a plain, non-enhanced index crediting method would have credited. '+
+      'Total Credit = AV \u00d7 Credit Rate (Index Return \u00d7 bonus credit factor + persistency bonus) \u2014 the enhanced rate actually applied and reflected in AV. '+
       'Blended Return = the '+(r.isNQP?'investment account\u2019s':'qualified plan\u2019s')+' equity/bond blended return for the same historical year, net of management fee, on the same market sequence as the policy side (paired draws \u2014 same historical environment, both sides of the comparison).</div>'+
       '</div>';
   }
