@@ -111,7 +111,8 @@ tbody tr.rmd-start td{border-top:2px solid var(--gold)}
       body += '<tr'+(isRmdStart?' class="rmd-start"':'')+'>'+
         '<td>'+row.a+'</td>'+
         '<td><span class="yr-badge">'+(row.hy!==undefined?row.hy:'\u2014')+'</span></td>'+
-        '<td>'+pct(row.ret)+'</td>'+
+        '<td>'+pct(row.retGross)+'</td>'+
+        '<td>'+pct(row.netRet)+'</td>'+
         (titleCols==='eta' ? '<td>'+$f(row.dist)+'</td>' : '') +
         '<td>'+$f(row.rmd)+'</td>'+
         '<td>'+$f(row.tax)+'</td>'+
@@ -134,9 +135,10 @@ tbody tr.rmd-start td{border-top:2px solid var(--gold)}
       '<h2>'+labels[p]+' \u2014 Take No Action</h2>'+
       '<div class="sub">One specific seeded simulation out of '+(r.sims||0).toLocaleString()+
       ' \u2014 the one whose combined qualified-plan + side-account balance at the horizon landed at this percentile. '+
-      'Historical year and return are the actual bootstrapped draw for that simulation, reproducible from its seed.</div>'+
+      'Historical year and return are the actual bootstrapped draw for that simulation, reproducible from its seed. '+
+      'A '+((r.mgmtFee||0)*100).toFixed(2)+'% management fee applies to both balances every year; Net Return is what actually compounds the balance \u2014 QP Balance = prior \u00d7 (1 + Net Return), minus any distribution or RMD.</div>'+
       '<div class="wrap-x"><table class="ledger"><thead>'+
-      '<tr class="cols"><th>Age</th><th>Hist. Yr</th><th>Blended Return</th><th>Required Distribution</th><th>Tax Paid</th><th>IRMAA</th><th>Cap Gains Drag</th><th>QP Balance</th><th>Side Account</th><th>Side Basis</th><th>Cumulative Tax</th></tr>'+
+      '<tr class="cols"><th>Age</th><th>Hist. Yr</th><th>Gross Return</th><th>Net Return</th><th>Required Distribution</th><th>Tax Paid</th><th>IRMAA</th><th>Cap Gains Drag</th><th>QP Balance</th><th>Side Account</th><th>Side Basis</th><th>Cumulative Tax</th></tr>'+
       '</thead><tbody>'+qpTable(b.doNothingRows,'dn')+'</tbody></table></div>'+
       '</div>'+
 
@@ -144,9 +146,10 @@ tbody tr.rmd-start td{border-top:2px solid var(--gold)}
       '<h2>'+labels[p]+' \u2014 ETA Path (Side Account After Repositioning)</h2>'+
       '<div class="sub">Same historical sequence and same qualified-plan mechanics, but starting after the distribution that funded the policy has left the plan. This is the "what stays behind" QP side of the comparison \u2014 the policy itself is the deterministic ledger above.</div>'+
       '<div class="wrap-x"><table class="ledger"><thead>'+
-      '<tr class="cols"><th>Age</th><th>Hist. Yr</th><th>Blended Return</th><th>Distribution Out</th><th>Required Distribution</th><th>Tax Paid</th><th>IRMAA</th><th>QP Balance</th><th>Side Account</th><th>Side Basis</th><th>Cumulative Tax</th></tr>'+
+      '<tr class="cols"><th>Age</th><th>Hist. Yr</th><th>Gross Return</th><th>Net Return</th><th>Distribution Out</th><th>Required Distribution</th><th>Tax Paid</th><th>IRMAA</th><th>QP Balance</th><th>Side Account</th><th>Side Basis</th><th>Cumulative Tax</th></tr>'+
       '</thead><tbody>'+qpTable(b.etaRows,'eta')+'</tbody></table></div>'+
-      '<div class="foot-note">Distribution Out = the annual qualified-plan distribution funding the policy premium during the pay-years window; Required Distribution = any RMD still owed on the balance remaining in the plan afterward.</div>'+
+      '<div class="foot-note">Distribution Out = the annual qualified-plan distribution funding the policy premium during the pay-years window; Required Distribution = any RMD still owed on the balance remaining in the plan afterward. '+
+      'Gross Return = the raw equity/bond blend for that historical year, before fee; Net Return = Gross Return net of the '+((r.mgmtFee||0)*100).toFixed(2)+'% management fee \u2014 the rate actually applied to the balance.</div>'+
       '</div>';
   }
 
