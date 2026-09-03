@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Return Sequence &amp; Ledger Audit — ETA Modeler</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500,600;1,400&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#0d1b2e; --navy-2:#152640; --gold:#c9a84c; --gold-lt:#dfc278; --gold-pale:#f7f0e0;
+  --off:#f5f3ee; --border:#ddd8ce; --muted:#8a8070; --green:#2a6e45; --red:#8b2020; --text:#1a1a2a; --white:#fff;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'IBM Plex Sans',sans-serif;background:var(--off);color:var(--text)}
+.hdr{background:var(--navy);padding:16px 32px;display:flex;align-items:center;gap:14px;border-bottom:1px solid rgba(201,168,76,.2)}
+.hdr .t{font-family:'Playfair Display',serif;color:var(--white);font-size:17px;font-weight:600}
+.hdr .b{font-size:9px;letter-spacing:2px;color:var(--gold);text-transform:uppercase;margin-top:2px}
+.hdr .warn{margin-left:auto;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,.4)}
+.page{max-width:1500px;margin:0 auto;padding:28px 24px 60px}
+.meta{font-size:11px;color:var(--muted);margin-bottom:18px;padding-bottom:12px;border-bottom:2px solid var(--gold)}
+.meta b{color:var(--navy)}
+.tabs{display:flex;gap:0;margin-bottom:18px;border:1px solid var(--border);border-radius:5px;overflow:hidden;max-width:480px}
+.tab{flex:1;padding:11px 10px;border:none;background:var(--white);font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer;color:var(--muted);text-align:center;border-right:1px solid var(--border)}
+.tab:last-child{border-right:none}
+.tab.active{background:var(--navy);color:var(--gold)}
+.band-sub{font-size:9px;letter-spacing:.3px;color:rgba(255,255,255,.5);display:block;font-weight:400;margin-top:2px}
+.tab.active .band-sub{color:rgba(201,168,76,.65)}
+.section{background:var(--white);border:1px solid var(--border);border-radius:6px;padding:18px 20px;margin-bottom:22px}
+.section h2{font-family:'Playfair Display',serif;font-size:14px;color:var(--navy);margin-bottom:4px}
+.section .sub{font-size:10.5px;color:var(--muted);margin-bottom:12px;line-height:1.5}
+table{width:100%;border-collapse:collapse;font-size:10.3px}
+table.ledger{min-width:1400px}
+thead tr.grp th{background:var(--navy);color:rgba(255,255,255,.7);font-size:8.5px;letter-spacing:.6px;text-transform:uppercase;padding:6px 8px;text-align:center}
+thead tr.cols th{background:var(--off);color:var(--navy);font-size:9px;letter-spacing:.2px;padding:6px 7px;text-align:right;border-bottom:1.5px solid var(--gold);white-space:nowrap}
+thead tr.cols th:first-child, thead tr.cols th:nth-child(2){text-align:left}
+tbody td{padding:4px 7px;text-align:right;border-bottom:1px solid var(--border);font-family:'IBM Plex Mono',monospace;white-space:nowrap}
+tbody td:first-child, tbody td:nth-child(2){text-align:left;font-family:'IBM Plex Sans',sans-serif}
+tbody tr:nth-child(even){background:rgba(245,243,238,.6)}
+tbody tr.inc-start td{border-top:2px solid var(--gold)}
+.yr-badge{display:inline-block;background:var(--gold-pale);color:var(--navy);border-radius:2px;padding:1px 5px;font-size:9.5px;font-weight:600}
+.wrap-x{overflow-x:auto}
+.foot-note{font-size:9.5px;color:var(--muted);margin-top:10px;line-height:1.5}
+.empty{padding:60px 20px;text-align:center;color:var(--muted);font-size:14px}
+</style>
+</head>
+<body>
+<div class="hdr">
+  <div>
+    <div class="t">Return Sequence &amp; Ledger Audit</div>
+    <div class="b">ETA Modeler &middot; Internal / Advisor Use Only</div>
+  </div>
+  <div class="warn">Not for client presentation</div>
+</div>
+<div class="page" id="page-body">
+  <div class="empty">Loading&hellip;</div>
+</div>
+
+<script>
+(function(){
+  var r=null;
+  try { r = JSON.parse(localStorage.getItem('eta_audit_data')||'null'); } catch(e) {}
+  var body = document.getElementById('page-body');
+  if (!r || !r.bands) {
+    body.innerHTML = '<div class="empty">Run the Monte Carlo simulation in the ETA Modeler first, then reopen this audit report.</div>';
+    return;
+  }
+
+  var $f = function(n){ return (n===undefined||n===null||isNaN(n)) ? '\u2014' : '$'+Math.round(n).toLocaleString(); };
+  var pct = function(n){ return (n===undefined||n===null||isNaN(n)) ? '\u2014' : (n*100).toFixed(2)+'%'; };
+
+  var meta = '<div class="meta"><b>Client:</b> '+(r.clientName||'\u2014')+
+    ' &nbsp;|&nbsp; <b>Advisor:</b> '+(r.advisor||'\u2014')+
+    ' &nbsp;|&nbsp; <b>Issue Age:</b> '+(r.issueAge||'\u2014')+
+    ' &nbsp;|&nbsp; <b>Source:</b> '+(r.isNQP?'Liquidity Event (Non-QP)':'Qualified Plan')+
+    ' &nbsp;|&nbsp; <b>Simulations:</b> '+(r.nSims||0).toLocaleString()+
+    ' &nbsp;|&nbsp; <b>Historical Pool:</b> '+(r.dataYrs||'\u2014')+' yrs'+
+    ' &nbsp;|&nbsp; '+(r.date||'')+'</div>';
+
+  var PCTS=[25,50,75];
+  var labels={25:'25th Percentile',50:'50th Percentile (Median)',75:'75th Percentile'};
+
+  var tabsHtml = '<div class="tabs">'+PCTS.map(function(p,i){
+    var b = r.bands[p];
+    return '<button class="tab'+(i===0?' active':'')+'" data-p="'+p+'" onclick="showBand('+p+')">'+labels[p]+
+      '<span class="band-sub">'+$f(b?b.income:0)+'/yr income</span></button>';
+  }).join('')+'</div>';
+
+  function buildBandSection(p){
+    var b = r.bands[p];
+    if (!b) return '<div class="empty">No data for this band.</div>';
+
+    var years = b.years||[];
+    var pRows = b.policyRows||[];
+    var qRows = b.qpRows||[];
+    var qByYr = {}; qRows.forEach(function(row){ qByYr[row.yr]=row; });
+
+    var rows = '';
+    pRows.forEach(function(pr, i){
+      var yr = pr.age - r.issueAge + 1;
+      var hist = years[i];
+      var qr = qByYr[yr] || {};
+      var incStartRow = pr.age === r.incStart;
+      rows += '<tr'+(incStartRow?' class="inc-start"':'')+'>'+
+        '<td>'+yr+'</td><td>'+pr.age+'</td>'+
+        '<td><span class="yr-badge">'+(hist!==undefined?hist:'\u2014')+'</span></td>'+
+        '<td>'+pct(pr.ret)+'</td>'+
+        '<td>'+$f(pr.prem)+'</td>'+
+        '<td>'+$f(pr.stdChg)+'</td>'+
+        '<td>'+$f(pr.bonusChg)+'</td>'+
+        '<td>'+pct(pr.creditRate)+'</td>'+
+        '<td>'+$f(pr.credits)+'</td>'+
+        '<td>'+$f(pr.av)+'</td>'+
+        '<td>'+$f(pr.income)+'</td>'+
+        '<td>'+$f(pr.incomeLoan)+'</td>'+
+        '<td>'+$f(pr.bankLoan)+'</td>'+
+        '<td>'+$f(pr.csvNet)+'</td>'+
+        '<td>'+pct(qr.ret)+'</td>'+
+        '<td>'+$f(qr.gross)+'</td>'+
+        '<td>'+$f(qr.net)+'</td>'+
+        '<td>'+$f(qr.bal)+'</td>'+
+        '</tr>';
+    });
+
+    return '<div class="section">'+
+      '<h2>'+labels[p]+' \u2014 Actual Simulation Path</h2>'+
+      '<div class="sub">One specific bootstrapped historical-year sequence out of '+(r.nSims||0).toLocaleString()+
+      ' simulations \u2014 the one whose solved income landed at the '+p+'th percentile. '+
+      'Every figure below is reproduced by re-running the policy and '+(r.isNQP?'investment account':'qualified plan')+
+      ' models on that exact sequence, so it reconciles to the Monte Carlo output shown in the normal ledger. '+
+      'Income begins at age '+r.incStart+' (highlighted row).</div>'+
+      '<div class="wrap-x"><table class="ledger">'+
+      '<thead>'+
+      '<tr class="grp"><th colspan="3">Timeline</th><th>Market</th><th colspan="9">Life Insurance Policy \u2014 Debits &amp; Credits</th><th colspan="4">'+(r.isNQP?'Investment Account':'Qualified Plan')+' \u2014 Return &amp; Distributions</th></tr>'+
+      '<tr class="cols">'+
+      '<th>Yr</th><th>Age</th><th>Hist. Yr</th>'+
+      '<th>Index Return</th>'+
+      '<th>Premium</th><th>Std Charges</th><th>Bonus/BCF Chg</th><th>Credit Rate</th><th>Credits</th><th>AV</th>'+
+      '<th>Income Drawn</th><th>Income Loan Bal</th><th>Bank Loan Bal</th><th>CSV Net</th>'+
+      '<th>Blended Return</th><th>Gross Dist.</th><th>Net Dist.</th><th>Balance</th>'+
+      '</tr></thead><tbody>'+rows+'</tbody></table></div>'+
+      '<div class="foot-note">Index Return = the ETA policy\u2019s price-return crediting input for that year (pre floor/cap). '+
+      'Credit Rate = capped/floored index return \u00d7 bonus credit factor + persistency bonus \u2014 the rate actually applied to the average monthly account value. '+
+      'Blended Return = the '+(r.isNQP?'investment account\u2019s':'qualified plan\u2019s')+' equity/bond blended return for the same historical year, net of management fee, on the same market sequence as the policy side (paired draws \u2014 same historical environment, both sides of the comparison).</div>'+
+      '</div>';
+  }
+
+  window.showBand = function(p){
+    document.querySelectorAll('.tab').forEach(function(t){ t.classList.toggle('active', t.dataset.p==String(p)); });
+    document.getElementById('band-content').innerHTML = buildBandSection(p);
+  };
+
+  body.innerHTML = meta + tabsHtml + '<div id="band-content"></div>';
+  showBand(50);
+})();
+</script>
+</body>
+</html>
