@@ -248,7 +248,12 @@ tr.tot td{border-top:2px solid var(--navy);border-bottom:none;font-weight:700;ba
     rows.forEach(function(r,i){
       var yr=i+1;
       var dense = yr<=denseYears || yr<=(payoffYr+1) || (rmdStart && r.a<=rmdStart+4);
-      if(dense || r.a%5===0 || i===rows.length-1) out.push(r);
+      // Tranche points are picked by POLICY YEAR (yr%5), not by whichever
+      // age happens to land on a multiple of 5 — r.a was the account
+      // holder's age even on the insured-age-extended rows, so it produced
+      // uneven, hard-to-predict jumps (e.g. 35→37) once the two ages
+      // diverged. Policy-year spacing is clean regardless of either age.
+      if(dense || yr%5===0 || i===rows.length-1) out.push(r);
     });
     return out;
   }
@@ -564,11 +569,19 @@ function stateEstateTax(stateCode, grossEstate, filing){
       $f(lastCar?lastCar.db:S.netDB)+'</td><td>&mdash;</td><td>&mdash;</td></tr>');
   }
 
-  var denseYears = 40;
+  // Started at 40 originally and let on-screen scrollHeight/clientHeight
+  // measurement shrink it from there — but that measurement doesn't
+  // reliably predict what actually fits once run through the real
+  // print/PDF path, which came back overflowing at 35. 32 is the number
+  // that's been confirmed to actually fit a printed 17x11 sheet, so that's
+  // the starting point now; the shrink-on-overflow safety net stays in case
+  // a longer name, a lapse warning, or other extra content pushes a
+  // specific case past even that.
+  var denseYears = 32;
   renderPage1Tables(denseYears);
   var sheet1 = document.getElementById('sheet1');
   while (denseYears > 10 && sheet1.scrollHeight > sheet1.clientHeight + 1) {
-    denseYears -= 5;
+    denseYears -= 3;
     renderPage1Tables(denseYears);
   }
 
@@ -708,7 +721,7 @@ function stateEstateTax(stateCode, grossEstate, filing){
     document.getElementById('chart').innerHTML=svg;
   })();
 
-  set('p1-foot','Qualified plan figures reflect the median (50th percentile) of 10,000 bootstrapped simulations using paired S&amp;P 500 and 10-year Treasury calendar years, 1975&ndash;2024. Half of outcomes finish better and half worse. Required minimum distributions follow the 2022 Uniform Lifetime Table beginning at the age required by year of birth, are stacked on taxable Social Security, and are reinvested after tax. Rows are shown in full for the first '+denseYears+' years (and while the bank loan is outstanding, and through the first decade of required distributions, regardless of that cutoff) \u2014 <span style="background:var(--navy);color:#fff;padding:1px 4px;border-radius:2px">navy rows</span> beyond that are condensed to every 5th year. The bank loan is refinanced into a participating policy loan at payoff and continues silently within the illustrated death benefit; the policy loan balance itself is not shown. Policy values are taken from the carrier illustration as prepared and are not guaranteed. <b>&ldquo;If Death That Year&rdquo; is shown only through the account holder\u2019s own horizon, age '+S.horizonAge+'</b> \u2014 rows beyond that exist to show how the trust asset itself keeps growing across the insured\u2019s longer lifetime, not to model a second, later death of the account holder; the tax figure isn\u2019t carried past that point so a longer life never appears as a cost to the family.');
+  set('p1-foot','Qualified plan figures reflect the median (50th percentile) of 10,000 bootstrapped simulations using paired S&amp;P 500 and 10-year Treasury calendar years, 1975&ndash;2024. Half of outcomes finish better and half worse. Required minimum distributions follow the 2022 Uniform Lifetime Table beginning at the age required by year of birth, are stacked on taxable Social Security, and are reinvested after tax. Rows are shown in full for the first '+denseYears+' years (and while the bank loan is outstanding, and through the first decade of required distributions, regardless of that cutoff) \u2014 navy rows beyond that are condensed to every 5th year. The bank loan is refinanced into a participating policy loan at payoff and continues silently within the illustrated death benefit; the policy loan balance itself is not shown. Policy values are taken from the carrier illustration as prepared and are not guaranteed. <b>&ldquo;If Death That Year&rdquo; is shown only through the account holder\u2019s own horizon, age '+S.horizonAge+'</b> \u2014 rows beyond that exist to show how the trust asset itself keeps growing across the insured\u2019s longer lifetime, not to model a second, later death of the account holder; the tax figure isn\u2019t carried past that point so a longer life never appears as a cost to the family.');
   set('p2-foot','The chart applies the same 40%-above-exemption estate tax calculation used for the final result at every age along the timeline, using the stored median-path balances for each year \u2014 it is not a separate projection. <b>Conservative methodology.</b> Required distributions are taxed as though they were the client\u2019s only ordinary income; the distribution funding the structure is taxed at the highest marginal bracket. Any distortion understates the advantage shown. Hypothetical model \u2014 not a guarantee of future results or tax outcomes. Federal estate tax exemption reflects current law under the One Big Beautiful Bill Act ($15M individual / $30M married, effective for deaths on or after January 1, 2026, indexed) and is subject to legislative change. Death benefit is excluded from the gross estate only where the policy is owned by a properly structured irrevocable trust with an independent trustee and no obligation to satisfy estate liabilities; a policy transferred into trust rather than issued to it is subject to the three-year lookback under IRC 2035. The IRC 691(c) deduction is not modeled. Not tax or legal advice \u2014 consult qualified tax counsel and an estate planning attorney. Not valid without a complete carrier illustration. RetainMoreValue.com \u00b7 EFS Life LLC');
 })();
 </script>
