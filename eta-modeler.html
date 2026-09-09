@@ -2261,19 +2261,28 @@ function buildPage1(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
     // Section headers — split accumulation into a true no-distribution
     // stretch and, when RMD age falls before income start, a forced-RMD
     // stretch where the QP must take taxable withdrawals it hasn't elected.
-    let secHdr = '';
+    // The QP side (left) is genuinely bound by RMDs; the policy (right) is
+    // not — during that same stretch, the right side gets its own header
+    // making that contrast explicit rather than reusing the QP's RMD language.
+    let secHdr = '', secHdrRight = '';
+    const insAgeAt = yr => d.altInsured ? (d.insuredAge + yr - 1) : (d.age + yr - 1);
     if (yr === 1 && prevSection !== 'fund') {
       const accEndAge = isRmdOnly ? d.rmdAge - 1 : (d.rmdAge && d.rmdAge < d.is ? d.rmdAge - 1 : d.is - 1);
       const accYrs = accEndAge - d.age + 1;
       secHdr = accYrs > 0 ? `ACCUMULATION PHASE — YEARS 1–${accYrs} (NO DISTRIBUTIONS)` : `REQUIRED MINIMUM DISTRIBUTIONS — BEGIN AGE ${d.rmdAge}`;
+      secHdrRight = accYrs > 0
+        ? `ACCUMULATION PHASE — YEARS 1–${accYrs} (POLICY GROWING, NO WITHDRAWALS)${d.altInsured ? ` — INSURED AGE ${insAgeAt(1)}–${insAgeAt(accYrs)}` : ''}`
+        : `POLICY CONTINUES ACCUMULATING — NO RMD REQUIREMENT ON LIFE INSURANCE`;
       prevSection = accYrs > 0 ? 'fund' : 'rmd';
     }
     if (isRmdOnly && prevSection !== 'rmd') {
       secHdr = `REQUIRED MINIMUM DISTRIBUTIONS — YEARS ${a - d.age + 1}–${d.is - d.age} (FORCED RMDs BEGIN AGE ${d.rmdAge}, PRECEDE ELECTED INCOME)`;
+      secHdrRight = `NO RMD REQUIREMENT — POLICY KEEPS GROWING UNTOUCHED WHILE THE QP IS FORCED TO DISTRIBUTE${d.altInsured ? ` (INSURED AGE ${insAgeAt(yr)}–${insAgeAt(d.is-d.age)})` : ''}`;
       prevSection = 'rmd';
     }
     if (isIncome && prevSection !== 'income') {
       secHdr = `DISTRIBUTION PHASE — YEARS ${d.is - d.age + 1}–${d.ie - d.age + 1} (INCOME DISTRIBUTIONS BEGIN)`;
+      secHdrRight = `TAX-FREE INCOME BEGINS — YEARS ${d.is - d.age + 1}–${d.ie - d.age + 1}${d.altInsured ? ` (INSURED AGE ${insAgeAt(d.is-d.age+1)}–${insAgeAt(d.ie-d.age+1)})` : ''}`;
       prevSection = 'income';
     }
 
@@ -2286,7 +2295,7 @@ function buildPage1(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
 
     if (secHdr) {
       leftRows  += `<tr class="sec-hdr"><td colspan="8">${secHdr}</td></tr>`;
-      rightRows += `<tr class="sec-hdr"><td colspan="13">${secHdr}</td></tr>`;
+      rightRows += `<tr class="sec-hdr"><td colspan="13">${secHdrRight}</td></tr>`;
     }
 
     // LEFT: Comparator — qpPct[a][50].bal = EOY balance after withdrawals
@@ -2312,7 +2321,11 @@ function buildPage1(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
       <td>${$f(qpEOY)}</td>
     </tr>`;
 
-    // RIGHT: ETA Structure
+    // RIGHT: ETA Structure — age column shows the INSURED's age (the life
+    // the policy is actually on), not the account holder's. Same policy
+    // year either way; only the age label differs when an alternate
+    // insured is in use.
+    const rightAge = d.altInsured ? (d.insuredAge + yr - 1) : a;
     const contrib = (yr === 1) ? $f(d.dist) : '—'; // d.dist = IUL funding (2× tax for NQP, or QP dist)
     const pdaToAsset = (pdaRow && yr <= d.payYears) ? $f(pdaRow.prem) : '—';
     const pdaBal = (pdaRow && yr <= d.payYears) ? $f(Math.max(0, pdaRow.eoy)) : '—';
@@ -2324,7 +2337,7 @@ function buildPage1(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
     const taxFreeInc = isIncome ? $f(e50.income) : '—';
 
     rightRows += `<tr class="${rowCls}">
-      <td>${yr}</td><td>${a}</td>
+      <td>${yr}</td><td>${rightAge}</td>
       <td>${contrib}</td>
       <td>${pdaToAsset}</td>
       <td>${pdaBal}</td>
@@ -2397,7 +2410,8 @@ function buildPage1(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
       <div>
         <div class="eyebrow">Enhanced Tax Advantage — ETA · Median Market Sequence${d.isNQP ? ' · Liquidity Event' : ''}</div>
         <div class="title">${d.name}</div>
-        <div class="meta-line">Client: ${d.name} &nbsp;|&nbsp; Advisor: ${adv || '—'} &nbsp;|&nbsp; ${d.isNQP ? 'Tax Liability: ' + $f(d.taxLiability) + ' · IUL Funding: ' + $f(d.dist) : 'Distribution: ' + $f(d.dist)} &nbsp;|&nbsp; ${d.isNQP ? 'Comparator: ' + compRateStr(d) : 'Tax Rate: ' + d.combined.toFixed(2) + '%'} &nbsp;|&nbsp; PDA Rate: ${d.pdaRate.toFixed(2)}% &nbsp;|&nbsp; Asset Loan Rate: ${d.plr.toFixed(2)}%${carrierMeta.targetPremium ? ' &nbsp;|&nbsp; Version ' + Math.round(carrierMeta.targetPremium) : ''}${d.loanOverrideActive ? ' &nbsp;|&nbsp; Loan: ' + $f(d.financedTax) + ' (' + $f(d.excessLiquidity) + ' excess liquidity @ ' + d.loanLTVPct + '% LTV)' : ''}</div>
+        <div class="meta-line">Client: ${d.name} &nbsp;|&nbsp; Advisor: ${adv || '—'}${d.altInsured ? ` &nbsp;|&nbsp; <b style="color:var(--gold)">Insured: ${d.insuredName}, Age ${d.insuredAge}${d.insuredRelationship ? ' (' + d.insuredRelationship + ' of ' + d.name + ')' : ''}</b>` : ''} &nbsp;|&nbsp; ${d.isNQP ? 'Tax Liability: ' + $f(d.taxLiability) + ' · IUL Funding: ' + $f(d.dist) : 'Distribution: ' + $f(d.dist)} &nbsp;|&nbsp; ${d.isNQP ? 'Comparator: ' + compRateStr(d) : 'Tax Rate: ' + d.combined.toFixed(2) + '%'} &nbsp;|&nbsp; PDA Rate: ${d.pdaRate.toFixed(2)}% &nbsp;|&nbsp; Asset Loan Rate: ${d.plr.toFixed(2)}%${carrierMeta.targetPremium ? ' &nbsp;|&nbsp; Version ' + Math.round(carrierMeta.targetPremium) : ''}${d.loanOverrideActive ? ' &nbsp;|&nbsp; Loan: ' + $f(d.financedTax) + ' (' + $f(d.excessLiquidity) + ' excess liquidity @ ' + d.loanLTVPct + '% LTV)' : ''}</div>
+        ${d.altInsured ? `<div class="meta-line" style="margin-top:2px;opacity:.85">All distribution timing, tax, and income-schedule figures above and below are based on the account holder (${d.name}, age ${d.age}) — only the life insurance policy itself is on ${d.insuredName}'s life.</div>` : ''}
       </div>
       <div class="ver-block">
         ${ver ? `<div class="vnum">${ver}</div>` : ''}
@@ -2428,9 +2442,9 @@ function buildPage1(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
       <div class="right-panel-wrap">
         <table class="dual">
           <thead>
-            <tr><th colspan="13" style="background:var(--navy);color:var(--gold);font-size:9px;letter-spacing:2px;text-transform:uppercase;font-weight:600;text-align:left;padding:8px 12px;border-left:3px solid var(--gold);">Enhanced Tax Advantage</th></tr>
+            <tr><th colspan="13" style="background:var(--navy);color:var(--gold);font-size:9px;letter-spacing:2px;text-transform:uppercase;font-weight:600;text-align:left;padding:8px 12px;border-left:3px solid var(--gold);">Enhanced Tax Advantage${d.altInsured ? ` &middot; Insured: ${d.insuredName}, Age ${d.insuredAge}` : ''}</th></tr>
             <tr>
-              <th style="border-left:3px solid var(--gold)">Yr</th><th>Age</th>
+              <th style="border-left:3px solid var(--gold)">Yr</th><th>${d.altInsured ? 'Insured Age' : 'Age'}</th>
               <th>Contrib → PDA</th>
               <th>PDA → Asset</th>
               <th>PDA Balance</th>
@@ -2590,7 +2604,7 @@ function buildPage3(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
       secHdr = accYrs > 0 ? `ACCUMULATION PHASE — YEARS 1–${accYrs} (NO DISTRIBUTIONS)` : `REQUIRED MINIMUM DISTRIBUTIONS — BEGIN AGE ${d.rmdAge}`;
       prevSection = accYrs > 0 ? 'acc' : 'rmd';
     }
-    if (isRmdOnly && prevSection !== 'rmd') { secHdr = `REQUIRED MINIMUM DISTRIBUTIONS — YEARS ${a - d.age + 1}–${d.is - d.age} (FORCED RMDs BEGIN AGE ${d.rmdAge}, PRECEDE ELECTED INCOME)`; prevSection = 'rmd'; }
+    if (isRmdOnly && prevSection !== 'rmd') { secHdr = `QP: REQUIRED MINIMUM DISTRIBUTIONS BEGIN AGE ${d.rmdAge} — ETA POLICY HAS NO RMD REQUIREMENT AND KEEPS GROWING UNTOUCHED${d.altInsured ? ` (INSURED AGE ${d.insuredAge + (a - d.age)})` : ''}`; prevSection = 'rmd'; }
     if (isIncome && prevSection !== 'inc') { secHdr = `DISTRIBUTION PHASE — YEARS ${d.is - d.age + 1}–${d.ie - d.age + 1} (INCOME BEGINS — AGES ${d.is}–${d.ie})`; prevSection = 'inc'; }
     if (isPost && prevSection !== 'post') { secHdr = `POST-INCOME — ASSET CONTINUES TO GROW`; prevSection = 'post'; }
 
@@ -2601,7 +2615,9 @@ function buildPage3(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
 
     const rowCls = isPayoff ? 'payoff-yr' : isIncome ? 'income-yr' : isRmdOnly ? 'rmd-yr' : '';
     const yrCell  = tranche ? `<td style="font-weight:700;background:rgba(201,168,76,.08)">${yr}</td>` : `<td>${yr}</td>`;
-    const ageCell = tranche ? `<td style="font-weight:700;color:var(--gold);background:rgba(201,168,76,.08)">${a}</td>` : `<td>${a}</td>`;
+    const insAgeAtA = d.altInsured ? (d.insuredAge + yr - 1) : null;
+    const ageLabel = insAgeAtA!=null ? `${a} <span style="font-size:8px;color:var(--muted)">(ins. ${insAgeAtA})</span>` : `${a}`;
+    const ageCell = tranche ? `<td style="font-weight:700;color:var(--gold);background:rgba(201,168,76,.08)">${ageLabel}</td>` : `<td>${ageLabel}</td>`;
 
     if (secHdr) rows += `<tr class="sec-hdr"><td colspan="10">${secHdr}</td></tr>`;
 
@@ -2646,7 +2662,7 @@ function buildPage3(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
             <th colspan="3" style="text-align:center;background:var(--navy);color:rgba(255,255,255,.7);border-left:2px solid rgba(255,255,255,.15)">ETA Balance Summary (Median)</th>
           </tr>
           <tr>
-            <th>Yr</th><th>Age</th>
+            <th>Yr</th><th>Age${d.altInsured ? ' (Insured)' : ''}</th>
             <th style="background:rgba(100,20,20,.7);color:#fff">Net Distribution</th>
             <th style="background:rgba(100,20,20,.5);color:#fff">Account Balance</th>
             <th class="gold-col" style="border-left:2px solid rgba(201,168,76,.4)">25th</th>
