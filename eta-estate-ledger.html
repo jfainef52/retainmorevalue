@@ -567,12 +567,17 @@ function stateEstateTax(stateCode, grossEstate, filing){
       '</td><td>'+$f(totDrag)+'</td><td colspan="3">&mdash;</td></tr>');
 
     // The trust-owned death benefit doesn't stop when the QP-side horizon
-    // does — extend the right-side table using the carrier's own rows
-    // (which the modeler now writes out further when an alternate insured is
-    // in use), not just the years the QP/estate-tax side happens to cover.
-    var eShownFullLocal = carRows.map(function(cr){ return {a: S.age + cr.y - 1}; });
+    // does IF an alternate (younger) insured is in use — that case still
+    // extends using the carrier's own rows out toward the insured's own age
+    // 100. In the ordinary case (no alternate insured), the insured is the
+    // account holder/spouse on the same age timeline as the QP side, so the
+    // displayed table should stop at the same horizon row — even though the
+    // modeler still stores extra carrier years underneath for Page 3's
+    // post-horizon chart, this table just doesn't show them.
+    var carRowsForTable = (S.altInsured && S.insuredAge) ? carRows : carRows.filter(function(cr){ return cr.y<=horizonYr; });
+    var eShownFullLocal = carRowsForTable.map(function(cr){ return {a: S.age + cr.y - 1}; });
     var eShownLocal = sample(eShownFullLocal.length > qShownLocal.length ? eShownFullLocal : qShownLocal.map(function(r){ return etaByAge[r.a]||{a:r.a,rmd:0}; }), denseYears);
-    lastRow = carRows.length ? {a: S.age + carRows[carRows.length-1].y - 1} : qpRows[qpRows.length-1];
+    lastRow = carRowsForTable.length ? {a: S.age + carRowsForTable[carRowsForTable.length-1].y - 1} : qpRows[qpRows.length-1];
     lastCar = carByYear[lastRow.a-S.age+1];
     var dbLabel = (S.altInsured && S.insuredAge)
       ? 'Net death benefit at insured age '+(S.insuredAge+(lastRow.a-S.age))+' (account holder age '+lastRow.a+')'
