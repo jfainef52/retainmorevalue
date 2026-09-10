@@ -2275,8 +2275,17 @@ function runEstate(){
   // When an alternate insured is in use, the trust-owned death benefit is
   // the real story out to the insured's own age 100 — not bounded by the
   // account holder's horizon, which only governs the QP/estate-tax side.
+  // In the ordinary case (no alternate insured), the insured IS the account
+  // holder (or their spouse, same age timeline), so the carrier rows should
+  // stop at the same horizon the QP side does — extending them further just
+  // desynced the two tables' row counts and made the "Net Death Benefit at
+  // age [horizon]" total silently pull whatever the LAST (much later) row
+  // happened to be instead of the value actually at the account holder's
+  // horizon age.
   const insuredStartAgeForLedger = rows[0].youngestAge;
-  const carrierYrCap = Math.max(45, horizon-startAge+1, altInsured ? (100-insuredStartAgeForLedger+1) : 0);
+  const carrierYrCap = altInsured
+    ? Math.max(45, horizon-startAge+1, 100-insuredStartAgeForLedger+1)
+    : (horizon-startAge+1);
   localStorage.setItem('eta_estate_ledger', JSON.stringify({
     carrier:_illustration.carrier, policyType:_illustration.policyType,
     scenario:_illustration.activeScenario,
