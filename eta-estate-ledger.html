@@ -758,7 +758,10 @@ function stateEstateTax(stateCode, grossEstate, filing){
      liquid portion (net-to-family minus the trust proceeds) grows at the
      SAME stated assumption used for the other line, so the two are
      comparable apples-to-apples on the portion that isn't carrier-illustrated. */
-  var REINVEST_RATE = 0.05;
+  var DRAG3 = 0.015; // kept in sync with eta-estate-modeler.html's rebuildQPLedger DRAG constant
+  var REINVEST_RATE = (S.nonQpGrossRate!=null && S.mgmtFee!=null)
+    ? (1+S.nonQpGrossRate)*(1-S.mgmtFee) - DRAG3 - 1
+    : 0.05; // fallback for older cached payloads that predate these fields
   var horizonYr3 = S.horizonAge - S.age + 1;
   var lastCarrierYr = carRows.length ? carRows[carRows.length-1].y : horizonYr3;
   var yearsPost = Math.max(0, lastCarrierYr - horizonYr3);
