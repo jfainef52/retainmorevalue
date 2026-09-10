@@ -36,7 +36,7 @@ body{font-family:'IBM Plex Sans',sans-serif;background:#e9e6dd;color:var(--text)
 .card.dark .cs{color:rgba(255,255,255,.55)}
 .card.win .cs{color:var(--green)}
 
-.duo{display:grid;grid-template-columns:1fr 1fr;gap:20px;flex:1;min-height:0}
+.duo{display:grid;grid-template-columns:9fr 11fr;gap:20px;flex:1;min-height:0}
 .col{display:flex;flex-direction:column;min-height:0}
 .ltitle{font-size:9px;letter-spacing:2.2px;text-transform:uppercase;font-weight:700;color:var(--navy);
   border-bottom:1.4px solid var(--gold);padding-bottom:4px;margin-bottom:6px}
@@ -480,12 +480,8 @@ function stateEstateTax(stateCode, grossEstate, filing){
   }
 
   function qpBody(rows,startBal,denseYears){
-    var h='', prev=startBal, phased=false;
+    var h='', prev=startBal;
     rows.forEach(function(r){
-      if(!phased && r.rmd>0){
-        h+='<tr class="phase"><td colspan="9">Required Distribution Phase &mdash; begins age '+rmdStart+'</td></tr>';
-        phased=true;
-      }
       var growth=r.qp+r.rmd-prev;
       var yearsFwd = r.a - S.age;
       var cgGain = Math.max(0, r.side - r.basis);
