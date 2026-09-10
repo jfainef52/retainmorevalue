@@ -1051,6 +1051,17 @@ function ultDivisor(age){const a=Math.floor(age);if(a<70)return null;return ULT_
 
 // SECURE 2.0 required beginning age, derived from birth year
 function rmdAgeFromBirthYear(by){ if(by<1951)return 70.5; if(by<=1959)return 73; return 75; }
+// Exact current age from a DOB string, accounting for whether this year's
+// birthday has already passed — not just currentYear-birthYear, which is
+// ambiguous by up to a year.
+function ageFromDOB(dobStr){
+  const d = new Date(dobStr+'T00:00:00');
+  const today = new Date();
+  let age = today.getFullYear() - d.getFullYear();
+  const m = today.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < d.getDate())) age--;
+  return age;
+}
 
 // Federal estate & gift exemption — OBBBA, effective for deaths on/after 1/1/2026.
 // $15M individual / $30M married, indexed. The pre-OBBBA sunset did NOT occur.
@@ -1277,7 +1288,7 @@ function runQPPath(cfg, paired, rng){
          useBrackets=false,filing='married',bracketIdx=0.025,
          ssAnnual=0,ssStartAge=70,includeIrmaa=true,medicarePeople=2}=cfg;
   const bondAlloc=1-equityAlloc, incRate=fedRate+stateRate;
-  const DRAG=0.006;                       // annual realized-gain/dividend drag
+  const DRAG=0.015;                       // annual realized-gain/dividend drag — actively managed assumption
   let qp=qpBalance, side=nonQpStart, basis=nonQpBasis;
   let taxRMD=0, taxDrag=0, irmaaTotal=0;  // carried so the median path reports
   for(let age=currentAge; age<=horizonAge; age++){
@@ -1347,7 +1358,7 @@ function rebuildQPLedger(cfg, paired, seed, simIndex){
          useBrackets=false,filing='married',bracketIdx=0.025,
          ssAnnual=0,ssStartAge=70,includeIrmaa=true,medicarePeople=2}=cfg;
   const rng=makeRng(subSeed(seed,simIndex));
-  const bondAlloc=1-equityAlloc, incRate=fedRate+stateRate, DRAG=0.006;
+  const bondAlloc=1-equityAlloc, incRate=fedRate+stateRate, DRAG=0.015;
   let qp=qpBalance, side=nonQpStart, basis=nonQpBasis, cumTax=0;
   const rows=[];
   for(let age=currentAge; age<=horizonAge; age++){
@@ -1475,7 +1486,7 @@ function lifetimeTaxWaterfall(cfg, paired, horizonAge){
   // or the gross estate is understated and estate tax comes out to zero while
   // the comparison table shows it correctly — the two would disagree on the page.
   let qp=qpBalance, side=nonQpStart, basis=nonQpBasis, taxRMD=0, taxDrag=0;
-  const DRAG=0.006;
+  const DRAG=0.015;
   for(let age=currentAge; age<=horizonAge; age++){
     let rmd=0;
     if(age>=Math.floor(rmdAge)){const d=ultDivisor(age); if(d) rmd=Math.min(qp,qp/d);}
@@ -1780,9 +1791,17 @@ function toggleAltInsured() {
   recalcAll();
 }
 // Account holder's real age — drives RMD timing, estate-tax timeline, and the
-// early-withdrawal penalty on the QP distribution. Mirrors the Insured Age
-// field unless an alternate insured is in use.
+// early-withdrawal penalty on the QP distribution. The DOB field always wins
+// when entered, since the QP owner is not necessarily the same person (or
+// the same age) as the insured age(s) shown in the carrier illustration —
+// true for alt-insured cases, but also true for an ordinary survivorship
+// case where the QP account holder happens to be the OLDER of the two
+// spouses rather than the "First Insured Age" the illustration leads with.
+// Falls back to the old behavior (Account Holder Age field if alt-insured,
+// else the illustration's Insured Age field) only when DOB is left blank.
 function getAccountHolderAge() {
+  const dobVal = document.getElementById('accountHolderDOB').value;
+  if (dobVal) return ageFromDOB(dobVal);
   const alt = document.getElementById('altInsuredChk').checked;
   if (alt) return parseInt(document.getElementById('accountHolderAge').value)||0;
   return parseInt(document.getElementById('issueAge').value)||0;
@@ -2029,12 +2048,12 @@ function runEstate(){
 
   const rows = _illustration.rows;
   const altInsured = document.getElementById('altInsuredChk').checked;
-  // Estate/RMD timeline always runs on the account holder's real age. In the
-  // common case (no alternate insured) that equals the illustration's own
-  // starting age, same as before. With an alternate insured, the uploaded
-  // illustration's age column belongs to the insured, not the account
-  // holder, so it can no longer be used to derive the timeline directly.
-  const startAge = altInsured ? (getAccountHolderAge()||rows[0].youngestAge) : rows[0].youngestAge;
+  // Estate/RMD timeline always runs on the account holder's real age — from
+  // the DOB field when entered (exact, and correct even for a survivorship
+  // case where the QP owner isn't the younger/first-listed insured), else
+  // falling back to the account-holder-age field (alt-insured) or the
+  // illustration's own starting age (ordinary case, DOB left blank).
+  const startAge = getAccountHolderAge() || rows[0].youngestAge;
   // Exact birth year from DOB when available — an age-derived birth year is
   // ambiguous by up to a year (depends on whether the birthday has occurred
   // yet this calendar year), which is enough to land on the wrong side of
@@ -2064,8 +2083,16 @@ function runEstate(){
   const mc = runQPMonteCarlo(cfg, paired, sims, 20260801);
   const dist = _preIllus ? _preIllus.dist : 0;
   const payYears = parseInt(document.getElementById('payYears').value)||7;
+  // The QP distribution is a single lump sum in year 1 (same assumption
+  // calcPDA/_preIllus already use for the financed-tax and PDA calc, and the
+  // same "LUMP SUM, not a series" note on distributionTax() above) — the
+  // payYears schedule only governs premiums paid OUT of the PDA, not the QP
+  // withdrawal itself. annualDist:dist, distYears:1 empties the QP entirely
+  // in year 1 so no residual balance is left alive to keep growing and later
+  // throw off its own phantom RMDs / "Non-Qualified Estate" reinvestment —
+  // that money's actual fate is already tracked by the PDA + policy columns.
   const mcEta = runQPMonteCarlo(
-    Object.assign({}, cfg, {annualDist: dist/payYears, distYears: payYears}),
+    Object.assign({}, cfg, {annualDist: dist, distYears: 1}),
     paired, sims, 20260801);
 
   // ETA side: carrier ledger, deterministic. Net DB is already net of loan.
@@ -2255,6 +2282,11 @@ function runEstate(){
     scenario:_illustration.activeScenario,
     creditingRate:_illustration.scenarios ? _illustration.scenarios[_illustration.activeScenario] : null,
     policy:_illustration.policy, flags:_illustration.flags,
+    // Passed through so Page 3's post-horizon reinvestment chart can derive
+    // the SAME net rate (gross minus mgmt fee minus the 1.5% active-mgmt
+    // drag) used everywhere else in this ledger for the "Non-Qualified
+    // Estate" side account, instead of a disconnected hardcoded guess.
+    nonQpGrossRate: nonQp, mgmtFee: mgmtFee,
     carrierRows:_illustration.rows.filter(r=>r.year<=carrierYrCap).map(thin),
     // cfg already carries useBrackets/filing/bracketIdx/ssAnnual/ssStartAge/
     // includeIrmaa/medicarePeople from the block above — no need to restate them.
@@ -2262,7 +2294,7 @@ function runEstate(){
               .map(r=>({a:r.age, hy:r.year, ret:+(r.ret).toFixed(4), rmd:Math.round(r.rmd),
                         tax:Math.round(r.tax), drag:Math.round(r.drag), qp:Math.round(r.qp),
                         side:Math.round(r.side), basis:Math.round(r.basis), cum:Math.round(r.cumTax)})),
-    etaQpRows: rebuildQPLedger(Object.assign({},cfg,{annualDist:dist/payYears,distYears:payYears}),
+    etaQpRows: rebuildQPLedger(Object.assign({},cfg,{annualDist:dist,distYears:1}),
                  paired, mcEta.seed, mcEta.p50.simIndex)
               .map(r=>({a:r.age, d:Math.round(r.dist), rmd:Math.round(r.rmd),
                         tax:Math.round(r.tax), qp:Math.round(r.qp), side:Math.round(r.side),
@@ -2297,7 +2329,7 @@ function runEstate(){
     auditBands[k] = {
       income: mc[k].qpFinal + mc[k].sideFinal,
       doNothingRows: rebuildQPLedger(cfg, paired, mc.seed, mc[k].simIndex).map(thinQP),
-      etaRows: rebuildQPLedger(Object.assign({},cfg,{annualDist:dist/payYears,distYears:payYears}),
+      etaRows: rebuildQPLedger(Object.assign({},cfg,{annualDist:dist,distYears:1}),
                  paired, mcEta.seed, mcEta[k].simIndex).map(thinQP)
     };
   });
