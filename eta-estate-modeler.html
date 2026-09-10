@@ -2272,20 +2272,15 @@ function runEstate(){
   const thin = r => ({y:r.year, a:r.age, a2:r.age2, p:Math.round(r.premium),
     l:Math.round(r.loan), lb:Math.round(r.loanBalance), av:Math.round(r.grossAV),
     sv:Math.round(r.surrValue), db:Math.round(r.netDeathBenefit)});
-  // When an alternate insured is in use, the trust-owned death benefit is
-  // the real story out to the insured's own age 100 — not bounded by the
-  // account holder's horizon, which only governs the QP/estate-tax side.
-  // In the ordinary case (no alternate insured), the insured IS the account
-  // holder (or their spouse, same age timeline), so the carrier rows should
-  // stop at the same horizon the QP side does — extending them further just
-  // desynced the two tables' row counts and made the "Net Death Benefit at
-  // age [horizon]" total silently pull whatever the LAST (much later) row
-  // happened to be instead of the value actually at the account holder's
-  // horizon age.
+  // Carrier data is always stored out to at least 45 years (or the insured's
+  // own age 100 when an alternate insured is in use) regardless of the
+  // account holder's horizon — Page 3's post-horizon "years since
+  // inheritance" chart needs that extra data to show anything at all. The
+  // MAIN ledger table's displayed row window is capped separately, in
+  // eta-estate-ledger.html, to stop at the account holder's horizon — don't
+  // conflate the two here.
   const insuredStartAgeForLedger = rows[0].youngestAge;
-  const carrierYrCap = altInsured
-    ? Math.max(45, horizon-startAge+1, 100-insuredStartAgeForLedger+1)
-    : (horizon-startAge+1);
+  const carrierYrCap = Math.max(45, horizon-startAge+1, altInsured ? (100-insuredStartAgeForLedger+1) : 0);
   localStorage.setItem('eta_estate_ledger', JSON.stringify({
     carrier:_illustration.carrier, policyType:_illustration.policyType,
     scenario:_illustration.activeScenario,
