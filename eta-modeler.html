@@ -2235,66 +2235,32 @@ async function generateMC() {
 
   const N_paths=allPathAV.length;
 
-  // Total dollars a level (+COLA) income produces over an age window —
-  // used only for ranking percentile paths when Phase 2 is active (see
-  // below); every path shares the same window bounds, so this is a fair
-  // basis for comparison across paths.
-  function totalFromLevel(level, startAge, endAge, colaPct) {
-    if (!level) return 0;
-    const cola = colaPct/100;
-    let s = 0;
-    for (let a=startAge; a<=endAge; a++) s += level*Math.pow(1+cola, a-startAge);
-    return s;
-  }
-
   // Solve income on EVERY path — rank by actual income, not AV at one point in time
   // This ensures 25th < 50th < 75th income is always monotonic
   const allPathIncome=new Array(N_paths);
-  const allPathIncome2 = d.phase2On ? new Array(N_paths) : null;
   for(let j=0;j<N_paths;j++){
     // Sliced to nYrs1 (the account holder's natural horizon) so Phase 1's
     // solve/ranking is identical whether or not Phase 2 is on — Phase 2's
     // own solvency window is handled separately, once, on the already-
     // selected percentile paths below.
     allPathIncome[j]=solveIncomeFromAV(allPathAV[j].slice(0,nYrs1),allPathSurr[j].slice(0,nYrs1),d.bankRows,d.annualPrem,d.payYears,d.payoffYear,d.age,d.is,d.ie,d.cola,d.floor,d.plr,d.carrierKey);
-    if (d.phase2On) {
-      // Phase 2 chained onto THIS path's own real ending state, for every
-      // path — not just the 3 that will get picked — so ranking below can
-      // account for it. Same solver used later for the display bands.
-      allPathIncome2[j] = solvePhase2Income(allPathAV[j], allPathSurr[j], d.bankRows, d.age,
-        allPathIncome[j], d.is, d.ie, d.p2is, d.p2ie, d.cola, d.floor, d.plr).income;
-    }
     if(j%1000===0){sub.textContent=`Solving income: ${j.toLocaleString()} / ${N_paths.toLocaleString()}…`;fill.style.width=(83+Math.round(j/N_paths*7))+'%';await tick();}
   }
-  // Rank by combined (Phase 1 + Phase 2) total dollars when Phase 2 is
-  // active, rather than Phase 1 income alone. Phase 2 is chained onto each
-  // path's own real ending state, and that same path's return sequence in
-  // the LATER years Phase 2 draws against has no guarantee of tracking how
-  // favorable it was during Phase 1 — a path can rank well on Phase 1 and
-  // poorly on Phase 2 (or vice versa) since they're different stretches of
-  // the same single random draw. Ranking by Phase 1 alone (the old
-  // behavior) could then pick a "75th percentile" path whose combined
-  // total was actually lower than the "25th percentile" path's — ranking
-  // by the combined total keeps the displayed bands monotonic while still
-  // keeping Phase 2 chained onto the same real path as Phase 1, per the
-  // original design.
-  const rankScore = d.phase2On
-    ? allPathIncome.map((inc1,j)=>totalFromLevel(inc1,d.is,d.ie,d.cola)+totalFromLevel(allPathIncome2[j],d.p2is,d.p2ie,d.cola))
-    : allPathIncome;
-  const sortedByIncome=Array.from({length:N_paths},(_,i)=>i).sort((a,b)=>rankScore[a]-rankScore[b]);
-
-  // Phase-1-only ranking — used ONLY for the Page 2 cumulative-income chart
-  // (which plots Phase 1's window alone). The main ledger/summary figures
-  // intentionally rank by the combined total above so THOSE totals stay
-  // monotonic; but a chart scoped to Phase 1 alone should be ranked by
-  // Phase 1 alone, or its own 25th/50th/75th lines can cross (a path
-  // selected for its strong COMBINED outcome isn't guaranteed to also be
-  // the strongest performer within Phase 1's years specifically).
-  const sortedByPhase1 = d.phase2On
-    ? Array.from({length:N_paths},(_,i)=>i).sort((a,b)=>allPathIncome[a]-allPathIncome[b])
-    : sortedByIncome;
-  const bandIncomeP1Only = {};
-  [25,50,75].forEach(p=>{ bandIncomeP1Only[p] = allPathIncome[sortedByPhase1[Math.floor(p/100*(N_paths-1))]]; });
+  // Rank strictly by Phase 1 income — NOT by a combined Phase1+Phase2
+  // total. An earlier version of this ranked by the combined total so
+  // the ledger's Phase 2 totals stayed monotonic across bands, but that
+  // could pick a path whose Phase 1 income solved to $0 (the floor
+  // constraint genuinely unreachable on that specific path) simply
+  // because its LATER, Phase 2 stretch of the same random sequence was
+  // strong enough to still rank well combined — a real path, but a
+  // materially worse failure (blank/zero Phase 1 income shown to the
+  // client) than the milder issue it was meant to fix (combined totals
+  // occasionally out of order, since Phase 2 draws against a different
+  // later stretch of the same sequence with no guaranteed relationship
+  // to how favorable Phase 1 was). Phase 1 stays the reliable, always-
+  // populated backbone; Phase 2's own total is allowed to occasionally
+  // not track Phase 1's ordering perfectly, same as it always could.
+  const sortedByIncome=Array.from({length:N_paths},(_,i)=>i).sort((a,b)=>allPathIncome[a]-allPathIncome[b]);
 
   function pickPercentilePath(pct){
     // Find the single actual simulation sitting at this income percentile
@@ -2426,7 +2392,7 @@ async function generateMC() {
   try {
     pg2 = buildPage2(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
                      totalMedQPNet, dateStr, adv, ver, poolLabel, N,
-                     totalByBand1, totalByBand2, bandIncomeP1Only);
+                     totalByBand1, totalByBand2);
   } catch(e) {
     pg2 = `<div style="padding:40px;color:red;font-family:monospace">PAGE 2 ERROR: ${e.message}<br><pre>${e.stack}</pre></div>`;
   }
@@ -2911,7 +2877,7 @@ function buildPage1(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
 // ══════════════════════════════════════════════════════════
 function buildPage2(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
                     totalMedQPNet, dateStr, adv, ver, poolLabel, N,
-                    totalByBand1, totalByBand2, bandIncomeP1Only) {
+                    totalByBand1, totalByBand2) {
   const incomeAges = ageRange.filter(a => a >= d.is && a <= d.ie);
   const incomeAdv = totalByBand1[50] - totalMedQPNet;
   const baseRate = d.fed + d.state;
@@ -2991,7 +2957,7 @@ function buildPage2(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
       </div>
     </div>`;
 
-  const chartSVG = buildChart(ageRange, etaPct, qpPct, d, bandIncomeP1Only);
+  const chartSVG = buildChart(ageRange, etaPct, qpPct, d, bandIncome);
 
   return `
     <div class="pg2-hdr">
