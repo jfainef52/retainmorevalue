@@ -2283,6 +2283,19 @@ async function generateMC() {
     : allPathIncome;
   const sortedByIncome=Array.from({length:N_paths},(_,i)=>i).sort((a,b)=>rankScore[a]-rankScore[b]);
 
+  // Phase-1-only ranking — used ONLY for the Page 2 cumulative-income chart
+  // (which plots Phase 1's window alone). The main ledger/summary figures
+  // intentionally rank by the combined total above so THOSE totals stay
+  // monotonic; but a chart scoped to Phase 1 alone should be ranked by
+  // Phase 1 alone, or its own 25th/50th/75th lines can cross (a path
+  // selected for its strong COMBINED outcome isn't guaranteed to also be
+  // the strongest performer within Phase 1's years specifically).
+  const sortedByPhase1 = d.phase2On
+    ? Array.from({length:N_paths},(_,i)=>i).sort((a,b)=>allPathIncome[a]-allPathIncome[b])
+    : sortedByIncome;
+  const bandIncomeP1Only = {};
+  [25,50,75].forEach(p=>{ bandIncomeP1Only[p] = allPathIncome[sortedByPhase1[Math.floor(p/100*(N_paths-1))]]; });
+
   function pickPercentilePath(pct){
     // Find the single actual simulation sitting at this income percentile
     const idx = sortedByIncome[Math.floor(pct/100*(N_paths-1))];
@@ -2413,7 +2426,7 @@ async function generateMC() {
   try {
     pg2 = buildPage2(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
                      totalMedQPNet, dateStr, adv, ver, poolLabel, N,
-                     totalByBand1, totalByBand2);
+                     totalByBand1, totalByBand2, bandIncomeP1Only);
   } catch(e) {
     pg2 = `<div style="padding:40px;color:red;font-family:monospace">PAGE 2 ERROR: ${e.message}<br><pre>${e.stack}</pre></div>`;
   }
@@ -2898,7 +2911,7 @@ function buildPage1(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
 // ══════════════════════════════════════════════════════════
 function buildPage2(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
                     totalMedQPNet, dateStr, adv, ver, poolLabel, N,
-                    totalByBand1, totalByBand2) {
+                    totalByBand1, totalByBand2, bandIncomeP1Only) {
   const incomeAges = ageRange.filter(a => a >= d.is && a <= d.ie);
   const incomeAdv = totalByBand1[50] - totalMedQPNet;
   const baseRate = d.fed + d.state;
@@ -2978,7 +2991,7 @@ function buildPage2(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
       </div>
     </div>`;
 
-  const chartSVG = buildChart(ageRange, etaPct, qpPct, d, bandIncome);
+  const chartSVG = buildChart(ageRange, etaPct, qpPct, d, bandIncomeP1Only);
 
   return `
     <div class="pg2-hdr">
@@ -3130,7 +3143,7 @@ function buildChart(ageRange,etaPct,qpPct,d,bandIncome){
   const ages=ageRange.filter(a=>a>=d.is&&a<=d.ie);
   if(ages.length<2) return '';
   const cola=d.cola/100;
-  function cumInc(pct){let c=0;return ages.map(a=>{c+=(etaPct[a]?.[pct]?.income||0);return c;});}
+  function cumInc(pct){let c=0;return ages.map(a=>{c+=(bandIncome[pct]||0)*Math.pow(1+cola,a-d.is);return c;});}
   function cumQP(){let c=0;return ages.map(a=>{c+=(qpPct[a]?.[50]?.net||0);return c;});}
   const ci25=cumInc(25),ci50=cumInc(50),ci75=cumInc(75),qp50=cumQP();
   const maxVal=Math.max(...ci75,...qp50)*1.08||1;
