@@ -181,6 +181,7 @@ tr.tot td{border-top:2px solid var(--navy);border-bottom:none;font-weight:700;ba
     ' &nbsp;|&nbsp; <b>Distribution:</b> '+$f(S.qpBalance)+(S.dualQp?' <em style="font-weight:400">(combined, both spouses)</em>':'')+
     (L.creditingRate?' &nbsp;|&nbsp; <b>Illustrated:</b> '+(L.creditingRate*100).toFixed(2)+'%':'')+
     ' &nbsp;|&nbsp; <b>Horizon:</b> Age '+S.horizonAge+
+    (L.multiYearActive ? ' &nbsp;|&nbsp; <b>Financing:</b> '+$f(L.totalDraws)+' across '+(L.financingSchedule||[]).length+' yr(s)' : '')+
     ' &nbsp;|&nbsp; '+(S.date||'');
   set('p1-meta',meta); set('p2-meta',meta);
 
@@ -532,7 +533,7 @@ function stateEstateTax(stateCode, grossEstate, filing){
       // No bank interest accrues in the payoff year itself, since the debt is
       // retired before that year's growth would apply.
       var loanCell, intCell;
-      if(yr<payoffYr){ loanCell=bk?$f(bk.end):'\u2014'; intCell=bk?$f(bk.int):'\u2014'; }
+      if(yr<payoffYr){ loanCell=bk?$f(bk.end):'\u2014'; if(bk&&bk.draw>0) loanCell+=' <em style="font-weight:400;color:#8a7a3a">(+'+$f(bk.draw)+' draw)</em>'; intCell=bk?$f(bk.int):'\u2014'; }
       else if(yr===payoffYr){ loanCell='Retired \u2014 '+(bk?$f(bk.beg):'\u2014'); intCell='\u2014'; }
       else { loanCell='\u2014'; intCell='\u2014'; }
       var gifts = cumGiftByYr[yr]||0;
