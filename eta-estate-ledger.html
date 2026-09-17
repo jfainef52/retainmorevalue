@@ -178,7 +178,7 @@ tr.tot td{border-top:2px solid var(--navy);border-bottom:none;font-weight:700;ba
   }
   var meta='<b>Client:</b> '+whoNames+
     ' &nbsp;|&nbsp; <b>Advisor:</b> '+(S.advisor||'\u2014')+
-    ' &nbsp;|&nbsp; <b>Distribution:</b> '+$f(S.qpBalance)+
+    ' &nbsp;|&nbsp; <b>Distribution:</b> '+$f(S.qpBalance)+(S.dualQp?' <em style="font-weight:400">(combined, both spouses)</em>':'')+
     (L.creditingRate?' &nbsp;|&nbsp; <b>Illustrated:</b> '+(L.creditingRate*100).toFixed(2)+'%':'')+
     ' &nbsp;|&nbsp; <b>Horizon:</b> Age '+S.horizonAge+
     ' &nbsp;|&nbsp; '+(S.date||'');
@@ -511,7 +511,7 @@ function stateEstateTax(stateCode, grossEstate, filing){
       var ageDisplay = (S.altInsured && S.insuredAge) ? (S.insuredAge + yr - 1) : ageLabel(r.a, yr);
       var rmdVal = (r.rmd!=null) ? r.rmd : (er ? er.rmd : 0);
       if(!phased && rmdVal>0){
-        h+='<tr class="phase"><td colspan="11">Required Distribution Phase &mdash; begins age '+rmdStart+'</td></tr>';
+        h+='<tr class="phase"><td colspan="11">Required Distribution Phase &mdash; begins age '+rmdStart+(L.dualQp?' <em style="font-weight:400">(older spouse\u2019s RMD timeline, combined household QP)</em>':'')+'</td></tr>';
         phased=true;
       }
       if(!lapsed && c && c.db<=0){
