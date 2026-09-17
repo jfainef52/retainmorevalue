@@ -2723,7 +2723,7 @@ function buildPage1(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
       <td>${interest}</td>
       <td>${cumLoan}</td>
       <td>${isPayoff ? `<strong style="color:#c9a84c">${loanPayoff}</strong>` : loanPayoff}</td>
-      <td class="${isIncome ? 'inc-val' : ''}">${taxFreeInc}</td>
+      <td class="${(isIncome||isIncome2) ? 'inc-val' : ''}">${taxFreeInc}</td>
       <td>${$f(e50.av)}</td>
       <td>${$f(e50.csvNet)}</td>
     </tr>`;
