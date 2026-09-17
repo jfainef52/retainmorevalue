@@ -123,6 +123,7 @@ h1{font-family:'Playfair Display',serif;font-weight:600;font-size:26px;color:var
       <b id="doc-rec3-title">Take income later as tax-free policy loans — no RMDs, ever</b>
       <p id="doc-rec3-text">Starting at age 70, income is taken as policy loans — never reported to the IRS, never subject to capital gains tax, and never mandated by a Required Minimum Distribution schedule. You control the timing and the amount for life.</p>
       <div class="rec-sub" id="doc-rec3-sub">$542,924/yr median starting income · 3% COLA · policy loans, not reported as income</div>
+      <div class="eta-callout" id="phase2-callout"></div>
     </div>
   </div>
 
@@ -151,6 +152,10 @@ h1{font-family:'Playfair Display',serif;font-weight:600;font-size:26px;color:var
     <div class="dbox hl">
       <div class="dv" id="doc-out6-val">$20,460,263+</div>
       <div class="dl" id="doc-out6-lbl">Net asset value at age 100 — passes to your beneficiary income-tax-free</div>
+    </div>
+    <div class="dbox hl" id="phase2-dbox" style="display:none;grid-column:1 / -1">
+      <div class="dv" id="doc-out7-val">$0</div>
+      <div class="dl" id="doc-out7-lbl">Phase 2 — continued tax-free income</div>
     </div>
   </div>
 
@@ -279,6 +284,25 @@ h1{font-family:'Playfair Display',serif;font-weight:600;font-size:26px;color:var
       setHTML('excess-liquidity-callout', 'This plan also reserves up to <b>' + $f(r.excessLiquidity) + '</b> in additional liquidity to help offset tax on a related Roth conversion — supporting a further tax-free income source.');
       var callout = document.getElementById('excess-liquidity-callout');
       if (callout) callout.style.display = 'block';
+    }
+
+    // Phase 2 — an optional second income window that continues past this
+    // plan's own income horizon, keyed to the insured's age. Only shown
+    // when the advisor turned it on for this case; not a comparison to the
+    // taxable account/QP figures above — those are already fully drawn
+    // down by this point.
+    if (r.phase2On) {
+      var p2Total = r.etaTotalP2Med || 0;
+      var p2IsIns = r.p2isIns, p2IeIns = r.p2ieIns;
+      var p2Insured = r.altInsured ? (r.insuredName || 'the insured') : 'you';
+      setHTML('phase2-callout', 'Income doesn\'t stop at age ' + incEnd + '. Starting at insured age ' + p2IsIns + ', the policy continues producing tax-free income for ' + p2Insured + ' through insured age ' + p2IeIns + ' — <b>' + $f(p2Total) + '</b> more, on top of everything above.');
+      var p2Callout = document.getElementById('phase2-callout');
+      if (p2Callout) p2Callout.style.display = 'block';
+
+      set('doc-out7-val', $f(p2Total) + '+');
+      set('doc-out7-lbl', 'Phase 2 — continued tax-free income for ' + p2Insured + ', insured age ' + p2IsIns + '–' + p2IeIns);
+      var p2Box = document.getElementById('phase2-dbox');
+      if (p2Box) p2Box.style.display = 'block';
     }
 
   } catch(e) { console.warn('One-page summary data load failed:', e); }
