@@ -222,7 +222,7 @@ h1{font-family:'Playfair Display',serif;font-weight:600;font-size:21.42px;color:
     var names = r.clientName || '\u2014';
     if (r.spouseName) names += ' & ' + r.spouseName;
     set('doc-client', names);
-    set('doc-age', r.age || '\u2014');
+    set('doc-age', r.displayAge || r.age || '\u2014');
     set('doc-horizon', r.horizonAge || '\u2014');
     if (r.altInsured) {
       set('doc-insured', (r.insuredName||'\u2014') + ' (Age ' + (r.insuredAge||'\u2014') + (r.insuredRelationship ? ', ' + r.insuredRelationship : '') + ')');
