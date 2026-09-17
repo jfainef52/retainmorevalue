@@ -2466,6 +2466,13 @@ function runEstate(){
     advisor:    document.getElementById('advisorName').value || '',
     date: new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}),
     age: startAge, horizonAge: horizon, policyType: _illustration.policyType,
+    // Cosmetic only — lets the one-pager show the carrier-illustration age
+    // (First Insured Age) to match the ledger's own age labels. NOT used for
+    // any calculation: 'age' above (the real, DOB-derived age) remains the
+    // value eta-estate-ledger.html relies on for its year-index math
+    // (horizonYr, yrNum, exemption-growth timing) — changing THAT would
+    // silently misalign every row in the ledger by a year.
+    displayAge: parseInt(document.getElementById('issueAge').value)||startAge,
     altInsured, insuredName: altInsured ? (document.getElementById('insuredName').value.trim()||'—') : '',
     insuredAge: altInsured ? (parseInt(document.getElementById('issueAge').value)||0) : startAge,
     insuredRelationship: altInsured ? (document.getElementById('insuredRelationship').value.trim()||'') : '',
