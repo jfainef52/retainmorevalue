@@ -2632,8 +2632,18 @@ function buildPage1(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
   // We use qpPct median values
   let prevSection = '';
 
+  // Row display cap — dense (every year) through the first 35 policy
+  // years, which comfortably covers Phase 1 in every normal case, then
+  // tranche to every 5th policy year beyond that (Phase 2's much longer
+  // horizon when active), plus the true final row. Keeps this page from
+  // bleeding onto a second physical page when Phase 2 is active.
+  const DENSE_YEARS = 35;
+  const lastYr = ageRange[ageRange.length-1] - d.age + 1;
+
   ageRange.forEach(a => {
     const yr = a - d.age + 1;
+    const tranche = yr > DENSE_YEARS;
+    if (tranche && !(yr % 5 === 0 || yr === lastYr)) return; // collapsed into the tranche gap
     const isIncome = a >= d.is && a <= d.ie;
     const isIncome2 = !!(d.phase2On && a >= d.p2is && a <= d.p2ie);
     const isRmdOnly = !!(d.rmdAge && a >= d.rmdAge && a < d.is);
@@ -2702,7 +2712,7 @@ function buildPage1(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
     const qpGrowth = isQpDist ? (qpEOY + qpGross - qpBOY) : (qpEOY - qpBOY);
 
     if (showLeft) leftRows += `<tr class="${rowCls}">
-      <td>${yr}</td><td>${a}</td>
+      <td${tranche ? ' style="font-weight:700;background:var(--navy);color:#fff"' : ''}>${yr}</td><td${tranche ? ' style="font-weight:700;background:var(--navy);color:#fff"' : ''}>${a}</td>
       <td>${$f(qpBOY)}</td>
       <td>${qpGrowth !== 0 ? $f(qpGrowth) : '—'}</td>
       <td>${isQpDist && qpTax > 0 ? $f(qpTax) : '—'}</td>
@@ -2727,7 +2737,7 @@ function buildPage1(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
     const taxFreeInc = (isIncome||isIncome2) ? $f(e50.income) : '—';
 
     rightRows += `<tr class="${rowCls}">
-      <td>${yr}</td><td>${rightAge}</td>
+      <td${tranche ? ' style="font-weight:700;background:var(--navy);color:#fff"' : ''}>${yr}</td><td${tranche ? ' style="font-weight:700;background:var(--navy);color:#fff"' : ''}>${rightAge}</td>
       <td>${contrib}</td>
       <td>${pdaToAsset}</td>
       <td>${pdaBal}</td>
@@ -2991,18 +3001,18 @@ function buildPage3(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
                     totalByBand1, totalByBand2, bandIncome2) {
   const baseRate = d.fed + d.state;
 
-  // Display: dense (every year) through the first 35 policy years — this
-  // comfortably covers Phase 1 in every normal case — then tranche to
-  // every 5th policy year for the remainder (Phase 2's much longer
-  // horizon when active), plus the true final row. Keeps the page to a
-  // single printed sheet instead of bleeding onto a second page.
-  const DENSE_YEARS = 35;
-  const lastYr = ageRange[ageRange.length-1] - d.age + 1;
+  // Display: every income year (both phases) and every forced-RMD year;
+  // 5-yr tranches for years with no distribution activity at all.
   const displayAges = [];
   ageRange.forEach(a => {
-    const yr = a - d.age + 1;
-    if (yr <= DENSE_YEARS) { displayAges.push({a, tranche:false}); return; }
-    if (yr % 5 === 0 || yr === lastYr) displayAges.push({a, tranche:true});
+    const isIncome = a >= d.is && a <= d.ie;
+    const isIncome2 = !!(d.phase2On && a >= d.p2is && a <= d.p2ie);
+    const isRmdOnly = !!(d.rmdAge && a >= d.rmdAge && a < d.is);
+    if (isIncome || isIncome2 || isRmdOnly) { displayAges.push({a, tranche:false}); return; }
+    const isTranchePoint = a === ageRange[0] || a % 5 === 0 || a === d.is - 1 || a === d.ie + 5
+      || a === ageRange[ageRange.length-1]
+      || (d.phase2On && (a === d.p2is - 1 || a === d.p2ie + 5));
+    if (isTranchePoint) displayAges.push({a, tranche:true});
   });
 
   let rows = '';
@@ -3034,10 +3044,10 @@ function buildPage3(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
     const qp  = qpPct[a]?.[50]  || {};
 
     const rowCls = isPayoff ? 'payoff-yr' : (isIncome||isIncome2) ? 'income-yr' : isRmdOnly ? 'rmd-yr' : '';
-    const yrCell  = tranche ? `<td style="font-weight:700;background:var(--navy);color:#fff">${yr}</td>` : `<td>${yr}</td>`;
+    const yrCell  = tranche ? `<td style="font-weight:700;background:rgba(201,168,76,.08)">${yr}</td>` : `<td>${yr}</td>`;
     const insAgeAtA = d.altInsured ? (d.insuredAge + yr - 1) : null;
-    const ageLabel = insAgeAtA!=null ? `${a} <span style="font-size:8px;color:${tranche ? 'rgba(255,255,255,.65)' : 'var(--muted)'}">(ins. ${insAgeAtA})</span>` : `${a}`;
-    const ageCell = tranche ? `<td style="font-weight:700;color:#fff;background:var(--navy)">${ageLabel}</td>` : `<td>${ageLabel}</td>`;
+    const ageLabel = insAgeAtA!=null ? `${a} <span style="font-size:8px;color:var(--muted)">(ins. ${insAgeAtA})</span>` : `${a}`;
+    const ageCell = tranche ? `<td style="font-weight:700;color:var(--gold);background:rgba(201,168,76,.08)">${ageLabel}</td>` : `<td>${ageLabel}</td>`;
 
     if (secHdr) rows += `<tr class="sec-hdr"><td colspan="10">${secHdr}</td></tr>`;
 
