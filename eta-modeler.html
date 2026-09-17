@@ -2277,17 +2277,21 @@ async function generateMC() {
     const incAges = [];
     for(let a=d.is;a<=d.ie;a++) incAges.push(a);
 
-    // Build cumulative income arrays for chart
+    // Build cumulative income arrays for chart. QP cumulative line starts
+    // from the RMD-phase net total already paid before income begins (real
+    // simulated distributions for ages rmdAge..is-1), so it ties out exactly
+    // to the RMD-inclusive total below rather than starting from zero at
+    // income start and silently dropping those years.
     const cumEta25=[],cumEta50=[],cumEta75=[],cumQp50=[];
-    let c25=0,c50=0,c75=0,cq=0;
+    const rmdPhaseNet = qpDistAges.filter(a=>a<d.is).reduce((s,a)=>s+(qpPct[a]?.[50]?.net||0),0);
+    let c25=0,c50=0,c75=0,cq=rmdPhaseNet;
     incAges.forEach(a=>{
       c25 += bandIncome[25]*Math.pow(1+d.cola/100,a-d.is);
       c50 += bandIncome[50]*Math.pow(1+d.cola/100,a-d.is);
       c75 += bandIncome[75]*Math.pow(1+d.cola/100,a-d.is);
-      // QP net on 50th ETA path — grossW is the Year 1 gross withdrawal from simQP
-      const qpGr50 = strandQP&&strandQP[50] ? strandQP[50].grossW||0 : 0;
-      const qpInc = qpGr50*Math.pow(1+d.cola/100,a-d.is)*(1-(d.fed+d.state)/100);
-      cq += qpInc;
+      // Real simulated net distribution for this age (median path) — not a
+      // flat-COLA approximation of the Year-1 withdrawal.
+      cq += (qpPct[a]?.[50]?.net||0);
       cumEta25.push(c25); cumEta50.push(c50); cumEta75.push(c75); cumQp50.push(cq);
     });
 
@@ -2295,11 +2299,17 @@ async function generateMC() {
     const etaTotal50 = incAges.reduce((s,a)=>s+bandIncome[50]*Math.pow(1+d.cola/100,a-d.is),0);
     const etaTotal75 = incAges.reduce((s,a)=>s+bandIncome[75]*Math.pow(1+d.cola/100,a-d.is),0);
 
-    // QP net total from 50th strand
-    const qpGrossYr1 = strandQP&&strandQP[50] ? strandQP[50].grossW||0 : 0;
-    const qpNetTotal = qpGrossYr1
-      ? incAges.reduce((s,a)=>s+(qpGrossYr1*Math.pow(1+d.cola/100,a-d.is)*(1-(d.fed+d.state)/100)),0)
-      : 0;
+    // QP net total — reuse the SAME real, RMD-inclusive total already computed
+    // for the ledger (totalMedQPNet, in scope from above) rather than
+    // re-deriving it from a flat-COLA-grown Year-1 withdrawal. The prior
+    // version here (a) dropped the forced-RMD years entirely (ages rmdAge..is-1,
+    // which occur before income starts) and (b) approximated every income-phase
+    // year as the Year-1 gross withdrawal grown at a flat COLA%, instead of
+    // using each year's actual simulated net distribution — both understated
+    // the true total and overstated the ETA income advantage shown in the
+    // discussion doc relative to what the ledger itself reports.
+    const qpNetTotal = totalMedQPNet;
+    cq = rmdPhaseNet;
 
     // NAV at end of income period (age d.ie) on median path
     const navAt95 = strandPaths[50]?.pathAV
