@@ -385,7 +385,7 @@ table.sc-ldg tfoot td.gold-col { color:var(--gold); }
             <div class="field"><label class="fl">Issue Age</label><input type="number" id="issueAge" placeholder="e.g. 49" min="18" max="80" oninput="recalcAll();rebuildPayoffDropdown()"/></div>
           </div>
           <div class="fg fr">
-            <div class="field"><label class="fl">Account Holder Date of Birth</label><input type="date" id="dob"/><div class="hint">Drives the exact RMD start age (73 vs. 75 under SECURE 2.0). Leave blank to fall back to an age-based estimate, which is ambiguous by up to a year around the 1959/1960 birth-year cutoff.</div></div>
+            <div class="field" id="dobRow"><label class="fl">Account Holder Date of Birth</label><input type="date" id="dob"/><div class="hint">Drives the exact RMD start age (73 vs. 75 under SECURE 2.0). Leave blank to fall back to an age-based estimate, which is ambiguous by up to a year around the 1959/1960 birth-year cutoff.</div></div>
           </div>
           <div class="fg fr">
             <div class="field"><label class="fl">Gender</label><select id="gender"><option value="F">Female</option><option value="M">Male</option></select></div>
@@ -1399,6 +1399,11 @@ function setSourceMode(mode) {
   document.getElementById('penaltyRow').style.display = isNQP ? 'none' : 'flex';
   if (isNQP) document.getElementById('penaltyChk').checked = false;
 
+  // DOB / RMD row — hidden for NQP (a liquidity event has no RMD concept;
+  // the tax liability isn't sitting in a qualified plan)
+  const dobRow = document.getElementById('dobRow');
+  if (dobRow) dobRow.style.display = isNQP ? 'none' : 'block';
+
   // Combined rate label
   document.getElementById('combinedRateLabel').textContent = isNQP
     ? 'Combined Tax Rate (Liquidity Event)' : 'Combined Tax Rate (QP Distribution)';
@@ -1620,8 +1625,13 @@ function calculate() {
   const name = document.getElementById('clientName').value.trim()||'Sample Client';
   const age = parseInt(document.getElementById('issueAge').value);
   const dob = document.getElementById('dob').value;
-  const rmdAge = resolveRmdAge(dob, age);
   const isNQP = _sourceMode === 'nqp';
+  // RMDs are a qualified-plan concept only — a Liquidity Event (NQP) case has
+  // no QP and no RMD requirement, so rmdAge stays null for that mode. This is
+  // the single source of truth: every downstream RMD banner/row/tag in the
+  // ledger keys off d.rmdAge being truthy, so nulling it here removes RMD
+  // display everywhere else automatically.
+  const rmdAge = isNQP ? null : resolveRmdAge(dob, age);
   const taxOrDist = parseNum('distribution');
   // NQP: user enters tax liability; IUL funding = 2× tax
   // QP: dist is the full distribution
@@ -1759,7 +1769,7 @@ function calculate() {
               <div class="ii"><span class="ik">Total Premiums (${payYears} yrs)</span><span class="iv hl">${$f(totalPrem)}</span></div>
               <div class="ii"><span class="ik">Income Start Age</span><span class="iv hl">Age ${is} <span style="opacity:.6">(account holder)</span></span></div>
               <div class="ii"><span class="ik">Income End Age</span><span class="iv hl">Age ${ie} <span style="opacity:.6">(account holder)</span></span></div>
-              <div class="ii"><span class="ik">QP Required Minimum Distribution Age</span><span class="iv ${rmdAge < is ? 'hl' : ''}">Age ${rmdAge}${dob ? '' : ' (est. from issue age — enter DOB for exact age)'}${rmdAge < is ? ` — forced RMDs precede elected income` : ''}</span></div>
+              ${isNQP ? '' : `<div class="ii"><span class="ik">QP Required Minimum Distribution Age</span><span class="iv ${rmdAge < is ? 'hl' : ''}">Age ${rmdAge}${dob ? '' : ' (est. from issue age — enter DOB for exact age)'}${rmdAge < is ? ` — forced RMDs precede elected income` : ''}</span></div>`}
             </div>
             <div>
               <div class="ii"><span class="ik">COLA on Income</span><span class="iv hl">${cola}% annually</span></div>
@@ -1771,7 +1781,7 @@ function calculate() {
             </div>
           </div>
           ${altInsured ? `<div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(201,168,76,.2);font-size:10.5px;color:var(--muted);line-height:1.5">
-            <b style="color:var(--navy)">Account holder for tax/distribution purposes:</b> ${name}, Age ${age} — all tax, RMD, and income-timing figures above are based on the account holder, not the insured.
+            <b style="color:var(--navy)">Account holder for tax/distribution purposes:</b> ${name}, Age ${age} — all tax${isNQP ? '' : ', RMD,'} and income-timing figures above are based on the account holder, not the insured.
           </div>` : ''}
           ${loanOverrideActive && !multiYearActive ? `
           <div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(201,168,76,.2)">
@@ -2479,10 +2489,10 @@ function buildPage1(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
     if (yr === 1 && prevSection !== 'fund') {
       const accEndAge = isRmdOnly ? d.rmdAge - 1 : (d.rmdAge && d.rmdAge < d.is ? d.rmdAge - 1 : d.is - 1);
       const accYrs = accEndAge - d.age + 1;
-      secHdr = accYrs > 0 ? `ACCUMULATION PHASE — YEARS 1–${accYrs} (NO DISTRIBUTIONS)` : `REQUIRED MINIMUM DISTRIBUTIONS — BEGIN AGE ${d.rmdAge}`;
+      secHdr = accYrs > 0 ? `ACCUMULATION PHASE — YEARS 1–${accYrs} (NO DISTRIBUTIONS)` : (d.isNQP ? `DISTRIBUTION PHASE BEGINS` : `REQUIRED MINIMUM DISTRIBUTIONS — BEGIN AGE ${d.rmdAge}`);
       secHdrRight = accYrs > 0
         ? `ACCUMULATION PHASE — YEARS 1–${accYrs} (POLICY GROWING, NO WITHDRAWALS)${d.altInsured ? ` — INSURED AGE ${insAgeAt(1)}–${insAgeAt(accYrs)}` : ''}`
-        : `POLICY CONTINUES ACCUMULATING — NO RMD REQUIREMENT ON LIFE INSURANCE`;
+        : (d.isNQP ? `POLICY CONTINUES ACCUMULATING` : `POLICY CONTINUES ACCUMULATING — NO RMD REQUIREMENT ON LIFE INSURANCE`);
       prevSection = accYrs > 0 ? 'fund' : 'rmd';
     }
     if (isRmdOnly && prevSection !== 'rmd') {
@@ -2811,7 +2821,7 @@ function buildPage3(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
     if (yr === 1 && prevSection !== 'acc') {
       const accEndAge = (d.rmdAge && d.rmdAge < d.is) ? d.rmdAge - 1 : d.is - 1;
       const accYrs = accEndAge - d.age + 1;
-      secHdr = accYrs > 0 ? `ACCUMULATION PHASE — YEARS 1–${accYrs} (NO DISTRIBUTIONS)` : `REQUIRED MINIMUM DISTRIBUTIONS — BEGIN AGE ${d.rmdAge}`;
+      secHdr = accYrs > 0 ? `ACCUMULATION PHASE — YEARS 1–${accYrs} (NO DISTRIBUTIONS)` : (d.isNQP ? `DISTRIBUTION PHASE BEGINS` : `REQUIRED MINIMUM DISTRIBUTIONS — BEGIN AGE ${d.rmdAge}`);
       prevSection = accYrs > 0 ? 'acc' : 'rmd';
     }
     if (isRmdOnly && prevSection !== 'rmd') { secHdr = `QP: REQUIRED MINIMUM DISTRIBUTIONS BEGIN AGE ${d.rmdAge} — ETA POLICY HAS NO RMD REQUIREMENT AND KEEPS GROWING UNTOUCHED${d.altInsured ? ` (INSURED AGE ${d.insuredAge + (a - d.age)})` : ''}`; prevSection = 'rmd'; }
