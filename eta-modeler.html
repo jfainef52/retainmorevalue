@@ -308,7 +308,7 @@ table.dual tfoot td {
   border-bottom:1px solid var(--border);
 }
 .sc-band {
-  padding:16px 20px; border-right:1px solid var(--border);
+  padding:11px 20px; border-right:1px solid var(--border);
 }
 .sc-band:last-child { border-right:none; }
 .sc-band.median { background:rgba(201,168,76,.04); border-top:3px solid var(--gold); }
@@ -2907,53 +2907,53 @@ function buildPage2(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
 
   const summaryRow = `
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;border-bottom:1px solid var(--border)">
-      <div style="padding:14px 20px;border-right:1px solid var(--border)">
-        <div style="font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">${d.isNQP ? 'Taxable Account Net Income (Median)' : 'Qualified Plan Net Distributions (Median)'}</div>
-        <div style="font-family:'Playfair Display',serif;font-size:22px;color:var(--red)">${$f(totalMedQPNet)}</div>
-        <div style="font-size:9px;color:var(--muted);margin-top:3px">After ${compRateStr(d)} · Ages ${d.is}–${d.ie}</div>
+      <div style="padding:10px 20px;border-right:1px solid var(--border)">
+        <div style="font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:5px">${d.isNQP ? 'Taxable Account Net Income (Median)' : 'Qualified Plan Net Distributions (Median)'}</div>
+        <div style="font-family:'Playfair Display',serif;font-size:20px;color:var(--red)">${$f(totalMedQPNet)}</div>
+        <div style="font-size:9px;color:var(--muted);margin-top:2px">After ${compRateStr(d)} · Ages ${d.is}–${d.ie}</div>
       </div>
-      <div style="padding:14px 20px;border-right:1px solid var(--border)">
-        <div style="font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">ETA Tax-Free Income Advantage${d.phase2On ? ' (Phase 1)' : ''} (Median)</div>
-        <div style="font-family:'Playfair Display',serif;font-size:22px;color:var(--green)">+${$f(incomeAdv)}</div>
-        <div style="font-size:9px;color:var(--muted);margin-top:3px">${(totalByBand1[50]/Math.max(totalMedQPNet,1)).toFixed(2)}× more income</div>
+      <div style="padding:10px 20px;border-right:1px solid var(--border)">
+        <div style="font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:5px">ETA Tax-Free Income Advantage${d.phase2On ? ' (Phase 1)' : ''} (Median)</div>
+        <div style="font-family:'Playfair Display',serif;font-size:20px;color:var(--green)">+${$f(incomeAdv)}</div>
+        <div style="font-size:9px;color:var(--muted);margin-top:2px">${(totalByBand1[50]/Math.max(totalMedQPNet,1)).toFixed(2)}× more income</div>
       </div>
-      <div style="padding:14px 20px;border-right:1px solid var(--border)">
-        <div style="font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Net Asset Value at ${d.phase2On ? `Insured Age ${d.p2ieIns}` : `Age ${d.ie}`} (Median)</div>
-        <div style="font-family:'Playfair Display',serif;font-size:22px;color:var(--navy)">${$f(etaPct[d.phase2On ? d.p2ie : d.ie]?.[50]?.csvNet)}</div>
-        <div style="font-size:9px;color:var(--muted);margin-top:3px">Net of all asset loans</div>
+      <div style="padding:10px 20px;border-right:1px solid var(--border)">
+        <div style="font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:5px">Net Asset Value at ${d.phase2On ? `Insured Age ${d.p2ieIns}` : `Age ${d.ie}`} (Median)</div>
+        <div style="font-family:'Playfair Display',serif;font-size:20px;color:var(--navy)">${$f(etaPct[d.phase2On ? d.p2ie : d.ie]?.[50]?.csvNet)}</div>
+        <div style="font-size:9px;color:var(--muted);margin-top:2px">Net of all asset loans</div>
       </div>
-      <div style="padding:14px 20px">
-        <div style="font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Total Asset Loan at ${d.phase2On ? `Insured Age ${d.p2ieIns}` : `Age ${d.ie}`} (Median)</div>
-        <div style="font-family:'Playfair Display',serif;font-size:22px;color:var(--navy)">${$f(etaPct[d.phase2On ? d.p2ie : d.ie]?.[50]?.loanBal)}</div>
-        <div style="font-size:9px;color:var(--muted);margin-top:3px">Retires from death benefit</div>
+      <div style="padding:10px 20px">
+        <div style="font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:5px">Total Asset Loan at ${d.phase2On ? `Insured Age ${d.p2ieIns}` : `Age ${d.ie}`} (Median)</div>
+        <div style="font-family:'Playfair Display',serif;font-size:20px;color:var(--navy)">${$f(etaPct[d.phase2On ? d.p2ie : d.ie]?.[50]?.loanBal)}</div>
+        <div style="font-size:9px;color:var(--muted);margin-top:2px">Retires from death benefit</div>
       </div>
     </div>
     ${d.phase2On ? `
     <div style="display:grid;grid-template-columns:1fr 2fr;gap:0;background:rgba(201,168,76,.06);border-bottom:1px solid var(--border)">
-      <div style="padding:14px 20px;border-right:1px solid var(--border)">
-        <div style="font-size:8px;letter-spacing:2px;text-transform:uppercase;color:#8b6f1f;margin-bottom:6px">Phase 2 — Continued Income<br>For ${d.insuredName || 'the Insured'} (Median)</div>
-        <div style="font-family:'Playfair Display',serif;font-size:22px;color:var(--gold);font-weight:600">${$f(totalByBand2[50])}</div>
-        <div style="font-size:9px;color:var(--muted);margin-top:3px">Insured age ${d.p2isIns}–${d.p2ieIns}</div>
+      <div style="padding:10px 20px;border-right:1px solid var(--border)">
+        <div style="font-size:8px;letter-spacing:2px;text-transform:uppercase;color:#8b6f1f;margin-bottom:5px">Phase 2 — Continued Income<br>For ${d.insuredName || 'the Insured'} (Median)</div>
+        <div style="font-family:'Playfair Display',serif;font-size:20px;color:var(--gold);font-weight:600">${$f(totalByBand2[50])}</div>
+        <div style="font-size:9px;color:var(--muted);margin-top:2px">Insured age ${d.p2isIns}–${d.p2ieIns}</div>
       </div>
-      <div style="padding:14px 20px;font-size:11px;color:var(--text);line-height:1.5;display:flex;align-items:center">
+      <div style="padding:10px 20px;font-size:10.5px;color:var(--text);line-height:1.4;display:flex;align-items:center">
         Not a comparison — the ${d.isNQP ? 'taxable account' : 'qualified plan'} is already fully drawn down by this point. This is tax-free income only the policy can still produce.
       </div>
     </div>` : ''}`;
 
   // Percentile explanation cards
   const pctExplain = `
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;padding:16px 28px;border-bottom:1px solid var(--border)">
-      <div style="background:var(--off);border:1px solid var(--border);border-radius:4px;padding:14px 16px">
-        <div style="font-size:8px;letter-spacing:2px;text-transform:uppercase;color:#c9a84c;margin-bottom:6px;font-weight:600">50th — Median</div>
-        <div style="font-size:11px;color:var(--text);line-height:1.5">Half of all ${N.toLocaleString()} simulated market sequences produced more income than this; half produced less. This is the base case — what a client in the middle of all possible market outcomes would experience.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;padding:10px 28px;border-bottom:1px solid var(--border)">
+      <div style="background:var(--off);border:1px solid var(--border);border-radius:4px;padding:9px 16px">
+        <div style="font-size:8px;letter-spacing:2px;text-transform:uppercase;color:#8b2020;margin-bottom:4px;font-weight:600">25th — Conservative</div>
+        <div style="font-size:10.5px;color:var(--text);line-height:1.4">In 75% of sequences the outcome exceeded this level. This represents a below-average but realistic market scenario — appropriate as a planning floor when stress-testing the structure.</div>
       </div>
-      <div style="background:var(--off);border:1px solid var(--border);border-radius:4px;padding:14px 16px">
-        <div style="font-size:8px;letter-spacing:2px;text-transform:uppercase;color:#2a6e45;margin-bottom:6px;font-weight:600">75th — Favorable</div>
-        <div style="font-size:11px;color:var(--text);line-height:1.5">In 25% of simulated sequences — those with above-average market performance during the funding and income years — the ETA asset produced income and values above this level.</div>
+      <div style="background:var(--off);border:1px solid var(--border);border-radius:4px;padding:9px 16px">
+        <div style="font-size:8px;letter-spacing:2px;text-transform:uppercase;color:#c9a84c;margin-bottom:4px;font-weight:600">50th — Median</div>
+        <div style="font-size:10.5px;color:var(--text);line-height:1.4">Half of all ${N.toLocaleString()} simulated market sequences produced more income than this; half produced less. This is the base case — what a client in the middle of all possible market outcomes would experience.</div>
       </div>
-      <div style="background:var(--off);border:1px solid var(--border);border-radius:4px;padding:14px 16px">
-        <div style="font-size:8px;letter-spacing:2px;text-transform:uppercase;color:#8b2020;margin-bottom:6px;font-weight:600">25th — Conservative</div>
-        <div style="font-size:11px;color:var(--text);line-height:1.5">In 75% of sequences the outcome exceeded this level. This represents a below-average but realistic market scenario — appropriate as a planning floor when stress-testing the structure.</div>
+      <div style="background:var(--off);border:1px solid var(--border);border-radius:4px;padding:9px 16px">
+        <div style="font-size:8px;letter-spacing:2px;text-transform:uppercase;color:#2a6e45;margin-bottom:4px;font-weight:600">75th — Favorable</div>
+        <div style="font-size:10.5px;color:var(--text);line-height:1.4">In 25% of simulated sequences — those with above-average market performance during the funding and income years — the ETA asset produced income and values above this level.</div>
       </div>
     </div>`;
 
@@ -2970,9 +2970,9 @@ function buildPage2(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
     ${scenarioStrip}
     ${summaryRow}
     ${pctExplain}
-    <div style="padding:12px 28px 0">
-      <div style="font-family:'Playfair Display',serif;font-size:14px;color:var(--navy);margin-bottom:3px">Cumulative Income — ETA Tax-Free vs. ${d.isNQP ? 'Taxable Account' : 'Qualified Plan'} Taxable (Median)</div>
-      <div style="font-size:9px;color:var(--muted);margin-bottom:8px">${N.toLocaleString()} bootstrapped S&P 500 sequences (${poolLabel}) · ${d.cap}% cap / ${d.floorRate}% floor · ETA tax-free asset loan income vs. ${d.isNQP ? 'investment account distributions' : 'QP taxable distributions'} at ${compRateStr(d)}${d.isNQP ? '' : ' (after age 59½)'}</div>
+    <div style="padding:8px 28px 0">
+      <div style="font-family:'Playfair Display',serif;font-size:13px;color:var(--navy);margin-bottom:2px">Cumulative Income — ETA Tax-Free vs. ${d.isNQP ? 'Taxable Account' : 'Qualified Plan'} Taxable (Median)</div>
+      <div style="font-size:8.5px;color:var(--muted);margin-bottom:5px">${N.toLocaleString()} bootstrapped S&P 500 sequences (${poolLabel}) · ${d.cap}% cap / ${d.floorRate}% floor · ETA tax-free asset loan income vs. ${d.isNQP ? 'investment account distributions' : 'QP taxable distributions'} at ${compRateStr(d)}${d.isNQP ? '' : ' (after age 59½)'}</div>
       ${chartSVG}
     </div>
     <div class="disc-3col" style="margin-top:auto">
@@ -2991,18 +2991,18 @@ function buildPage3(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
                     totalByBand1, totalByBand2, bandIncome2) {
   const baseRate = d.fed + d.state;
 
-  // Display: every income year (both phases) and every forced-RMD year;
-  // 5-yr tranches for years with no distribution activity at all.
+  // Display: dense (every year) through the first 35 policy years — this
+  // comfortably covers Phase 1 in every normal case — then tranche to
+  // every 5th policy year for the remainder (Phase 2's much longer
+  // horizon when active), plus the true final row. Keeps the page to a
+  // single printed sheet instead of bleeding onto a second page.
+  const DENSE_YEARS = 35;
+  const lastYr = ageRange[ageRange.length-1] - d.age + 1;
   const displayAges = [];
   ageRange.forEach(a => {
-    const isIncome = a >= d.is && a <= d.ie;
-    const isIncome2 = !!(d.phase2On && a >= d.p2is && a <= d.p2ie);
-    const isRmdOnly = !!(d.rmdAge && a >= d.rmdAge && a < d.is);
-    if (isIncome || isIncome2 || isRmdOnly) { displayAges.push({a, tranche:false}); return; }
-    const isTranchePoint = a === ageRange[0] || a % 5 === 0 || a === d.is - 1 || a === d.ie + 5
-      || a === ageRange[ageRange.length-1]
-      || (d.phase2On && (a === d.p2is - 1 || a === d.p2ie + 5));
-    if (isTranchePoint) displayAges.push({a, tranche:true});
+    const yr = a - d.age + 1;
+    if (yr <= DENSE_YEARS) { displayAges.push({a, tranche:false}); return; }
+    if (yr % 5 === 0 || yr === lastYr) displayAges.push({a, tranche:true});
   });
 
   let rows = '';
@@ -3034,10 +3034,10 @@ function buildPage3(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
     const qp  = qpPct[a]?.[50]  || {};
 
     const rowCls = isPayoff ? 'payoff-yr' : (isIncome||isIncome2) ? 'income-yr' : isRmdOnly ? 'rmd-yr' : '';
-    const yrCell  = tranche ? `<td style="font-weight:700;background:rgba(201,168,76,.08)">${yr}</td>` : `<td>${yr}</td>`;
+    const yrCell  = tranche ? `<td style="font-weight:700;background:var(--navy);color:#fff">${yr}</td>` : `<td>${yr}</td>`;
     const insAgeAtA = d.altInsured ? (d.insuredAge + yr - 1) : null;
-    const ageLabel = insAgeAtA!=null ? `${a} <span style="font-size:8px;color:var(--muted)">(ins. ${insAgeAtA})</span>` : `${a}`;
-    const ageCell = tranche ? `<td style="font-weight:700;color:var(--gold);background:rgba(201,168,76,.08)">${ageLabel}</td>` : `<td>${ageLabel}</td>`;
+    const ageLabel = insAgeAtA!=null ? `${a} <span style="font-size:8px;color:${tranche ? 'rgba(255,255,255,.65)' : 'var(--muted)'}">(ins. ${insAgeAtA})</span>` : `${a}`;
+    const ageCell = tranche ? `<td style="font-weight:700;color:#fff;background:var(--navy)">${ageLabel}</td>` : `<td>${ageLabel}</td>`;
 
     if (secHdr) rows += `<tr class="sec-hdr"><td colspan="10">${secHdr}</td></tr>`;
 
@@ -3105,7 +3105,7 @@ function buildPage3(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
 }
 
 function buildChart(ageRange,etaPct,qpPct,d,bandIncome){
-  const W=1060,H=280,PL=88,PR=24,PT=34,PB=34,cW=W-PL-PR,cH=H-PT-PB;
+  const W=1060,H=230,PL=88,PR=24,PT=30,PB=30,cW=W-PL-PR,cH=H-PT-PB;
   const ages=ageRange.filter(a=>a>=d.is&&a<=d.ie);
   if(ages.length<2) return '';
   const cola=d.cola/100;
@@ -3122,12 +3122,12 @@ function buildChart(ageRange,etaPct,qpPct,d,bandIncome){
   const lX=xS(ages.length-1)-8;
   const LY=PT-16;
   return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block">
-  <line x1="${PL+10}" y1="${LY+5}" x2="${PL+26}" y2="${LY+5}" stroke="#2a6e45" stroke-width="2" stroke-dasharray="5,3"/>
-  <text x="${PL+31}" y="${LY+9}" fill="rgba(13,27,46,.65)" font-size="10" font-family="IBM Plex Sans,sans-serif">75th (Favorable)</text>
+  <line x1="${PL+10}" y1="${LY+5}" x2="${PL+26}" y2="${LY+5}" stroke="#8a8070" stroke-width="1.5" stroke-dasharray="4,4"/>
+  <text x="${PL+31}" y="${LY+9}" fill="rgba(13,27,46,.65)" font-size="10" font-family="IBM Plex Sans,sans-serif">25th (Conservative)</text>
   <line x1="${PL+170}" y1="${LY+5}" x2="${PL+186}" y2="${LY+5}" stroke="#c9a84c" stroke-width="2.5"/>
   <text x="${PL+191}" y="${LY+9}" fill="rgba(13,27,46,.65)" font-size="10" font-family="IBM Plex Sans,sans-serif">50th Median — ETA</text>
-  <line x1="${PL+330}" y1="${LY+5}" x2="${PL+346}" y2="${LY+5}" stroke="#8a8070" stroke-width="1.5" stroke-dasharray="4,4"/>
-  <text x="${PL+351}" y="${LY+9}" fill="rgba(13,27,46,.65)" font-size="10" font-family="IBM Plex Sans,sans-serif">25th (Conservative)</text>
+  <line x1="${PL+330}" y1="${LY+5}" x2="${PL+346}" y2="${LY+5}" stroke="#2a6e45" stroke-width="2" stroke-dasharray="5,3"/>
+  <text x="${PL+351}" y="${LY+9}" fill="rgba(13,27,46,.65)" font-size="10" font-family="IBM Plex Sans,sans-serif">75th (Favorable)</text>
   <line x1="${PL+510}" y1="${LY+5}" x2="${PL+526}" y2="${LY+5}" stroke="rgba(139,32,32,.7)" stroke-width="1.5" stroke-dasharray="6,3"/>
   <text x="${PL+531}" y="${LY+9}" fill="rgba(13,27,46,.65)" font-size="10" font-family="IBM Plex Sans,sans-serif">${d.isNQP ? 'Taxable Acct Net — Median' : 'QP Taxable Net — Median'}</text>
   <path d="${pth(ci75)}" fill="none" stroke="#2a6e45" stroke-width="2" stroke-dasharray="6,3" stroke-linejoin="round"/>
