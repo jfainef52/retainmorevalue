@@ -2236,18 +2236,53 @@ async function generateMC() {
 
   const N_paths=allPathAV.length;
 
+  // Total dollars a level (+COLA) income produces over an age window —
+  // used only for ranking percentile paths when Phase 2 is active (see
+  // below); every path shares the same window bounds, so this is a fair
+  // basis for comparison across paths.
+  function totalFromLevel(level, startAge, endAge, colaPct) {
+    if (!level) return 0;
+    const cola = colaPct/100;
+    let s = 0;
+    for (let a=startAge; a<=endAge; a++) s += level*Math.pow(1+cola, a-startAge);
+    return s;
+  }
+
   // Solve income on EVERY path — rank by actual income, not AV at one point in time
   // This ensures 25th < 50th < 75th income is always monotonic
   const allPathIncome=new Array(N_paths);
+  const allPathIncome2 = d.phase2On ? new Array(N_paths) : null;
   for(let j=0;j<N_paths;j++){
     // Sliced to nYrs1 (the account holder's natural horizon) so Phase 1's
     // solve/ranking is identical whether or not Phase 2 is on — Phase 2's
     // own solvency window is handled separately, once, on the already-
     // selected percentile paths below.
     allPathIncome[j]=solveIncomeFromAV(allPathAV[j].slice(0,nYrs1),allPathSurr[j].slice(0,nYrs1),d.bankRows,d.annualPrem,d.payYears,d.payoffYear,d.age,d.is,d.ie,d.cola,d.floor,d.plr,d.carrierKey);
+    if (d.phase2On) {
+      // Phase 2 chained onto THIS path's own real ending state, for every
+      // path — not just the 3 that will get picked — so ranking below can
+      // account for it. Same solver used later for the display bands.
+      allPathIncome2[j] = solvePhase2Income(allPathAV[j], allPathSurr[j], d.bankRows, d.age,
+        allPathIncome[j], d.is, d.ie, d.p2is, d.p2ie, d.cola, d.floor, d.plr).income;
+    }
     if(j%1000===0){sub.textContent=`Solving income: ${j.toLocaleString()} / ${N_paths.toLocaleString()}…`;fill.style.width=(83+Math.round(j/N_paths*7))+'%';await tick();}
   }
-  const sortedByIncome=Array.from({length:N_paths},(_,i)=>i).sort((a,b)=>allPathIncome[a]-allPathIncome[b]);
+  // Rank by combined (Phase 1 + Phase 2) total dollars when Phase 2 is
+  // active, rather than Phase 1 income alone. Phase 2 is chained onto each
+  // path's own real ending state, and that same path's return sequence in
+  // the LATER years Phase 2 draws against has no guarantee of tracking how
+  // favorable it was during Phase 1 — a path can rank well on Phase 1 and
+  // poorly on Phase 2 (or vice versa) since they're different stretches of
+  // the same single random draw. Ranking by Phase 1 alone (the old
+  // behavior) could then pick a "75th percentile" path whose combined
+  // total was actually lower than the "25th percentile" path's — ranking
+  // by the combined total keeps the displayed bands monotonic while still
+  // keeping Phase 2 chained onto the same real path as Phase 1, per the
+  // original design.
+  const rankScore = d.phase2On
+    ? allPathIncome.map((inc1,j)=>totalFromLevel(inc1,d.is,d.ie,d.cola)+totalFromLevel(allPathIncome2[j],d.p2is,d.p2ie,d.cola))
+    : allPathIncome;
+  const sortedByIncome=Array.from({length:N_paths},(_,i)=>i).sort((a,b)=>rankScore[a]-rankScore[b]);
 
   function pickPercentilePath(pct){
     // Find the single actual simulation sitting at this income percentile
