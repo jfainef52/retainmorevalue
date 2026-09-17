@@ -615,6 +615,17 @@ table.sc-ldg tfoot td.gold-col { color:var(--gold); }
             <div class="field"><label class="fl">Min Net CSV Floor ($)</label><input type="text" id="csvFloor" value="$150,000" oninput="formatCurrency(this)"/></div>
             <div class="field"><label class="fl">Simulations</label><input type="number" id="nSims" value="10000" step="1000" min="1000" max="20000"/></div>
           </div>
+
+          <div class="chk-row">
+            <input type="checkbox" id="phase2Chk" onchange="togglePhase2()"/>
+            <label for="phase2Chk">Continue income into a 2nd phase, keyed to the insured's own age (past the account holder's horizon)</label>
+          </div>
+          <div id="phase2Panel" style="display:none">
+            <div class="fg fr">
+              <div class="field"><label class="fl">Phase 2 Start Age (Insured)</label><input type="number" id="p2Start" placeholder="e.g. 65" min="0" max="110"/><div class="hint">Usually right after Phase 1 ends. Solved independently from Phase 1's ending cash-value/loan position on the same simulated path — not from zero.</div></div>
+              <div class="field"><label class="fl">Phase 2 End Age (Insured)</label><input type="number" id="p2End" value="100" min="0" max="121"/></div>
+            </div>
+          </div>
           <div class="fg fr">
             <div class="field"><label class="fl">QP Management Fee (%/yr)</label><input type="number" id="qpFee" value="1.50" step="0.25" min="0" max="3"/><div class="hint">Annual fee deducted from QP balance before growth. Default 1%.</div></div>
             <div class="field"><label class="fl" id="qpEqWtLabel">QP Equity Allocation (%)</label><input type="number" id="qpEqWt" value="60" step="5" min="0" max="100"/><div class="hint">Comparator portfolio equity weight. Balance in 10-yr T-bonds. Default 60/40. Same historical year drawn for both assets.</div></div>
@@ -1154,6 +1165,61 @@ function solveIncomeFromAV(avSeries, surrSeries, bankRows, annualPrem, payYears,
 }
 
 // ══════════════════════════════════════════════════════════
+// PHASE 2 INCOME SOLVER — a second, independently-solved income
+// level that continues past Phase 1's window (the account holder's
+// own income horizon), keyed to the INSURED's age. Does NOT start
+// from a fresh $0 loan: it first walks Phase 1's already-solved
+// income forward (on this exact path's AV/return sequence) to find
+// the REAL loan balance sitting at the end of Phase 1, then solves
+// Phase 2's own level (+COLA) income from that actual starting
+// point — same floor/solvency logic as solveIncomeFromAV, just
+// chained onto Phase 1's real ending state instead of zero.
+// ══════════════════════════════════════════════════════════
+function solvePhase2Income(avSeries, surrSeries, bankRows, issueAge,
+                           p1Income, is1, ie1, is2, ie2, colaRate, csvFloor, plr) {
+  const plrR = plr/100;
+  const cola = colaRate/100;
+  const ie1Idx = ie1 - issueAge;
+
+  // Walk Phase 1 on THIS path to find the actual loan balance sitting at
+  // the end of Phase 1's window (the loan compounds every year regardless
+  // of whether that year has an active draw).
+  let startLoan = 0;
+  for (let i = 0; i <= ie1Idx; i++) {
+    const age = issueAge + i;
+    let income = 0;
+    if (p1Income > 0 && age >= is1 && age <= ie1) income = p1Income * Math.pow(1+cola, age-is1);
+    startLoan = startLoan*(1+plrR) + income;
+  }
+
+  const is2Idx = is2 - issueAge;
+  const seedAV = avSeries[Math.min(is2Idx, avSeries.length-1)] || 0;
+  let lo=0, hi=Math.max(1000, seedAV*3), best=0;
+  for (let iter=0; iter<60; iter++) {
+    const mid=(lo+hi)/2;
+    let cumIncomeLoan=startLoan, ok=true;
+    // Carry Phase 1's ending loan forward (still compounding through any
+    // gap years) and layer Phase 2's own income on top from is2 on.
+    for (let i=ie1Idx+1; i<avSeries.length; i++) {
+      const age=issueAge+i;
+      const bank=bankRows[i]||{};
+      const bankLoan=bank.cumLoan||0;
+      const av=avSeries[i];
+      const surrChg=surrSeries[i]||0;
+      let income=0;
+      if (mid>0&&age>=is2&&age<=ie2) income=mid*Math.pow(1+cola,age-is2);
+      cumIncomeLoan=cumIncomeLoan*(1+plrR)+income;
+      const totalLoan=bankLoan+cumIncomeLoan;
+      const csvNet=Math.max(0,Math.max(0,av-surrChg)-totalLoan);
+      if (age>=is2&&age<=ie2&&csvNet<csvFloor){ok=false;break;}
+      if (age>ie2&&csvNet<=0){ok=false;break;}
+    }
+    if (ok){best=mid;lo=mid;}else hi=mid;
+  }
+  return {income:best, startLoan};
+}
+
+// ══════════════════════════════════════════════════════════
 // REQUIRED MINIMUM DISTRIBUTIONS (RMD) — SECURE 2.0 Act
 // Uniform Lifetime Table (Table III), IRS Reg. 1.401(a)(9)-9,
 // effective for distribution calendar years beginning 2022.
@@ -1363,6 +1429,15 @@ let _prog=null, _csvFile=null, _sourceMode='qp';
 function toggleAltInsured() {
   const on = document.getElementById('altInsuredChk').checked;
   document.getElementById('altInsuredPanel').style.display = on ? 'block' : 'none';
+}
+
+// ══════════════════════════════════════════════════════════
+// PHASE 2 INCOME TOGGLE — continue income past the account
+// holder's horizon, keyed to the insured's own age
+// ══════════════════════════════════════════════════════════
+function togglePhase2() {
+  const on = document.getElementById('phase2Chk').checked;
+  document.getElementById('phase2Panel').style.display = on ? 'block' : 'none';
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1681,6 +1756,22 @@ function calculate() {
   if (altInsured && isNaN(insuredAgeRaw)) return alert('Insured age required when using an alternate insured.');
   const insuredAge = isNaN(insuredAgeRaw) ? age : insuredAgeRaw;
 
+  // Phase 2 income — an optional second income window that continues past
+  // the account holder's Income End Age (Phase 1), entered and solved in
+  // the INSURED's own age terms (since that's whose remaining lifetime it
+  // draws against). Converted here to account-holder-age equivalents for
+  // internal use, since the whole simulation engine runs on that timeline —
+  // the age gap between account holder and insured is constant across the
+  // projection, so ahAge = insuredAge_target + (age - insuredAge).
+  const phase2On = document.getElementById('phase2Chk').checked;
+  const ageGap = age - insuredAge;
+  let p2is = null, p2ie = null, p2isIns = null, p2ieIns = null;
+  if (phase2On) {
+    p2isIns = parseInt(document.getElementById('p2Start').value);
+    p2ieIns = parseInt(document.getElementById('p2End').value) || 100;
+    if (isNaN(p2isIns)) return alert('Phase 2 Start Age (Insured) required.');
+  }
+
   if (isNaN(age)||age<18||age>80) return alert('Issue age required (18–80).');
   if (isNQP) {
     if (taxOrDist < 10000) return alert('Tax liability must be at least $10,000.');
@@ -1689,6 +1780,13 @@ function calculate() {
   }
   if (isNaN(is)) return alert('Income start age required.');
   if (payoffYear<payYears+1) return alert(`Loan payoff year must be at least ${payYears+1} (after last premium year).`);
+
+  if (phase2On) {
+    p2is = p2isIns + ageGap; // account-holder-age equivalent
+    p2ie = p2ieIns + ageGap;
+    if (p2is <= ie) return alert('Phase 2 Start Age (Insured) must correspond to a point after Income End Age (Phase 1) on the account holder\'s timeline — try a later start age or an earlier Phase 1 Income End Age.');
+    if (p2ie <= p2is) return alert('Phase 2 End Age (Insured) must be after Phase 2 Start Age (Insured).');
+  }
 
   const {pdaNet, afterTaxRate, annualPrem, totalPrem, rows: pdaRows, pdaTaxRate} =
     calcPDA(dist, fed, state, pdaFee, pdaRate, payYears);
@@ -1740,7 +1838,8 @@ function calculate() {
            payoffYear, plr, bankRows, payoffBalance, carrierKey, is, ie, cola,
            floor, cap, floorRate, nSims, dataYrs, qpFee, qpEqWt, basisPct, ltcgRate,
            gender, health, stateCode, advisorName,
-           altInsured, insuredName, insuredAge, insuredGender, insuredHealth, insuredRelationship};
+           altInsured, insuredName, insuredAge, insuredGender, insuredHealth, insuredRelationship,
+           phase2On, p2is, p2ie, p2isIns, p2ieIns, ageGap};
 
   // Build PDA schedule table
   let pdaTableRows='';
@@ -2077,7 +2176,9 @@ async function generateMC() {
   ov.style.display='flex';
   await new Promise(r=>setTimeout(r,50));
 
-  const N=d.nSims, nYrs=100-d.age+1;
+  const N=d.nSims;
+  const nYrs1=100-d.age+1; // account holder's natural horizon — Phase 1 solve/ranking always uses this length, unchanged regardless of Phase 2
+  const nYrs=d.phase2On ? Math.max(nYrs1, d.p2ie-d.age+1) : nYrs1; // extended when Phase 2 reaches past the account holder's own age 100
   const poolCutoff=2024-d.dataYrs+1;
   const eqWt=d.qpEqWt, bdWt=1-d.qpEqWt;
   const qpFeeAdj=d.qpFee/100;
@@ -2098,7 +2199,7 @@ async function generateMC() {
   fill.style.width='7%';
   await tick();
 
-  const ageRange=[];for(let a=d.age;a<=100;a++) ageRange.push(a);
+  const ageRange=[];for(let a=d.age;a<=d.age+nYrs-1;a++) ageRange.push(a);
   const etaByAge={};ageRange.forEach(a=>{etaByAge[a]={av:[],csvNet:[]};});
   const qpByAge={};ageRange.forEach(a=>{qpByAge[a]={gross:[],net:[],bal:[]};});
   const allPathAV=[],allPathSurr=[],allPathRets=[],allPathQPRets=[],allAvAtInc=[],allPathYears=[];
@@ -2139,7 +2240,11 @@ async function generateMC() {
   // This ensures 25th < 50th < 75th income is always monotonic
   const allPathIncome=new Array(N_paths);
   for(let j=0;j<N_paths;j++){
-    allPathIncome[j]=solveIncomeFromAV(allPathAV[j],allPathSurr[j],d.bankRows,d.annualPrem,d.payYears,d.payoffYear,d.age,d.is,d.ie,d.cola,d.floor,d.plr,d.carrierKey);
+    // Sliced to nYrs1 (the account holder's natural horizon) so Phase 1's
+    // solve/ranking is identical whether or not Phase 2 is on — Phase 2's
+    // own solvency window is handled separately, once, on the already-
+    // selected percentile paths below.
+    allPathIncome[j]=solveIncomeFromAV(allPathAV[j].slice(0,nYrs1),allPathSurr[j].slice(0,nYrs1),d.bankRows,d.annualPrem,d.payYears,d.payoffYear,d.age,d.is,d.ie,d.cola,d.floor,d.plr,d.carrierKey);
     if(j%1000===0){sub.textContent=`Solving income: ${j.toLocaleString()} / ${N_paths.toLocaleString()}…`;fill.style.width=(83+Math.round(j/N_paths*7))+'%';await tick();}
   }
   const sortedByIncome=Array.from({length:N_paths},(_,i)=>i).sort((a,b)=>allPathIncome[a]-allPathIncome[b]);
@@ -2168,12 +2273,25 @@ async function generateMC() {
     bandIncome[p]=strand.income;
   });
 
+  // Phase 2 — solved once per percentile band, chained onto that same
+  // path's real Phase-1-ending loan/AV state (not a fresh $0 start).
+  const bandIncome2={}, bandStartLoan2={};
+  if (d.phase2On) {
+    PCTS.forEach(p=>{
+      const strand=strandPaths[p];
+      const res=solvePhase2Income(strand.pathAV, strand.pathSurr, d.bankRows, d.age,
+        bandIncome[p], d.is, d.ie, d.p2is, d.p2ie, d.cola, d.floor, d.plr);
+      bandIncome2[p]=res.income;
+      bandStartLoan2[p]=res.startLoan;
+    });
+  }
+
   sub.textContent='Building output…';fill.style.width='88%';await tick();
 
   function buildCsvSeries(pct){
     const strand=strandPaths[pct];
     const pathAV=strand.pathAV, pathSurr=strand.pathSurr;
-    const inc=bandIncome[pct];const plrR=d.plr/100;const cola=d.cola/100;
+    const inc=bandIncome[pct];const inc2=d.phase2On?bandIncome2[pct]:0;const plrR=d.plr/100;const cola=d.cola/100;
     let cumIncomeLoan=0;
     const csvByAge={},loanByAge={};
     for(let i=0;i<pathAV.length;i++){
@@ -2181,6 +2299,7 @@ async function generateMC() {
       const bankLoan=(d.bankRows[i]||{}).cumLoan||0;
       let income=0;
       if(inc>0&&age>=d.is&&age<=d.ie) income=inc*Math.pow(1+cola,age-d.is);
+      else if(inc2>0&&age>=d.p2is&&age<=d.p2ie) income=inc2*Math.pow(1+cola,age-d.p2is);
       cumIncomeLoan=cumIncomeLoan*(1+plrR)+income;
       const totalLoan=bankLoan+cumIncomeLoan;
       const pdaRow=(d.pdaRows && d.pdaRows[i]) ? d.pdaRows[i] : null;
@@ -2219,7 +2338,8 @@ async function generateMC() {
     etaPct[a]={};PCTS.forEach(p=>{
       const i=a-d.age;
       const strand=strandPaths[p];
-      const income=(a>=d.is&&a<=d.ie)?bandIncome[p]*Math.pow(1+cola,a-d.is):0;
+      let income=(a>=d.is&&a<=d.ie)?bandIncome[p]*Math.pow(1+cola,a-d.is):0;
+      if (!income && d.phase2On && a>=d.p2is && a<=d.p2ie) income=bandIncome2[p]*Math.pow(1+cola,a-d.p2is);
       etaPct[a][p]={av:strand.pathAV[i]||0,csvNet:bandCsv[p].csvByAge[a]??0,loanBal:bandCsv[p].loanByAge[a]??0,income};
     });
     qpPct[a]={};PCTS.forEach(p=>{
@@ -2231,11 +2351,17 @@ async function generateMC() {
   fill.style.width='95%';await tick();
 
   const incomeAges=ageRange.filter(a=>a>=d.is&&a<=d.ie);
+  const incomeAges2=d.phase2On ? ageRange.filter(a=>a>=d.p2is&&a<=d.p2ie) : [];
   // QP distributions include any forced RMD years before income start, in
   // addition to the income-phase years — ETA totals stay scoped to incomeAges
   // since the ETA side has no RMDs of its own.
   const qpDistAges=ageRange.filter(a=>(a>=d.is&&a<=d.ie)||(d.rmdAge&&a>=d.rmdAge&&a<d.is));
-  const totalByBand={};PCTS.forEach(p=>{totalByBand[p]=incomeAges.reduce((s,a)=>s+(etaPct[a][p]?.income||0),0);});
+  // Combined (Phase 1 + Phase 2) total, per band — the headline number when
+  // Phase 2 is active. totalByBand1 keeps the Phase-1-only figure available
+  // for the ledger's separate phase subtotal lines.
+  const totalByBand1={};PCTS.forEach(p=>{totalByBand1[p]=incomeAges.reduce((s,a)=>s+(etaPct[a][p]?.income||0),0);});
+  const totalByBand2={};PCTS.forEach(p=>{totalByBand2[p]=incomeAges2.reduce((s,a)=>s+(etaPct[a][p]?.income||0),0);});
+  const totalByBand={};PCTS.forEach(p=>{totalByBand[p]=totalByBand1[p]+totalByBand2[p];});
   const totalMedQPNet=qpDistAges.reduce((s,a)=>s+(qpPct[a]?.[50]?.net||0),0);
   const totalMedQPGross=qpDistAges.reduce((s,a)=>s+(qpPct[a]?.[50]?.gross||0),0);
 
@@ -2245,19 +2371,22 @@ async function generateMC() {
   let pg1, pg2, pg3;
   try {
     pg1 = buildPage1(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
-                     totalMedQPNet, totalMedQPGross, dateStr, adv, ver, poolLabel, N, carrierMeta);
+                     totalMedQPNet, totalMedQPGross, dateStr, adv, ver, poolLabel, N, carrierMeta,
+                     totalByBand1, totalByBand2, bandIncome2, bandStartLoan2);
   } catch(e) {
     pg1 = `<div style="padding:40px;color:red;font-family:monospace">PAGE 1 ERROR: ${e.message}<br><pre>${e.stack}</pre></div>`;
   }
   try {
     pg2 = buildPage2(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
-                     totalMedQPNet, dateStr, adv, ver, poolLabel, N);
+                     totalMedQPNet, dateStr, adv, ver, poolLabel, N,
+                     totalByBand1, totalByBand2);
   } catch(e) {
     pg2 = `<div style="padding:40px;color:red;font-family:monospace">PAGE 2 ERROR: ${e.message}<br><pre>${e.stack}</pre></div>`;
   }
   try {
     pg3 = buildPage3(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
-                     totalMedQPNet, dateStr, adv, poolLabel, N);
+                     totalMedQPNet, dateStr, adv, poolLabel, N,
+                     totalByBand1, totalByBand2, bandIncome2);
   } catch(e) {
     pg3 = `<div style="padding:40px;color:red;font-family:monospace">PAGE 3 ERROR: ${e.message}<br><pre>${e.stack}</pre></div>`;
   }
@@ -2412,12 +2541,14 @@ async function generateMC() {
 // PAGE 1: MEDIAN SIDE-BY-SIDE (greensheet format)
 // ══════════════════════════════════════════════════════════
 function buildPage1(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
-                    totalMedQPNet, totalMedQPGross, dateStr, adv, ver, poolLabel, N, carrierMeta) {
+                    totalMedQPNet, totalMedQPGross, dateStr, adv, ver, poolLabel, N, carrierMeta,
+                    totalByBand1, totalByBand2, bandIncome2, bandStartLoan2) {
   const cola = d.cola/100;
   const incomeAges = ageRange.filter(a => a >= d.is && a <= d.ie);
   const totalTaxPaid = totalMedQPGross - totalMedQPNet;
-  const incomeAdv = totalByBand[50] - totalMedQPNet;
-  const endCSV = etaPct[d.ie]?.[50]?.csvNet || 0;
+  const incomeAdv = totalByBand1[50] - totalMedQPNet;
+  const finalHorizonAge = d.phase2On ? Math.max(d.ie, d.p2ie) : d.ie;
+  const endCSV = etaPct[finalHorizonAge]?.[50]?.csvNet || 0;
 
   // STAT STRIP
   const compLabel = d.isNQP ? 'Taxable Account' : 'Qualified Plan';
@@ -2455,9 +2586,9 @@ function buildPage1(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
         <div class="sb-sub">Median (50th percentile)</div>
       </div>
       <div class="stat-box hl">
-        <div class="sb-label">Net Asset Value at Age ${d.ie}<br>Net of All Loans</div>
+        <div class="sb-label">Net Asset Value at ${d.phase2On ? `Insured Age ${d.p2ieIns}` : `Age ${d.ie}`}<br>Net of All Loans</div>
         <div class="sb-val">${$f(endCSV)}</div>
-        <div class="sb-adv">ETA Income Advantage: +${$f(incomeAdv)}</div>
+        <div class="sb-adv">ETA Income Advantage${d.phase2On ? ' (Phase 1)' : ''}: +${$f(incomeAdv)}</div>
       </div>
     </div>`;
 
@@ -2472,11 +2603,16 @@ function buildPage1(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
   ageRange.forEach(a => {
     const yr = a - d.age + 1;
     const isIncome = a >= d.is && a <= d.ie;
+    const isIncome2 = !!(d.phase2On && a >= d.p2is && a <= d.p2ie);
     const isRmdOnly = !!(d.rmdAge && a >= d.rmdAge && a < d.is);
     const isQpDist = isIncome || isRmdOnly;
     const isFund = yr <= d.payYears;
     const isPayoff = yr === d.payoffYear;
-    const isPost = a > d.ie;
+    const isPost = a > d.ie && !isIncome2;
+    // The comparator (QP/taxable) side has no reason to exist past the
+    // account holder's own age 100 — Phase 2 only ever continues the
+    // policy (right) side, so the left table simply stops growing rows.
+    const showLeft = a <= 100;
 
     // Section headers — split accumulation into a true no-distribution
     // stretch and, when RMD age falls before income start, a forced-RMD
@@ -2505,18 +2641,20 @@ function buildPage1(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
       secHdrRight = `TAX-FREE INCOME BEGINS — YEARS ${d.is - d.age + 1}–${d.ie - d.age + 1}${d.altInsured ? ` (INSURED AGE ${insAgeAt(d.is-d.age+1)}–${insAgeAt(d.ie-d.age+1)})` : ''}`;
       prevSection = 'income';
     }
+    if (isIncome2 && prevSection !== 'phase2') {
+      secHdrRight = `PHASE 2 — CONTINUED TAX-FREE INCOME FOR ${d.insuredName || 'THE INSURED'}, INSURED AGE ${d.p2isIns}–${d.p2ieIns} (PAST ACCOUNT HOLDER'S OWN HORIZON)`;
+      prevSection = 'phase2';
+    }
 
     const qp = qpPct[a]?.[50] || {};
     const e50 = etaPct[a]?.[50] || {};
     const bankRow = d.bankRows[yr - 1] || {};
     const pdaRow = d.pdaRows ? d.pdaRows[yr - 1] : null;
 
-    const rowCls = isPayoff ? 'payoff-yr' : isIncome ? 'income-yr' : isRmdOnly ? 'rmd-yr' : isFund ? 'fund-yr' : 'post-yr';
+    const rowCls = isPayoff ? 'payoff-yr' : (isIncome||isIncome2) ? 'income-yr' : isRmdOnly ? 'rmd-yr' : isFund ? 'fund-yr' : 'post-yr';
 
-    if (secHdr) {
-      leftRows  += `<tr class="sec-hdr"><td colspan="8">${secHdr}</td></tr>`;
-      rightRows += `<tr class="sec-hdr"><td colspan="13">${secHdrRight}</td></tr>`;
-    }
+    if (secHdr && showLeft) leftRows += `<tr class="sec-hdr"><td colspan="8">${secHdr}</td></tr>`;
+    if (secHdrRight) rightRows += `<tr class="sec-hdr"><td colspan="13">${secHdrRight}</td></tr>`;
 
     // LEFT: Comparator — qpPct[a][50].bal = EOY balance after withdrawals
     // BOY = previous year's EOY (we compute from the ageRange sequence)
@@ -2531,7 +2669,7 @@ function buildPage1(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
     // QP growth = EOY + gross withdrawal - BOY (reverse-engineer the return)
     const qpGrowth = isQpDist ? (qpEOY + qpGross - qpBOY) : (qpEOY - qpBOY);
 
-    leftRows += `<tr class="${rowCls}">
+    if (showLeft) leftRows += `<tr class="${rowCls}">
       <td>${yr}</td><td>${a}</td>
       <td>${$f(qpBOY)}</td>
       <td>${qpGrowth !== 0 ? $f(qpGrowth) : '—'}</td>
@@ -2554,7 +2692,7 @@ function buildPage1(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
     const interest = bankRow.phase === 'bank' ? $f(bankRow.interest) : '—';
     const cumLoan = bankRow.phase === 'bank' ? $f(bankRow.cumLoan) : '—';
     const loanPayoff = isPayoff ? $f(d.payoffBalance) : '—';
-    const taxFreeInc = isIncome ? $f(e50.income) : '—';
+    const taxFreeInc = (isIncome||isIncome2) ? $f(e50.income) : '—';
 
     rightRows += `<tr class="${rowCls}">
       <td>${yr}</td><td>${rightAge}</td>
@@ -2602,6 +2740,7 @@ function buildPage1(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
         <div style="font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Total ETA Tax-Free Income<br>Median (50th Percentile)</div>
         <div style="font-family:'Playfair Display',serif;font-size:22px;color:var(--gold);font-weight:600">${$f(totalByBand[50])}</div>
         <div style="font-size:9px;color:var(--muted);margin-top:3px">Ages ${d.is}–${d.ie} · ${d.cola}% COLA · Tax-free asset loans</div>
+        ${d.phase2On ? `<div style="font-size:9px;color:var(--muted);margin-top:3px">${$f(totalByBand1[50])} through Phase 1 (age ${d.ie}) + ${$f(totalByBand2[50])} in Phase 2, insured age ${d.p2isIns}–${d.p2ieIns}</div>` : ''}
       </div>
       <div style="padding:16px 20px;border-right:1px solid var(--border)">
         <div style="font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">${d.isNQP ? 'Total Taxable Account Net Income' : 'Total QP Net Distributions'}<br>Median (50th Percentile)</div>
@@ -2609,16 +2748,27 @@ function buildPage1(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
         <div style="font-size:9px;color:var(--muted);margin-top:3px">After ${compRateStr(d)} · Ages ${d.is}–${d.ie}</div>
       </div>
       <div style="padding:16px 20px;border-right:1px solid var(--border)">
-        <div style="font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Net Asset Value at Age ${d.ie}<br>Net of All Asset Loans</div>
+        <div style="font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Net Asset Value at ${d.phase2On ? `Insured Age ${d.p2ieIns}` : `Age ${d.ie}`}<br>Net of All Asset Loans</div>
         <div style="font-family:'Playfair Display',serif;font-size:22px;color:var(--navy)">${$f(endCSV)}</div>
         <div style="font-size:9px;color:var(--muted);margin-top:3px">Asset loan retires from death benefit</div>
       </div>
       <div style="padding:16px 20px">
-        <div style="font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">ETA Income Advantage<br>vs. ${d.isNQP ? 'Taxable Account' : 'Qualified Plan'} (Median)</div>
+        <div style="font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">ETA Income Advantage${d.phase2On ? ' (Phase 1)' : ''}<br>vs. ${d.isNQP ? 'Taxable Account' : 'Qualified Plan'} (Median)</div>
         <div style="font-family:'Playfair Display',serif;font-size:22px;color:var(--green)">+${$f(incomeAdv)}</div>
-        <div style="font-size:9px;color:var(--muted);margin-top:3px">${(totalByBand[50]/Math.max(totalMedQPNet,1)).toFixed(2)}× more income · Tax-free vs. taxable</div>
+        <div style="font-size:9px;color:var(--muted);margin-top:3px">${(totalByBand1[50]/Math.max(totalMedQPNet,1)).toFixed(2)}× more income · Tax-free vs. taxable${d.phase2On ? ` · ages ${d.is}–${d.ie}` : ''}</div>
       </div>
-    </div>`;
+    </div>
+    ${d.phase2On ? `
+    <div style="display:grid;grid-template-columns:1fr 2fr;gap:0;background:rgba(201,168,76,.06);border-bottom:1px solid var(--border)">
+      <div style="padding:16px 20px;border-right:1px solid var(--border)">
+        <div style="font-size:8px;letter-spacing:2px;text-transform:uppercase;color:#8b6f1f;margin-bottom:6px">Phase 2 — Continued Tax-Free Income<br>For ${d.insuredName || 'the Insured'} (Median)</div>
+        <div style="font-family:'Playfair Display',serif;font-size:22px;color:var(--gold);font-weight:600">${$f(totalByBand2[50])}</div>
+        <div style="font-size:9px;color:var(--muted);margin-top:3px">Insured age ${d.p2isIns}–${d.p2ieIns}</div>
+      </div>
+      <div style="padding:16px 20px;font-size:11px;color:var(--text);line-height:1.5;display:flex;align-items:center">
+        Not a comparison — by this point the ${d.isNQP ? 'taxable account' : 'qualified plan'} has already been fully drawn down under its own Phase 1 schedule and there's nothing left on that side to measure against. This is tax-free income the policy alone can still produce, continuing for whoever is actually there to draw it.
+      </div>
+    </div>` : ''}`;
   const disc = `<div class="disc-3col">
     <div>The hypothetical models in this summary assume certain crediting methods and index account charges that are purely hypothetical and do not represent any particular investment or product. Hypothetical crediting methods, charges, values and returns are not guaranteed. Hypothetical returns used in this summary are bootstrapped historical S&P 500 returns (${poolLabel}) used purely as a hypothetical example of index volatility over a period of time.</div>
     <div>EFS Life LLC and its related entities' programs, strategies, solutions, and platforms are not intended to be investment advice or a recommendation of any stock or index. The ETA structure and related benefits shown are hypothetical. The finance arrangement is offered by EFS Life LLC. All platforms, programs, solutions, media mediums, and collateral pieces are not valid unless accompanied by a complete illustration.</div>
@@ -2632,6 +2782,7 @@ function buildPage1(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
         <div class="title">${d.name}</div>
         <div class="meta-line">Client: ${d.name} &nbsp;|&nbsp; Advisor: ${adv || '—'}${d.altInsured ? ` &nbsp;|&nbsp; <b style="color:var(--gold)">Insured: ${d.insuredName}, Age ${d.insuredAge}${d.insuredRelationship ? ' (' + d.insuredRelationship + ' of ' + d.name + ')' : ''}</b>` : ''} &nbsp;|&nbsp; ${d.isNQP ? 'Tax Liability: ' + $f(d.taxLiability) + ' · IUL Funding: ' + $f(d.dist) : 'Distribution: ' + $f(d.dist)} &nbsp;|&nbsp; ${d.isNQP ? 'Comparator: ' + compRateStr(d) : 'Tax Rate: ' + d.combined.toFixed(2) + '%'} &nbsp;|&nbsp; PDA Rate: ${d.pdaRate.toFixed(2)}% &nbsp;|&nbsp; Asset Loan Rate: ${d.plr.toFixed(2)}%${carrierMeta.targetPremium ? ' &nbsp;|&nbsp; Version ' + Math.round(carrierMeta.targetPremium) : ''}${d.loanOverrideActive && !d.multiYearActive ? ' &nbsp;|&nbsp; Loan: ' + $f(d.financedTax) + ' (' + $f(d.excessLiquidity) + ' excess liquidity @ ' + d.loanLTVPct + '% LTV)' : ''}${d.multiYearActive ? ' &nbsp;|&nbsp; Financing: ' + $f(d.totalDraws) + ' across ' + d.financingSchedule.length + ' yr(s)' + (d.excessLiquidity>0 ? ' (' + $f(d.excessLiquidity) + ' excess liquidity)' : '') : ''}</div>
         ${d.altInsured ? `<div class="meta-line" style="margin-top:2px;opacity:.85">All distribution timing, tax, and income-schedule figures above and below are based on the account holder (${d.name}, age ${d.age}) — only the life insurance policy itself is on ${d.insuredName}'s life.</div>` : ''}
+        ${d.phase2On ? `<div class="meta-line" style="margin-top:2px;opacity:.85">Phase 2: income continues from insured age ${d.p2isIns} to ${d.p2ieIns}, past the account holder's own Income End Age (${d.ie}) — solved independently from Phase 1's actual ending loan position on each simulated path.</div>` : ''}
       </div>
       <div class="ver-block">
         ${ver ? `<div class="vnum">${ver}</div>` : ''}
@@ -2693,9 +2844,10 @@ function buildPage1(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
 // PAGE 2: SCENARIO CHART PAGE (chart fills page, ledger on page 3)
 // ══════════════════════════════════════════════════════════
 function buildPage2(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
-                    totalMedQPNet, dateStr, adv, ver, poolLabel, N) {
+                    totalMedQPNet, dateStr, adv, ver, poolLabel, N,
+                    totalByBand1, totalByBand2) {
   const incomeAges = ageRange.filter(a => a >= d.is && a <= d.ie);
-  const incomeAdv = totalByBand[50] - totalMedQPNet;
+  const incomeAdv = totalByBand1[50] - totalMedQPNet;
   const baseRate = d.fed + d.state;
 
   // Scenario cards
@@ -2729,21 +2881,32 @@ function buildPage2(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
         <div style="font-size:9px;color:var(--muted);margin-top:3px">After ${compRateStr(d)} · Ages ${d.is}–${d.ie}</div>
       </div>
       <div style="padding:14px 20px;border-right:1px solid var(--border)">
-        <div style="font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">ETA Tax-Free Income Advantage (Median)</div>
+        <div style="font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">ETA Tax-Free Income Advantage${d.phase2On ? ' (Phase 1)' : ''} (Median)</div>
         <div style="font-family:'Playfair Display',serif;font-size:22px;color:var(--green)">+${$f(incomeAdv)}</div>
-        <div style="font-size:9px;color:var(--muted);margin-top:3px">${(totalByBand[50]/Math.max(totalMedQPNet,1)).toFixed(2)}× more income</div>
+        <div style="font-size:9px;color:var(--muted);margin-top:3px">${(totalByBand1[50]/Math.max(totalMedQPNet,1)).toFixed(2)}× more income</div>
       </div>
       <div style="padding:14px 20px;border-right:1px solid var(--border)">
-        <div style="font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Net Asset Value at Age ${d.ie} (Median)</div>
-        <div style="font-family:'Playfair Display',serif;font-size:22px;color:var(--navy)">${$f(etaPct[d.ie]?.[50]?.csvNet)}</div>
+        <div style="font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Net Asset Value at ${d.phase2On ? `Insured Age ${d.p2ieIns}` : `Age ${d.ie}`} (Median)</div>
+        <div style="font-family:'Playfair Display',serif;font-size:22px;color:var(--navy)">${$f(etaPct[d.phase2On ? d.p2ie : d.ie]?.[50]?.csvNet)}</div>
         <div style="font-size:9px;color:var(--muted);margin-top:3px">Net of all asset loans</div>
       </div>
       <div style="padding:14px 20px">
-        <div style="font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Total Asset Loan at Age ${d.ie} (Median)</div>
-        <div style="font-family:'Playfair Display',serif;font-size:22px;color:var(--navy)">${$f(etaPct[d.ie]?.[50]?.loanBal)}</div>
+        <div style="font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Total Asset Loan at ${d.phase2On ? `Insured Age ${d.p2ieIns}` : `Age ${d.ie}`} (Median)</div>
+        <div style="font-family:'Playfair Display',serif;font-size:22px;color:var(--navy)">${$f(etaPct[d.phase2On ? d.p2ie : d.ie]?.[50]?.loanBal)}</div>
         <div style="font-size:9px;color:var(--muted);margin-top:3px">Retires from death benefit</div>
       </div>
-    </div>`;
+    </div>
+    ${d.phase2On ? `
+    <div style="display:grid;grid-template-columns:1fr 2fr;gap:0;background:rgba(201,168,76,.06);border-bottom:1px solid var(--border)">
+      <div style="padding:14px 20px;border-right:1px solid var(--border)">
+        <div style="font-size:8px;letter-spacing:2px;text-transform:uppercase;color:#8b6f1f;margin-bottom:6px">Phase 2 — Continued Income<br>For ${d.insuredName || 'the Insured'} (Median)</div>
+        <div style="font-family:'Playfair Display',serif;font-size:22px;color:var(--gold);font-weight:600">${$f(totalByBand2[50])}</div>
+        <div style="font-size:9px;color:var(--muted);margin-top:3px">Insured age ${d.p2isIns}–${d.p2ieIns}</div>
+      </div>
+      <div style="padding:14px 20px;font-size:11px;color:var(--text);line-height:1.5;display:flex;align-items:center">
+        Not a comparison — the ${d.isNQP ? 'taxable account' : 'qualified plan'} is already fully drawn down by this point. This is tax-free income only the policy can still produce.
+      </div>
+    </div>` : ''}`;
 
   // Percentile explanation cards
   const pctExplain = `
@@ -2792,19 +2955,22 @@ function buildPage2(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
 // PAGE 3: SCENARIO COMPARISON LEDGER
 // ══════════════════════════════════════════════════════════
 function buildPage3(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
-                    totalMedQPNet, dateStr, adv, poolLabel, N) {
+                    totalMedQPNet, dateStr, adv, poolLabel, N,
+                    totalByBand1, totalByBand2, bandIncome2) {
   const baseRate = d.fed + d.state;
 
-  // Display: every income year and every forced-RMD year; 5-yr tranches
-  // for years with no distribution activity at all.
+  // Display: every income year (both phases) and every forced-RMD year;
+  // 5-yr tranches for years with no distribution activity at all.
   const displayAges = [];
   ageRange.forEach(a => {
     const isIncome = a >= d.is && a <= d.ie;
+    const isIncome2 = !!(d.phase2On && a >= d.p2is && a <= d.p2ie);
     const isRmdOnly = !!(d.rmdAge && a >= d.rmdAge && a < d.is);
-    if (isIncome || isRmdOnly) { displayAges.push({a, tranche:false}); return; }
-    if (a === ageRange[0] || a % 5 === 0 || a === d.is - 1 || a === d.ie + 5 || a === ageRange[ageRange.length-1]) {
-      displayAges.push({a, tranche:true});
-    }
+    if (isIncome || isIncome2 || isRmdOnly) { displayAges.push({a, tranche:false}); return; }
+    const isTranchePoint = a === ageRange[0] || a % 5 === 0 || a === d.is - 1 || a === d.ie + 5
+      || a === ageRange[ageRange.length-1]
+      || (d.phase2On && (a === d.p2is - 1 || a === d.p2ie + 5));
+    if (isTranchePoint) displayAges.push({a, tranche:true});
   });
 
   let rows = '';
@@ -2812,10 +2978,11 @@ function buildPage3(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
   displayAges.forEach(({a, tranche}) => {
     const yr = a - d.age + 1;
     const isIncome = a >= d.is && a <= d.ie;
+    const isIncome2 = !!(d.phase2On && a >= d.p2is && a <= d.p2ie);
     const isRmdOnly = !!(d.rmdAge && a >= d.rmdAge && a < d.is);
     const isQpDist = isIncome || isRmdOnly;
     const isPayoff = yr === d.payoffYear;
-    const isPost = a > d.ie;
+    const isPost = a > d.ie && !isIncome2;
 
     let secHdr = '';
     if (yr === 1 && prevSection !== 'acc') {
@@ -2826,6 +2993,7 @@ function buildPage3(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
     }
     if (isRmdOnly && prevSection !== 'rmd') { secHdr = `QP: REQUIRED MINIMUM DISTRIBUTIONS BEGIN AGE ${d.rmdAge} — ETA POLICY HAS NO RMD REQUIREMENT AND KEEPS GROWING UNTOUCHED${d.altInsured ? ` (INSURED AGE ${d.insuredAge + (a - d.age)})` : ''}`; prevSection = 'rmd'; }
     if (isIncome && prevSection !== 'inc') { secHdr = `DISTRIBUTION PHASE — YEARS ${d.is - d.age + 1}–${d.ie - d.age + 1} (INCOME BEGINS — AGES ${d.is}–${d.ie})`; prevSection = 'inc'; }
+    if (isIncome2 && prevSection !== 'phase2') { secHdr = `PHASE 2 — CONTINUED INCOME FOR ${d.insuredName || 'THE INSURED'}, INSURED AGE ${d.p2isIns}–${d.p2ieIns} (QP/TAXABLE SIDE NO LONGER APPLIES)`; prevSection = 'phase2'; }
     if (isPost && prevSection !== 'post') { secHdr = `POST-INCOME — ASSET CONTINUES TO GROW`; prevSection = 'post'; }
 
     const e25 = etaPct[a]?.[25] || {};
@@ -2833,7 +3001,7 @@ function buildPage3(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
     const e75 = etaPct[a]?.[75] || {};
     const qp  = qpPct[a]?.[50]  || {};
 
-    const rowCls = isPayoff ? 'payoff-yr' : isIncome ? 'income-yr' : isRmdOnly ? 'rmd-yr' : '';
+    const rowCls = isPayoff ? 'payoff-yr' : (isIncome||isIncome2) ? 'income-yr' : isRmdOnly ? 'rmd-yr' : '';
     const yrCell  = tranche ? `<td style="font-weight:700;background:rgba(201,168,76,.08)">${yr}</td>` : `<td>${yr}</td>`;
     const insAgeAtA = d.altInsured ? (d.insuredAge + yr - 1) : null;
     const ageLabel = insAgeAtA!=null ? `${a} <span style="font-size:8px;color:var(--muted)">(ins. ${insAgeAtA})</span>` : `${a}`;
@@ -2844,10 +3012,10 @@ function buildPage3(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
     rows += `<tr class="${rowCls}">
       ${yrCell}${ageCell}
       <td class="${isQpDist ? 'green-col' : ''}">${isQpDist ? $f(qp.net) + (isRmdOnly ? ' <span style="font-size:8px;color:var(--red)">(RMD)</span>' : '') : '—'}</td>
-      <td>${$f(qp.bal)}</td>
-      <td style="border-left:2px solid rgba(201,168,76,.25)">${isIncome ? $f(e25.income) : '—'}</td>
-      <td class="${isIncome ? 'gold-col' : ''}">${isIncome ? $f(e50.income) : '—'}</td>
-      <td>${isIncome ? $f(e75.income) : '—'}</td>
+      <td>${isIncome2 ? '—' : $f(qp.bal)}</td>
+      <td style="border-left:2px solid rgba(201,168,76,.25)">${(isIncome||isIncome2) ? $f(e25.income) : '—'}</td>
+      <td class="${(isIncome||isIncome2) ? 'gold-col' : ''}">${(isIncome||isIncome2) ? $f(e50.income) : '—'}</td>
+      <td>${(isIncome||isIncome2) ? $f(e75.income) : '—'}</td>
       <td style="border-left:2px solid rgba(13,27,46,.12)">${$f(e50.av)}</td>
       <td>${$f(e50.loanBal)}</td>
       <td>${$f(e50.csvNet)}</td>
@@ -2855,7 +3023,7 @@ function buildPage3(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
   });
 
   const foot = `<tr>
-    <td colspan="2">Totals (Income Period)</td>
+    <td colspan="2">Totals (Income Period${d.phase2On ? 's' : ''})</td>
     <td class="green-col">${$f(totalMedQPNet)}</td>
     <td>—</td>
     <td style="border-left:2px solid rgba(201,168,76,.25)">${$f(totalByBand[25])}</td>
