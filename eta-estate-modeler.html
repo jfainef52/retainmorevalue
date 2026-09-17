@@ -432,6 +432,16 @@ table.sc-ldg tfoot td.gold-col { color:var(--gold); }
           <label class="fl">Spouse Name</label>
           <div class="field"><input type="text" id="spouseName" placeholder="ex. Katherine Monk"/></div>
         </div>
+        <div class="chk-row" id="dualQpWrap" style="display:none">
+          <input type="checkbox" id="dualQpChk" onchange="toggleDualQp()"/>
+          <label for="dualQpChk">Combined household QP &mdash; this policy is funded by both spouses' qualified plans, not one person's</label>
+        </div>
+        <div class="hint" id="dualQpNote" style="display:none;margin-bottom:10px">
+          Simplified approach: the QP Balance and QP Distribution Amount below represent the <strong>combined</strong> total
+          of both spouses' qualified plans, and the RMD/age timeline runs off a single date of birth &mdash; use the
+          <strong>older</strong> spouse's DOB, since their RMD start age governs first. This does not model each spouse's
+          account, age, and RMD timeline separately; it's a single blended household track.
+        </div>
 
         <div class="fg">
           <label class="fl">Policy Type</label>
@@ -447,9 +457,9 @@ table.sc-ldg tfoot td.gold-col { color:var(--gold); }
         </div>
 
         <div class="fg">
-          <label class="fl">Account Holder Date of Birth</label>
+          <label class="fl" id="dobLabel">Account Holder Date of Birth</label>
           <div class="field"><input type="date" id="accountHolderDOB" oninput="recalcAll()"/></div>
-          <div class="hint">Determines the exact RMD starting age (73 for those born 1951&ndash;1959, 75 for 1960 or later, per SECURE 2.0) &mdash; age alone is ambiguous by up to a year depending on whether the birthday
+          <div class="hint" id="dobHint">Determines the exact RMD starting age (73 for those born 1951&ndash;1959, 75 for 1960 or later, per SECURE 2.0) &mdash; age alone is ambiguous by up to a year depending on whether the birthday
             has occurred yet this calendar year, which is enough to land on the wrong side of that cutoff. Applies whether or not the insured is a different person from the account holder. Falls back to an age-based
             estimate if left blank.</div>
         </div>
@@ -491,7 +501,7 @@ table.sc-ldg tfoot td.gold-col { color:var(--gold); }
         <div class="stag">Qualified Plan Distribution</div>
 
         <div class="fg">
-          <label class="fl">QP Distribution Amount</label>
+          <label class="fl" id="distLabel">QP Distribution Amount</label>
           <div class="field"><input type="text" id="distribution" placeholder="ex. $2,000,000" oninput="formatCurrency(this);recalcAll()"/></div>
         </div>
         <div class="stag" style="font-size:8px;margin-bottom:8px">Premium Deposit Account &mdash; Interest Tax</div>
@@ -613,7 +623,7 @@ table.sc-ldg tfoot td.gold-col { color:var(--gold); }
       <div class="card-hdr"><div class="step">Step 3</div><h2>Estate Assumptions</h2></div>
       <div class="card-body">
         <div class="fg fr">
-          <div class="field"><label class="fl">QP Balance</label><input type="text" id="qpBalance" placeholder="ex. $2,000,000" oninput="formatCurrency(this)"/></div>
+          <div class="field"><label class="fl" id="qpBalLabel">QP Balance</label><input type="text" id="qpBalance" placeholder="ex. $2,000,000" oninput="formatCurrency(this)"/></div>
           <div class="field"><label class="fl">Other Net Worth</label><input type="text" id="otherNW" placeholder="ex. $26,000,000" oninput="formatCurrency(this)"/></div>
         </div>
         <div class="fg fr3">
@@ -1813,7 +1823,28 @@ function setPolicyType(t){
   document.getElementById('ptSurv').classList.toggle('active', t==='survivorship');
   document.getElementById('age2Wrap').style.display = t==='survivorship'?'':'none';
   document.getElementById('spouseWrap').style.display = t==='survivorship'?'':'none';
+  document.getElementById('dualQpWrap').style.display = t==='survivorship'?'':'none';
   document.getElementById('age1Label').textContent = t==='survivorship'?'First Insured Age':'Insured Age';
+  if (t!=='survivorship' && document.getElementById('dualQpChk').checked) {
+    document.getElementById('dualQpChk').checked = false;
+    toggleDualQp();
+  }
+  recalcAll();
+}
+
+// Combined-household-QP mode: relabels the DOB/QP fields to make clear they
+// represent a simplified BLENDED track (one combined balance, one RMD timeline
+// off the older spouse) rather than two fully separate per-spouse tracks.
+// Deliberate scope choice — see dualQpNote hint text.
+function toggleDualQp(){
+  const on = document.getElementById('dualQpChk').checked;
+  document.getElementById('dualQpNote').style.display = on ? 'block' : 'none';
+  document.getElementById('dobLabel').textContent = on ? "Older Spouse's Date of Birth" : 'Account Holder Date of Birth';
+  document.getElementById('dobHint').innerHTML = on
+    ? 'Use the <strong>older</strong> spouse\'s date of birth &mdash; their RMD start age (73 for born 1951&ndash;1959, 75 for 1960+, per SECURE 2.0) governs the combined household timeline in this simplified model. Falls back to an age-based estimate if left blank.'
+    : 'Determines the exact RMD starting age (73 for those born 1951&ndash;1959, 75 for 1960 or later, per SECURE 2.0) &mdash; age alone is ambiguous by up to a year depending on whether the birthday has occurred yet this calendar year, which is enough to land on the wrong side of that cutoff. Applies whether or not the insured is a different person from the account holder. Falls back to an age-based estimate if left blank.';
+  document.getElementById('distLabel').textContent = on ? 'Combined QP Distribution (Both Spouses)' : 'QP Distribution Amount';
+  document.getElementById('qpBalLabel').textContent = on ? 'Combined QP Balance (Both Spouses)' : 'QP Balance';
   recalcAll();
 }
 
@@ -2240,6 +2271,7 @@ function runEstate(){
   localStorage.setItem('eta_estate_data', JSON.stringify({
     clientName: document.getElementById('clientName').value || '',
     spouseName: policyType==='survivorship' ? (document.getElementById('spouseName').value || '') : '',
+    dualQp: policyType==='survivorship' && document.getElementById('dualQpChk').checked,
     advisor:    document.getElementById('advisorName').value || '',
     date: new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}),
     age: startAge, horizonAge: horizon, policyType: _illustration.policyType,
@@ -2283,6 +2315,7 @@ function runEstate(){
   const carrierYrCap = Math.max(45, horizon-startAge+1, altInsured ? (100-insuredStartAgeForLedger+1) : 0);
   localStorage.setItem('eta_estate_ledger', JSON.stringify({
     carrier:_illustration.carrier, policyType:_illustration.policyType,
+    dualQp: policyType==='survivorship' && document.getElementById('dualQpChk').checked,
     scenario:_illustration.activeScenario,
     creditingRate:_illustration.scenarios ? _illustration.scenarios[_illustration.activeScenario] : null,
     policy:_illustration.policy, flags:_illustration.flags,
