@@ -280,7 +280,7 @@ tr.tot td{border-top:2px solid var(--navy);border-bottom:none;font-weight:700;ba
              '<th class="supp">If Death That Year<br>(Est. + Cap Gains Tax)</th></tr>';
   var ETA_HDR='<tr><th>Yr</th><th>'+(S.altInsured?'Insured Age':'Age(s)')+'</th><th>Plan &rarr;<br>Deposit</th><th>Deposit &rarr;<br>Policy</th>'+
               '<th>PDA<br>Balance</th><th>PDA + Net<br>Surrender</th>'+
-              '<th>Bank Loan<br>Balance</th><th>Bank<br>Interest</th><th>Net Death<br>Benefit</th>'+
+              '<th>Loan<br>Draw</th><th>Bank Loan<br>Balance</th><th>Bank<br>Interest</th><th>Net Death<br>Benefit</th>'+
               '<th class="supp">Non-Qualified<br>Estate</th>'+
               '<th class="supp">If Death That Year<br>(Est. + Cap Gains Tax)</th></tr>';
 
@@ -512,11 +512,11 @@ function stateEstateTax(stateCode, grossEstate, filing){
       var ageDisplay = (S.altInsured && S.insuredAge) ? (S.insuredAge + yr - 1) : ageLabel(r.a, yr);
       var rmdVal = (r.rmd!=null) ? r.rmd : (er ? er.rmd : 0);
       if(!phased && rmdVal>0){
-        h+='<tr class="phase"><td colspan="11">Required Distribution Phase &mdash; begins age '+rmdStart+(L.dualQp?' <em style="font-weight:400">(older spouse\u2019s RMD timeline, combined household QP)</em>':'')+'</td></tr>';
+        h+='<tr class="phase"><td colspan="12">Required Distribution Phase &mdash; begins age '+rmdStart+(L.dualQp?' <em style="font-weight:400">(older spouse\u2019s RMD timeline, combined household QP)</em>':'')+'</td></tr>';
         phased=true;
       }
       if(!lapsed && c && c.db<=0){
-        h+='<tr class="phase" style="background:#fdecec;color:#8b2020"><td colspan="11"><b>Policy lapses this year</b> \u2014 death benefit runs to $0 in the carrier\u2019s own illustration; remaining rows below show $0 death benefit for that reason.</td></tr>';
+        h+='<tr class="phase" style="background:#fdecec;color:#8b2020"><td colspan="12"><b>Policy lapses this year</b> \u2014 death benefit runs to $0 in the carrier\u2019s own illustration; remaining rows below show $0 death benefit for that reason.</td></tr>';
         lapsed=true;
       }
       var rowCls = (yr===payoffYr) ? 'payoff' : '';
@@ -532,10 +532,10 @@ function stateEstateTax(stateCode, grossEstate, filing){
       // balance carried IN to the payoff year, i.e. the end of the prior year.
       // No bank interest accrues in the payoff year itself, since the debt is
       // retired before that year's growth would apply.
-      var loanCell, intCell;
-      if(yr<payoffYr){ loanCell=bk?$f(bk.end):'\u2014'; if(bk&&bk.draw>0) loanCell+=' <em style="font-weight:400;color:#8a7a3a">(+'+$f(bk.draw)+' draw)</em>'; intCell=bk?$f(bk.int):'\u2014'; }
-      else if(yr===payoffYr){ loanCell='Retired \u2014 '+(bk?$f(bk.beg):'\u2014'); intCell='\u2014'; }
-      else { loanCell='\u2014'; intCell='\u2014'; }
+      var loanCell, intCell, drawCell;
+      if(yr<payoffYr){ loanCell=bk?$f(bk.end):'\u2014'; drawCell=(bk&&bk.draw>0)?$f(bk.draw):'\u2014'; intCell=bk?$f(bk.int):'\u2014'; }
+      else if(yr===payoffYr){ loanCell='Retired \u2014 '+(bk?$f(bk.beg):'\u2014'); drawCell='\u2014'; intCell='\u2014'; }
+      else { loanCell='\u2014'; drawCell='\u2014'; intCell='\u2014'; }
       var gifts = cumGiftByYr[yr]||0;
       var dbOutside = (S.ilit && c) ? c.db : 0;
       var etaGross = (er?er.qp:0)+(er?er.side:0);
@@ -545,7 +545,7 @@ function stateEstateTax(stateCode, grossEstate, filing){
       h+='<tr class="'+rowCls+(isDense?'':' tranche')+'"><td>'+yrNum(r.a)+'</td><td>'+ageDisplay+'</td><td>'+
          planToDeposit+'</td><td>'+depositToPolicy+'</td><td>'+pdaBal+'</td><td>'+
          $f(pdaPlusSv)+'</td><td>'+
-         loanCell+'</td><td>'+intCell+'</td><td>'+(c?$f(c.db):'\u2014')+'</td><td>'+nonQual+
+         drawCell+'</td><td>'+loanCell+'</td><td>'+intCell+'</td><td>'+(c?$f(c.db):'\u2014')+'</td><td>'+nonQual+
          '</td><td>'+netIfDeath+'</td></tr>';
     });
     return h;
