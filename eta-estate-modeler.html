@@ -561,9 +561,51 @@ table.sc-ldg tfoot td.gold-col { color:var(--gold); }
         <div class="fg fr3">
           <div class="field"><label class="fl">Payoff Year</label><select id="payoffYear" onchange="recalcAll()"></select></div>
           <div class="field"><label class="fl">Policy Loan Rate %</label><input type="number" id="plr" value="6.00" step="0.01" oninput="recalcAll()"/></div>
-          <div class="field"><label class="fl">Loan Override $</label><input type="text" id="loanOverride" placeholder="optional" oninput="formatCurrency(this);recalcAll()"/></div>
+          <div class="field"></div>
         </div>
-        <div class="hint">Override forces a specific financed amount. Leave blank to derive from the distribution and combined tax rate.</div>
+        <div class="chk-row">
+          <input type="checkbox" id="loanOverrideChk" onchange="updateLoanOverride()"/>
+          <label for="loanOverrideChk">Override loan financing &mdash; draw beyond the Year 1 tax obligation, or finance multiple years of distributions</label>
+        </div>
+        <div id="loanOverridePanel" style="display:none">
+          <div class="chk-row" style="margin-top:8px;margin-bottom:6px">
+            <input type="checkbox" id="multiYearChk" onchange="updateLoanOverride()"/>
+            <label for="multiYearChk">Multi-year financing &mdash; separate distributions and financed tax in more than one year</label>
+          </div>
+
+          <div id="simpleOverrideFields">
+            <div class="field"><label class="fl">Loan Override $</label><input type="text" id="loanOverride" placeholder="optional" oninput="formatCurrency(this);recalcAll()"/></div>
+            <div class="hint">Override forces a specific Year 1 financed amount. Leave blank to derive from the distribution and combined tax rate.</div>
+          </div>
+
+          <div id="multiYearFields" style="display:none">
+            <div class="fg fr">
+              <div class="field"><label class="fl">Number of Financing Years</label><input type="number" id="financingYears" value="7" min="1" max="30" step="1" oninput="rebuildFinancingSchedule()"/></div>
+              <div class="field"><label class="fl">Max LTV on Each Year's Distribution (%)</label><input type="number" id="loanLTVmy" value="55" step="1" min="1" max="100" oninput="updateFinancingSchedule()"/></div>
+            </div>
+            <div class="hint" style="margin-bottom:8px">Enter each year's QP distribution amount. Projected tax and the default loan draw are computed at the flat Federal + State + Penalty rate above (not the bracket-walking mode, if enabled elsewhere on this page); override any year's draw individually (clamped to that year's LTV cap). Leave a year's distribution blank/$0 for years with no distribution.</div>
+            <div style="overflow-x:auto">
+              <table class="dst" id="financingScheduleTable">
+                <thead><tr>
+                  <th>Yr</th><th style="text-align:right">Distribution ($)</th>
+                  <th style="text-align:right">Projected Tax</th>
+                  <th style="text-align:right">Max Loan @ LTV</th>
+                  <th style="text-align:right">Loan Draw ($)</th>
+                </tr></thead>
+                <tbody id="financingScheduleBody"></tbody>
+                <tfoot>
+                  <tr style="font-weight:600;border-top:2px solid var(--border)">
+                    <td>Total</td>
+                    <td style="text-align:right" id="fs-total-dist">&mdash;</td>
+                    <td style="text-align:right" id="fs-total-tax">&mdash;</td>
+                    <td style="text-align:right">&mdash;</td>
+                    <td style="text-align:right" id="fs-total-loan">&mdash;</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -931,15 +973,33 @@ function calcPDA(dist, fedRate, stateRate, pdaFee, pdaRate, payYears) {
 
 // ══════════════════════════════════════════════════════════
 // BANK LOAN SCHEDULE
-// Year 1: loan = financedTax = dist × combinedTaxRate (QP rate including penalty)
-// Accrues at variable bank rate (SOFR-based per rateEnv) until payoffYear
-// At payoffYear: policy takes a participating loan to retire bank balance → PLR
+// Single-year mode (yearlyDraws=null): loan = financedTax = dist × combinedTaxRate
+//   (QP rate including penalty), drawn at the start of Year 1.
+// Multi-year mode (yearlyDraws=[{yr,amount},...]): each listed year draws its
+//   own amount at the start of that year, added to whatever balance already
+//   carried forward. financedTaxOverride/dist/combinedTaxRate are ignored in
+//   this mode — yearlyDraws is the sole source of draws.
+// Every outstanding balance accrues at the variable bank rate (SOFR-based per
+// rateEnv) until payoffYear; at payoffYear the policy takes a participating
+// loan to retire the bank balance → PLR. Draws must not occur at/after
+// payoffYear (enforced by the caller).
 // ══════════════════════════════════════════════════════════
-function buildBankLoan(dist, combinedTaxRate, sofrBase, spread, payoffYear, plr, issueAge, maxAge=100, financedTaxOverride=null) {
-  const financedTax = financedTaxOverride !== null ? financedTaxOverride : dist * (combinedTaxRate/100);
+function buildBankLoan(dist, combinedTaxRate, sofrBase, spread, payoffYear, plr, issueAge, maxAge=100, financedTaxOverride=null, yearlyDraws=null) {
   const maxYrs = maxAge - issueAge + 1;
   const rows = [];
-  let cumLoan = financedTax;
+
+  const drawMap = {};
+  let financedTax;
+  if (yearlyDraws && yearlyDraws.length) {
+    yearlyDraws.forEach(d => { drawMap[d.yr] = (drawMap[d.yr]||0) + d.amount; });
+    financedTax = drawMap[1] || 0; // Year 1 draw, kept for legacy display fields
+  } else {
+    financedTax = financedTaxOverride !== null ? financedTaxOverride : dist * (combinedTaxRate/100);
+    drawMap[1] = financedTax;
+  }
+
+  let cumLoan = 0; // balance carried forward from the prior year (before this year's draw/interest)
+  let totalDraws = 0;
   for (let yr=1; yr<=maxYrs; yr++) {
     const age = issueAge+yr-1;
     const isBankPhase = yr < payoffYear;
@@ -947,13 +1007,125 @@ function buildBankLoan(dist, combinedTaxRate, sofrBase, spread, payoffYear, plr,
     const rate = isBankPhase
       ? getBankRateForYear(yr, sofrBase/100, spread/100)
       : plr/100;
+    const draw = drawMap[yr]||0;
+    totalDraws += draw;
     const prevLoan = cumLoan;
-    const interest = cumLoan * rate;
-    cumLoan = cumLoan + interest;
-    rows.push({yr, age, rate, prevLoan, interest, cumLoan,
+    const balWithDraw = prevLoan + draw;
+    const interest = balWithDraw * rate;
+    cumLoan = balWithDraw + interest;
+    rows.push({yr, age, rate, prevLoan, draw, balWithDraw, interest, cumLoan,
                phase: isBankPhase?'bank':'carrier', isPayoff:isPayoffYr});
   }
-  return {rows, financedTax};
+  return {rows, financedTax, totalDraws};
+}
+
+// ══════════════════════════════════════════════════════════
+// LOAN OVERRIDE / MULTI-YEAR FINANCING SCHEDULE
+// Mirrors the same feature built in eta-modeler.html. Simple mode: a single
+// Year-1 draw, optionally overridden up to an LTV cap on the distribution.
+// Multi-year mode: an independent per-year distribution/tax/draw schedule —
+// separate from the single Distribution field that sizes the PDA/premium —
+// used when the bank is financing tax on more than one year's distribution
+// (e.g. a Year-1 lump sum plus ongoing years of policy-funding distributions).
+// ══════════════════════════════════════════════════════════
+function updateLoanOverride() {
+  const active = document.getElementById('loanOverrideChk').checked;
+  document.getElementById('loanOverridePanel').style.display = active ? 'block' : 'none';
+  if (!active) { recalcAll(); return; }
+
+  const multiYear = document.getElementById('multiYearChk').checked;
+  document.getElementById('simpleOverrideFields').style.display = multiYear ? 'none' : 'block';
+  document.getElementById('multiYearFields').style.display = multiYear ? 'block' : 'none';
+
+  if (multiYear) {
+    if (!document.getElementById('financingScheduleBody').children.length) rebuildFinancingSchedule();
+    else updateFinancingSchedule();
+  }
+  recalcAll();
+}
+
+let _financingSchedule = {}; // {yr: {dist:number, loanOverride:number|null}}
+
+function rebuildFinancingSchedule() {
+  const n = Math.max(1, parseInt(document.getElementById('financingYears').value)||1);
+  const body = document.getElementById('financingScheduleBody');
+  let html = '';
+  for (let yr=1; yr<=n; yr++) {
+    if (!_financingSchedule[yr]) _financingSchedule[yr] = {dist:0, loanOverride:null};
+    const row = _financingSchedule[yr];
+    html += `<tr>
+      <td>${yr}</td>
+      <td style="text-align:right"><input type="text" id="fs-dist-${yr}" value="${row.dist?'$'+Math.round(row.dist).toLocaleString():''}" placeholder="$0" style="width:120px;text-align:right;font-family:'IBM Plex Mono',monospace;font-size:11.5px;padding:5px 7px" oninput="formatCurrency(this);onFinancingDistInput(${yr})"/></td>
+      <td style="text-align:right" id="fs-tax-${yr}">&mdash;</td>
+      <td style="text-align:right" id="fs-max-${yr}">&mdash;</td>
+      <td style="text-align:right"><input type="text" id="fs-loan-${yr}" value="" placeholder="auto" style="width:120px;text-align:right;font-family:'IBM Plex Mono',monospace;font-size:11.5px;padding:5px 7px" oninput="formatCurrency(this);onFinancingLoanInput(${yr})"/></td>
+    </tr>`;
+  }
+  body.innerHTML = html;
+  Object.keys(_financingSchedule).forEach(k => { if (+k > n) delete _financingSchedule[k]; });
+  updateFinancingSchedule();
+  recalcAll();
+}
+
+function onFinancingDistInput(yr) {
+  _financingSchedule[yr].dist = parseNum('fs-dist-'+yr);
+  updateFinancingSchedule();
+  recalcAll();
+}
+function onFinancingLoanInput(yr) {
+  const v = parseNum('fs-loan-'+yr);
+  _financingSchedule[yr].loanOverride = v>0 ? v : null;
+  updateFinancingSchedule();
+  recalcAll();
+}
+
+function updateFinancingSchedule() {
+  const combined = getTaxObligation(); // flat fed+state+penalty% — matches simple-mode taxation, not bracket-walking
+  const ltvPct = parseFloat(document.getElementById('loanLTVmy').value)||55;
+  const n = Math.max(1, parseInt(document.getElementById('financingYears').value)||1);
+  let totalDist=0, totalTax=0, totalLoan=0;
+  for (let yr=1; yr<=n; yr++) {
+    const row = _financingSchedule[yr]; if (!row) continue;
+    const dist = row.dist||0;
+    const tax = dist * (combined/100);
+    const maxLoan = dist * (ltvPct/100);
+    let loan = (row.loanOverride!=null) ? row.loanOverride : tax;
+    if (loan > maxLoan) loan = maxLoan;
+    const taxEl = document.getElementById('fs-tax-'+yr);
+    const maxEl = document.getElementById('fs-max-'+yr);
+    if (taxEl) taxEl.textContent = dist>0 ? '$'+Math.round(tax).toLocaleString() : '\u2014';
+    if (maxEl) maxEl.textContent = dist>0 ? '$'+Math.round(maxLoan).toLocaleString() : '\u2014';
+    const loanField = document.getElementById('fs-loan-'+yr);
+    if (loanField && document.activeElement !== loanField) {
+      loanField.value = loan>0 ? '$'+Math.round(loan).toLocaleString() : '';
+      loanField.placeholder = dist>0 ? '$'+Math.round(tax).toLocaleString()+' (auto)' : 'auto';
+    }
+    totalDist += dist; totalTax += tax; totalLoan += loan;
+  }
+  const tdEl = document.getElementById('fs-total-dist');
+  if (tdEl) {
+    tdEl.textContent = '$'+Math.round(totalDist).toLocaleString();
+    document.getElementById('fs-total-tax').textContent = '$'+Math.round(totalTax).toLocaleString();
+    document.getElementById('fs-total-loan').textContent = '$'+Math.round(totalLoan).toLocaleString();
+  }
+}
+
+// Returns [{yr, dist, tax, loan}, ...] for every year with a nonzero distribution.
+function getFinancingSchedule() {
+  const combined = getTaxObligation(); // flat fed+state+penalty% — matches simple-mode taxation, not bracket-walking
+  const ltvPct = parseFloat(document.getElementById('loanLTVmy').value)||55;
+  const n = Math.max(1, parseInt(document.getElementById('financingYears').value)||1);
+  const out = [];
+  for (let yr=1; yr<=n; yr++) {
+    const row = _financingSchedule[yr];
+    if (!row || !row.dist) continue;
+    const tax = row.dist*(combined/100);
+    const maxLoan = row.dist*(ltvPct/100);
+    let loan = (row.loanOverride!=null) ? row.loanOverride : tax;
+    if (loan > maxLoan) loan = maxLoan;
+    out.push({yr, dist: row.dist, tax, loan});
+  }
+  return out;
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1964,15 +2136,33 @@ function recalcAll(){
   const plr        = parseFloat(document.getElementById('plr').value)||6;
   const override   = parseNum('loanOverride');
 
+  const loanOverrideChk = document.getElementById('loanOverrideChk').checked;
+  const multiYearActive = loanOverrideChk && document.getElementById('multiYearChk').checked;
+  let financingSchedule = [], multiYearError = '';
+  if (multiYearActive) {
+    financingSchedule = getFinancingSchedule();
+    const badYr = financingSchedule.find(r => r.yr >= payoffYear);
+    if (badYr) multiYearError = `Financing Year ${badYr.yr} is at or after the Bank Loan Payoff Year (${payoffYear}) — all financing draws must occur before payoff.`;
+  }
+  const yearlyDraws = (multiYearActive && !multiYearError) ? financingSchedule.map(r => ({yr: r.yr, amount: r.loan})) : null;
+
   const bl = buildBankLoan(dist, combined, sofr, spread, payoffYear, plr,
-                           issueAge, 100, override>0?override:null);
+                           issueAge, 100, override>0?override:null, yearlyDraws);
 
   const payoffRow = bl.rows.find(r => r.yr === payoffYear);
   const required  = payoffRow ? payoffRow.prevLoan : 0;
   document.getElementById('reqLoan').textContent = fmt$(required);
-  document.getElementById('reqLoanSub').innerHTML =
-    `Bank balance entering year ${payoffYear} (insured age ${issueAge+payoffYear-1}) on ${fmt$(bl.financedTax)} financed at inception. ` +
-    `Give this figure to the policy designer &mdash; the illustrated policy loan must retire it.`;
+  if (multiYearError) {
+    document.getElementById('reqLoanSub').innerHTML = `<span style="color:var(--red,#b23)">${multiYearError}</span>`;
+  } else if (multiYearActive) {
+    document.getElementById('reqLoanSub').innerHTML =
+      `Bank balance entering year ${payoffYear} (insured age ${issueAge+payoffYear-1}) on ${fmt$(bl.totalDraws)} financed across ${financingSchedule.length} year(s). ` +
+      `Give this figure to the policy designer &mdash; the illustrated policy loan must retire it.`;
+  } else {
+    document.getElementById('reqLoanSub').innerHTML =
+      `Bank balance entering year ${payoffYear} (insured age ${issueAge+payoffYear-1}) on ${fmt$(bl.financedTax)} financed at inception. ` +
+      `Give this figure to the policy designer &mdash; the illustrated policy loan must retire it.`;
+  }
 
   const altNote = document.getElementById('altInsuredNote');
   if (document.getElementById('altInsuredChk').checked) {
@@ -1990,14 +2180,15 @@ function recalcAll(){
     altNote.style.display = 'none';
   }
 
-  let b = '<tr><th>Yr</th><th>Age</th><th>Phase</th><th>Rate</th><th>Begin</th><th>Interest</th><th>End</th></tr>';
+  let b = '<tr><th>Yr</th><th>Age</th><th>Phase</th><th>Rate</th><th>Begin</th><th>Draw</th><th>Interest</th><th>End</th></tr>';
   bl.rows.filter(r => r.yr <= Math.min(payoffYear+2, 45)).forEach(r => {
     b += `<tr class="${r.isPayoff?'emph':''}"><td>${r.yr}</td><td>${r.age}</td><td>${r.phase}</td>` +
-         `<td>${(r.rate*100).toFixed(2)}%</td><td>${fmt$(r.prevLoan)}</td><td>${fmt$(r.interest)}</td><td>${fmt$(r.cumLoan)}</td></tr>`;
+         `<td>${(r.rate*100).toFixed(2)}%</td><td>${fmt$(r.prevLoan)}</td><td>${(r.draw||0)>0?fmt$(r.draw):'&mdash;'}</td><td>${fmt$(r.interest)}</td><td>${fmt$(r.cumLoan)}</td></tr>`;
   });
   document.getElementById('bankTbl').innerHTML = b;
 
-  _preIllus = {dist, combined, pda, bankLoan: bl, required, payoffYear, issueAge};
+  _preIllus = {dist, combined, pda, bankLoan: bl, required, payoffYear, issueAge,
+               multiYearActive: multiYearActive && !multiYearError, financingSchedule, totalDraws: bl.totalDraws};
 }
 
 /* ── Phase 2: upload ────────────────────────────────────────────────────── */
@@ -2280,7 +2471,10 @@ function runEstate(){
     insuredRelationship: altInsured ? (document.getElementById('insuredRelationship').value.trim()||'') : '',
     carrier: _illustration.carrier, scenario: _illustration.activeScenario,
     qpBalance: qp, totalPremium: _illustration.totalPremium,
-    financedTax: _preIllus ? _preIllus.dist * _preIllus.combined/100 : 0,
+    financedTax: _preIllus ? (_preIllus.multiYearActive ? _preIllus.totalDraws : _preIllus.dist * _preIllus.combined/100) : 0,
+    multiYearActive: _preIllus ? !!_preIllus.multiYearActive : false,
+    financingSchedule: _preIllus ? (_preIllus.financingSchedule||[]) : [],
+    totalDraws: _preIllus ? (_preIllus.totalDraws||0) : 0,
     netDB, ilit: inIlit,
     qpAtDeath, qpEstateTax: qpAtDeath*0.40, qpIncomeTax: dn.inheritedIraTax,
     beneficiaryAge, beneficiaryCurrentAge, postDeathGrowth, benTenYear: s50.benSim ? {totalDist:s50.benSim.totalDist, totalTax:s50.benSim.totalTax, flatTax:s50.benSim.flatTax} : null,
@@ -2341,10 +2535,13 @@ function runEstate(){
           eoy:Math.round(r.eoy)})) : [],
     bank: _preIllus ? _preIllus.bankLoan.rows.filter(r=>r.yr<=_preIllus.payoffYear+1)
           .map(r=>({y:r.yr, age:r.age, ph:r.phase, rt:+(r.rate*100).toFixed(3),
-                    beg:Math.round(r.prevLoan), int:Math.round(r.interest),
+                    beg:Math.round(r.prevLoan), draw:Math.round(r.draw||0), int:Math.round(r.interest),
                     end:Math.round(r.cumLoan)})) : [],
     requiredLoan: _preIllus ? Math.round(_preIllus.required) : 0,
-    payoffYear: _preIllus ? _preIllus.payoffYear : null
+    payoffYear: _preIllus ? _preIllus.payoffYear : null,
+    multiYearActive: _preIllus ? !!_preIllus.multiYearActive : false,
+    financingSchedule: _preIllus ? (_preIllus.financingSchedule||[]) : [],
+    totalDraws: _preIllus ? (_preIllus.totalDraws||0) : 0
   }));
   document.getElementById('ledgerBtn').style.display = '';
   document.getElementById('discussionBtn').style.display = '';
