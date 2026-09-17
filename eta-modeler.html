@@ -2467,6 +2467,11 @@ async function generateMC() {
         })()
       : 0;
 
+    // Phase 2 — NAV at the insured's Phase 2 end age, reusing etaPct (which
+    // already accounts for both phases' loan balances via buildCsvSeries)
+    // rather than re-deriving the loan walk-forward a second time.
+    const navAtP2End = d.phase2On ? (etaPct[d.p2ie]?.[50]?.csvNet || 0) : 0;
+
     console.log('ETA modeler writing advisor:', typeof adv, JSON.stringify(adv));
 
     // Audit report data — NOT part of the normal output. Full year-by-year
@@ -2533,6 +2538,20 @@ async function generateMC() {
       navAt95Med:     navAt95,
       incomeAges:     incAges,
       cumEta25, cumEta50, cumEta75, cumQp50,
+      // Phase 2 — an optional second income window past the account
+      // holder's own horizon, keyed to the insured's age. All zero/false
+      // when Phase 2 is off, so older discussion-doc/one-pager builds that
+      // don't check phase2On simply see no Phase 2 content, unaffected.
+      phase2On:       d.phase2On||false,
+      p2isIns:        d.p2isIns||null,
+      p2ieIns:        d.p2ieIns||null,
+      etaYr1P2Med:    d.phase2On ? bandIncome2[50] : 0,
+      etaYr1P225:     d.phase2On ? bandIncome2[25] : 0,
+      etaYr1P275:     d.phase2On ? bandIncome2[75] : 0,
+      etaTotalP2Med:  d.phase2On ? totalByBand2[50] : 0,
+      etaTotalP225:   d.phase2On ? totalByBand2[25] : 0,
+      etaTotalP275:   d.phase2On ? totalByBand2[75] : 0,
+      navAtP2EndMed:  navAtP2End,
     }));
   } catch(e) { console.warn('Discussion doc data write failed:', e); };
 }
