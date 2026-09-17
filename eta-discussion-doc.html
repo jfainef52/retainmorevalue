@@ -825,7 +825,7 @@
           <div class="fact-sub">60/40 · <span id="doc-tax-r">37.75</span>% income tax · after 59½</div>
         </div>
         <div class="fact-block">
-          <div class="fact-label">ETA Income Advantage</div>
+          <div class="fact-label" id="doc-advantage-label">ETA Income Advantage</div>
           <div class="fact-value green" id="doc-advantage">—</div>
           <div class="fact-vs" id="doc-ratio">—</div>
         </div>
@@ -833,6 +833,21 @@
           <div class="fact-label">Net Policy Value · Age <span id="doc-inc-end">95</span></div>
           <div class="fact-value" id="doc-nav95">—</div>
           <div class="fact-sub">Net of all policy loans · Retires from death benefit</div>
+        </div>
+      </div>
+      <!-- Phase 2 — continued income keyed to the insured's own age, past
+           this plan's own income horizon. Hidden unless the modeler case
+           has Phase 2 turned on. Not a comparison row — the taxable
+           account/QP figures above are already fully drawn down by this
+           point, so this gets its own non-comparative framing. -->
+      <div class="outcomes-facts-row" id="phase2-facts-row" style="display:none;grid-template-columns:1fr 2fr;background:rgba(201,168,76,.08)">
+        <div class="fact-block" style="border-right:1px solid var(--border)">
+          <div class="fact-label">Phase 2 — Continued Income<br>For <span id="doc-p2-insured">the Insured</span></div>
+          <div class="fact-value green" id="doc-p2-total">—</div>
+          <div class="fact-sub">Insured age <span id="doc-p2-ages">—</span></div>
+        </div>
+        <div class="fact-block" style="display:flex;align-items:center">
+          <div class="fact-sub" id="doc-p2-note" style="font-size:11px;line-height:1.5">Not a comparison — the account above is already fully drawn down by this point. This is tax-free income only the policy can still produce.</div>
         </div>
       </div>
     </div>
@@ -1112,6 +1127,21 @@
     set('doc-advantage', (adv_amt>=0?'+':'')+$f(adv_amt));
     var ratio = r.qpTotalMed > 0 ? (r.etaTotalMed/r.qpTotalMed).toFixed(2) : '—';
     set('doc-ratio', ratio + '× more income · Tax-free vs. taxable');
+
+    // Phase 2 — an optional second income window past this plan's own
+    // horizon, keyed to the insured's age. Only present in eta_mc_data
+    // when the advisor turned it on for this case.
+    if (r.phase2On) {
+      var advLabelEl = document.getElementById('doc-advantage-label');
+      if (advLabelEl) advLabelEl.innerHTML = 'ETA Income Advantage<br>(Phase 1)';
+      var p2Insured = r.altInsured ? (r.insuredName || 'the Insured') : (r.clientName || 'You');
+      set('doc-p2-insured', p2Insured);
+      set('doc-p2-total', $f(r.etaTotalP2Med));
+      set('doc-p2-ages', (r.p2isIns||'—') + '–' + (r.p2ieIns||'—'));
+      set('doc-p2-note', 'Not a comparison — the ' + (isNQP ? 'taxable account' : 'qualified plan') + ' above is already fully drawn down by this point. This is tax-free income only the policy can still produce.');
+      var p2Row = document.getElementById('phase2-facts-row');
+      if (p2Row) p2Row.style.display = 'grid';
+    }
 
     // Scenario range
     if (r.etaTotal25 && r.etaTotal75) {
