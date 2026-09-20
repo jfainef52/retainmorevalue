@@ -526,7 +526,46 @@
   </div>
 </div>
 
-<!-- ══ PAGE 7: HOW WE MODELED IT ══ -->
+<!-- ══ PAGE 6B: WHAT HAPPENS AFTER INHERITANCE ══ -->
+<div class="page sidebar-page">
+  <div class="sidebar">
+    <div class="sidebar-section">The Longer View</div>
+    <div class="sidebar-title">After<br>Inher&shy;itance</div>
+    <div class="sidebar-subtitle">THE GAP KEEPS<br>WIDENING ONCE<br>YOUR FAMILY<br>HOLDS IT</div>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-tagline">"The prior page is a single moment &mdash; the day the estate settles. This is what happens to both piles of money in the years your family actually holds them."</div>
+  </div>
+  <div class="main-content">
+    <div class="outcomes-main">
+      <div class="outcomes-header">
+        <h2 id="inherit-headline">What your family holds, years after they inherit</h2>
+        <p>Both lines start from the Net to Family figures on the previous page and are carried forward from there.</p>
+      </div>
+      <div class="outcomes-chart">
+        <svg id="inherit-chart" viewBox="0 0 1500 430" preserveAspectRatio="xMidYMid meet" style="width:100%;flex:1"></svg>
+      </div>
+      <div class="outcomes-facts-row" style="grid-template-columns:1fr 1fr 1fr">
+        <div class="fact-block">
+          <div class="fact-label">Take No Action</div>
+          <div class="fact-value" id="inherit-dn">&mdash;</div>
+          <div class="fact-sub">The inherited balance &mdash; taxed along the way, then reinvested</div>
+        </div>
+        <div class="fact-block">
+          <div class="fact-label">Reposition the Plan</div>
+          <div class="fact-value" id="inherit-eta">&mdash;</div>
+          <div class="fact-sub">The trust asset, tax-free and compounding, plus the remaining liquid balance</div>
+        </div>
+        <div class="fact-block">
+          <div class="fact-label">Additional to Your Family</div>
+          <div class="fact-value green" id="inherit-adv">&mdash;</div>
+          <div class="fact-sub" id="inherit-adv-sub">More reaching your family than taking no action</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PAGE 8: HOW WE MODELED IT ══ -->
 <div class="page sidebar-page">
   <div class="sidebar">
     <div class="sidebar-section">Method</div>
@@ -588,7 +627,7 @@
   </div>
 </div>
 
-<!-- ══ PAGE 8: WORTH CONSIDERING ══ -->
+<!-- ══ PAGE 9: WORTH CONSIDERING ══ -->
 <div class="page sidebar-page">
   <div class="sidebar">
     <div class="sidebar-section">Before We Meet Again</div>
@@ -732,6 +771,7 @@
     var raw = localStorage.getItem('eta_estate_data');
     if (!raw) return;
     var r = JSON.parse(raw);
+    var L = JSON.parse(localStorage.getItem('eta_estate_ledger')||'null') || {};
     var dn = r.doNothing || {}, eta = r.eta || {}, wf = r.waterfall || {};
 
     var $f = function(n){ return '$' + Math.round(n||0).toLocaleString(); };
@@ -797,6 +837,95 @@
 
     var advEl = document.getElementById('doc-advisor-line');
     if (advEl && r.advisor) advEl.textContent = r.advisor;
+
+    // ── Page 6B: what happens after inheritance ──
+    // Same math as eta-estate-ledger.html's Page 3 "Combined Family Wealth —
+    // Years Since Inheritance" chart, so the two documents always agree.
+    // Take No Action's inherited balance is taxed along the way and reinvested
+    // at REINVEST_RATE; the ETA path splits into the trust asset (real
+    // carrier-illustrated values, tax-free) plus the remaining liquid portion
+    // reinvested at the same rate, so the two lines are apples-to-apples on
+    // the part that isn't carrier data.
+    (function(){
+      var DRAG3 = 0.015;
+      var REINVEST_RATE = (L.nonQpGrossRate!=null && L.mgmtFee!=null)
+        ? (1+L.nonQpGrossRate)*(1-L.mgmtFee) - DRAG3 - 1
+        : 0.05;
+      var horizonYr = (r.horizonAge - r.age) + 1;
+      var carRows = L.carrierRows || [];
+      var carByYear = {}; carRows.forEach(function(cr){ carByYear[cr.y]=cr; });
+      var lastCarrierYr = carRows.length ? carRows[carRows.length-1].y : horizonYr;
+      var yearsPost = Math.max(0, lastCarrierYr - horizonYr);
+      var etaLiquid0 = Math.max(0, (eta.netToHeirs||0) - (eta.ilitProceeds||0));
+      var dnTotal0 = dn.netToHeirs||0;
+      var pts=[];
+      for (var k=0; k<=yearsPost; k++){
+        var polYr = horizonYr + k;
+        var carAtK = carByYear[polYr];
+        var trustVal = carAtK ? carAtK.db : (eta.ilitProceeds||0);
+        var etaTotal = trustVal + etaLiquid0*Math.pow(1+REINVEST_RATE,k);
+        var dnTotalK = dnTotal0*Math.pow(1+REINVEST_RATE,k);
+        pts.push({yrsPost:k, dn:dnTotalK, eta:etaTotal});
+      }
+      var last = pts.length ? pts[pts.length-1] : {yrsPost:0, dn:dnTotal0, eta:(eta.ilitProceeds||0)+etaLiquid0};
+
+      set('inherit-headline', 'What your family holds, ' + (last.yrsPost>0 ? last.yrsPost+' years after they inherit' : 'once they inherit'));
+      set('inherit-dn',  $M(last.dn));
+      set('inherit-eta', $M(last.eta));
+      set('inherit-adv', '+' + $M(last.eta - last.dn));
+
+      var svgEl = document.getElementById('inherit-chart');
+      if (svgEl && pts.length>=2) {
+        var W=1500,H=430,PAD_L=100,PAD_R=150,PAD_T=20,PAD_B=44;
+        var plotW=W-PAD_L-PAD_R, plotH=H-PAD_T-PAD_B;
+        var maxV=0; pts.forEach(function(p){ maxV=Math.max(maxV,p.dn,p.eta); });
+        maxV=Math.max(1e6,Math.ceil(maxV/1e7)*1e7);
+        var minK=pts[0].yrsPost, maxK=pts[pts.length-1].yrsPost;
+        var x=function(k){ return PAD_L+(k-minK)/(maxK-minK)*plotW; };
+        var y=function(v){ return PAD_T+plotH-(Math.max(0,v)/maxV)*plotH; };
+        var svg='';
+        for (var g=0; g<=5; g++){
+          var v=maxV*g/5, yy=y(v);
+          svg+='<line x1="'+PAD_L+'" y1="'+yy+'" x2="'+(W-PAD_R)+'" y2="'+yy+'" stroke="#E2DDD6" stroke-width="1"/>';
+          svg+='<text x="'+(PAD_L-10)+'" y="'+(yy+4)+'" text-anchor="end" font-family="IBM Plex Mono" font-size="14" fill="#6B7C8D">$'+(v/1e6).toFixed(0)+'M</text>';
+        }
+        pts.forEach(function(p){
+          if (p.yrsPost%5===0 || p.yrsPost===minK || p.yrsPost===maxK){
+            svg+='<text x="'+x(p.yrsPost)+'" y="'+(H-PAD_B+22)+'" text-anchor="middle" font-family="IBM Plex Sans" font-size="12.5" fill="#6B7C8D">Yr '+p.yrsPost+'</text>';
+          }
+        });
+        svg+='<text x="'+(PAD_L+plotW/2)+'" y="'+(H-6)+'" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" letter-spacing="1.5" fill="#6B7C8D">YEARS SINCE INHERITANCE</text>';
+        function path(key,color){
+          var d=pts.map(function(p,i){ return (i===0?'M':'L')+x(p.yrsPost).toFixed(1)+','+y(p[key]).toFixed(1); }).join(' ');
+          return '<path d="'+d+'" fill="none" stroke="'+color+'" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"/>';
+        }
+        svg+=path('dn','#6B7C8D');
+        svg+=path('eta','#C8A84B');
+        var lastP=pts[pts.length-1];
+        var yDn=y(lastP.dn), yEta=y(lastP.eta);
+        var GAP=20, CLEAR=8;
+        var upperIsEta = yEta<yDn;
+        var upperY=Math.min(yDn,yEta), lowerY=Math.max(yDn,yEta);
+        var upperLabelY=Math.min(upperY+GAP, lowerY-CLEAR);
+        var lowerLabelY=lowerY+GAP;
+        var etaLabelY=upperIsEta?upperLabelY:lowerLabelY;
+        var dnLabelY=upperIsEta?lowerLabelY:upperLabelY;
+        [['dn',lastP.dn,'#6B7C8D',dnLabelY],['eta',lastP.eta,'#C8A84B',etaLabelY]].forEach(function(cfg){
+          var v=cfg[1];
+          svg+='<circle cx="'+x(lastP.yrsPost)+'" cy="'+y(v)+'" r="5" fill="'+cfg[2]+'"/>';
+          svg+='<text x="'+(x(lastP.yrsPost)+12)+'" y="'+cfg[3]+'" text-anchor="start" font-family="Playfair Display" font-weight="600" font-size="17" fill="'+cfg[2]+'">$'+(v/1e6).toFixed(1)+'M</text>';
+        });
+        svgEl.innerHTML = svg;
+      } else if (svgEl) {
+        // Not enough post-horizon carrier data to draw a trend (illustration
+        // doesn't extend past the account holder's horizon) — hide the chart
+        // area rather than show a flat, uninformative two-point line. The
+        // fact-row figures above still show correctly (they reduce to the
+        // same at-death advantage already shown on the prior page).
+        var wrap = svgEl.closest('.outcomes-chart');
+        if (wrap) wrap.style.display = 'none';
+      }
+    })();
 
   } catch(e) { console.warn('Estate discussion doc data load failed:', e); }
 })();
