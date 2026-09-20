@@ -876,7 +876,7 @@
 
       var svgEl = document.getElementById('inherit-chart');
       if (svgEl && pts.length>=2) {
-        var W=1500,H=430,PAD_L=100,PAD_R=150,PAD_T=20,PAD_B=44;
+        var W=1500,H=430,PAD_L=130,PAD_R=190,PAD_T=20,PAD_B=56;
         var plotW=W-PAD_L-PAD_R, plotH=H-PAD_T-PAD_B;
         var maxV=0; pts.forEach(function(p){ maxV=Math.max(maxV,p.dn,p.eta); });
         maxV=Math.max(1e6,Math.ceil(maxV/1e7)*1e7);
@@ -887,23 +887,23 @@
         for (var g=0; g<=5; g++){
           var v=maxV*g/5, yy=y(v);
           svg+='<line x1="'+PAD_L+'" y1="'+yy+'" x2="'+(W-PAD_R)+'" y2="'+yy+'" stroke="#E2DDD6" stroke-width="1"/>';
-          svg+='<text x="'+(PAD_L-10)+'" y="'+(yy+4)+'" text-anchor="end" font-family="IBM Plex Mono" font-size="14" fill="#6B7C8D">$'+(v/1e6).toFixed(0)+'M</text>';
+          svg+='<text x="'+(PAD_L-14)+'" y="'+(yy+7)+'" text-anchor="end" font-family="IBM Plex Mono" font-size="21" fill="#6B7C8D">$'+(v/1e6).toFixed(0)+'M</text>';
         }
         pts.forEach(function(p){
           if (p.yrsPost%5===0 || p.yrsPost===minK || p.yrsPost===maxK){
-            svg+='<text x="'+x(p.yrsPost)+'" y="'+(H-PAD_B+22)+'" text-anchor="middle" font-family="IBM Plex Sans" font-size="12.5" fill="#6B7C8D">Yr '+p.yrsPost+'</text>';
+            svg+='<text x="'+x(p.yrsPost)+'" y="'+(H-PAD_B+28)+'" text-anchor="middle" font-family="IBM Plex Sans" font-size="19" fill="#6B7C8D">Yr '+p.yrsPost+'</text>';
           }
         });
-        svg+='<text x="'+(PAD_L+plotW/2)+'" y="'+(H-6)+'" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" letter-spacing="1.5" fill="#6B7C8D">YEARS SINCE INHERITANCE</text>';
+        svg+='<text x="'+(PAD_L+plotW/2)+'" y="'+(H-8)+'" text-anchor="middle" font-family="IBM Plex Sans" font-size="17" letter-spacing="2" fill="#6B7C8D">YEARS SINCE INHERITANCE</text>';
         function path(key,color){
           var d=pts.map(function(p,i){ return (i===0?'M':'L')+x(p.yrsPost).toFixed(1)+','+y(p[key]).toFixed(1); }).join(' ');
-          return '<path d="'+d+'" fill="none" stroke="'+color+'" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"/>';
+          return '<path d="'+d+'" fill="none" stroke="'+color+'" stroke-width="4.5" stroke-linejoin="round" stroke-linecap="round"/>';
         }
         svg+=path('dn','#6B7C8D');
         svg+=path('eta','#C8A84B');
         var lastP=pts[pts.length-1];
         var yDn=y(lastP.dn), yEta=y(lastP.eta);
-        var GAP=20, CLEAR=8;
+        var GAP=26, CLEAR=10;
         var upperIsEta = yEta<yDn;
         var upperY=Math.min(yDn,yEta), lowerY=Math.max(yDn,yEta);
         var upperLabelY=Math.min(upperY+GAP, lowerY-CLEAR);
@@ -912,8 +912,8 @@
         var dnLabelY=upperIsEta?lowerLabelY:upperLabelY;
         [['dn',lastP.dn,'#6B7C8D',dnLabelY],['eta',lastP.eta,'#C8A84B',etaLabelY]].forEach(function(cfg){
           var v=cfg[1];
-          svg+='<circle cx="'+x(lastP.yrsPost)+'" cy="'+y(v)+'" r="5" fill="'+cfg[2]+'"/>';
-          svg+='<text x="'+(x(lastP.yrsPost)+12)+'" y="'+cfg[3]+'" text-anchor="start" font-family="Playfair Display" font-weight="600" font-size="17" fill="'+cfg[2]+'">$'+(v/1e6).toFixed(1)+'M</text>';
+          svg+='<circle cx="'+x(lastP.yrsPost)+'" cy="'+y(v)+'" r="6.5" fill="'+cfg[2]+'"/>';
+          svg+='<text x="'+(x(lastP.yrsPost)+15)+'" y="'+cfg[3]+'" text-anchor="start" font-family="Playfair Display" font-weight="600" font-size="27" fill="'+cfg[2]+'">$'+(v/1e6).toFixed(1)+'M</text>';
         });
         svgEl.innerHTML = svg;
       } else if (svgEl) {
