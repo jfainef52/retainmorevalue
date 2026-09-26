@@ -1041,7 +1041,7 @@
     }
     // Update chart QP legend label
     var qpLegendEl = document.querySelector('#doc-chart-svg text[x="685"]');
-    if (qpLegendEl) qpLegendEl.textContent = (isNQP ? 'Taxable Acct Net (50th)' : (isIQP ? 'Inherited QP Net (50th)' : 'QP Taxable Net (50th)'));
+    if (qpLegendEl) qpLegendEl.textContent = (isNQP ? 'Taxable Acct Net (50th)' : (isIQP ? 'Reinvested QP Proceeds (50th)' : 'QP Taxable Net (50th)'));
     var chartSublabel = document.getElementById('doc-chart-sublabel');
     if (chartSublabel) chartSublabel.textContent = isNQP
       ? 'Cumulative Income — ETA Tax-Free vs. Taxable Account (50th Percentile)'
@@ -1052,11 +1052,11 @@
     var factBlocks = document.querySelectorAll('.fact-block');
     if (factBlocks[2]) {
       var lbl = factBlocks[2].querySelector('.fact-label');
-      if (lbl) lbl.textContent = (isNQP ? 'Taxable Account Net · 50th' : (isIQP ? 'Inherited QP Net · 50th Pctile' : 'QP Net Total · 50th Pctile'));
+      if (lbl) lbl.textContent = (isNQP ? 'Taxable Account Net · 50th' : (isIQP ? 'Reinvested QP Proceeds · 50th Pctile' : 'QP Net Total · 50th Pctile'));
       var sub = factBlocks[2].querySelector('.fact-sub');
       if (sub) sub.textContent = isNQP
         ? '60/40 · ' + (r.ltcgRate||15).toFixed(2) + '% LTCG on gains · ' + (r.basisPct||40).toFixed(0) + '% cost basis'
-        : (isIQP ? '60/40 · ' + (r.baseRate||0).toFixed(2) + '% income tax · no early-withdrawal penalty'
+        : (isIQP ? (r.baseRate||0).toFixed(2) + '% tax on distribution, then reinvested · ' + (r.ltcgRate||15).toFixed(0) + '% LTCG on gains at withdrawal'
           : '60/40 · ' + (r.baseRate||0).toFixed(2) + '% income tax · after 59½');
     }
 
@@ -1198,10 +1198,10 @@
       // ── PAGE 9: MC METHODOLOGY ─────────────────────────────────────────
       setTextI('mc-header', 'Not a projection. A probability distribution built from 50 years of real market history — applied to the forced 10-year inherited QP distribution and the ETA side by side.');
       setTextI('mc-step-2-text', 'Each simulation draws a unique sequence of annual returns. Both the ETA and the inherited QP face the exact same sequence in each simulation — ensuring a fair, paired comparison. The same market year that affects the inherited plan affects the ETA.');
-      setTextI('mc-step-4-title', 'Inherited QP: 60/40 Portfolio, Forced Out Over 10 Years');
-      setTextI('mc-step-4-text', 'The inherited qualified plan uses a blended 60% equity / 40% bond portfolio return paired to the same historical year as the ETA, distributed on the mandatory schedule — annual RMDs in years 1–9 if the decedent had reached their required beginning date, with the full remaining balance forced out by the final year. Full downside exposure — no floor.');
-      setTextI('mc-pct-50-desc', 'Half of all 10,000 simulated market sequences produced more income than this; half produced less. This is the base case — what a beneficiary in the middle of all possible market outcomes would experience. Both ETA and the inherited QP are shown at their respective 50th percentiles.');
-      setTextI('mc-pct-25-desc', 'In 75% of sequences the outcome exceeded this level. This is the stress-test floor — appropriate for conservative planning. Even at the 25th percentile, the ETA structure\'s 0% floor and tax-free income provide meaningful advantages over a forced inherited QP distribution.');
+      setTextI('mc-step-4-title', 'Inherited QP: Forced Distribution, Then Reinvested');
+      setTextI('mc-step-4-text', 'The inherited plan distributes on its mandatory schedule — annual RMDs in years 1–9 if the decedent had reached their required beginning date (or the entire balance deferred to the final window year if not), paired to the same historical year as the ETA, full downside exposure, no floor. The after-tax proceeds aren\'t spent as they come out: they\'re reinvested in a taxable account, continue compounding on that same market path (less an ongoing tax drag for realized gains along the way), and are drawn down starting at Income Start Age — the same schedule chosen for the ETA policy. That reinvested, realigned figure is what\'s actually being compared to ETA income throughout this analysis.');
+      setTextI('mc-pct-50-desc', 'Half of all 10,000 simulated market sequences produced more income than this; half produced less. This is the base case — what a beneficiary in the middle of all possible market outcomes would experience. Both ETA and the reinvested QP proceeds are shown at their respective 50th percentiles.');
+      setTextI('mc-pct-25-desc', 'In 75% of sequences the outcome exceeded this level. This is the stress-test floor — appropriate for conservative planning. Even at the 25th percentile, the ETA structure\'s 0% floor and tax-free income provide meaningful advantages over reinvested, forced-out QP proceeds.');
     }
 
     // Advantage
