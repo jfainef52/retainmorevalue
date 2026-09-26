@@ -968,9 +968,10 @@
 
     // Declare mode flag first — used throughout
     var isNQP = r.isNQP || false;
-    var compLabel = isNQP ? 'Taxable Account' : 'Qualified Plan';
+    var isIQP = r.isIQP || false;
+    var compLabel = isNQP ? 'Taxable Account' : (isIQP ? 'Inherited Qualified Plan' : 'Qualified Plan');
 
-    // Cover — update for NQP
+    // Cover — update for NQP / IQP
     set('cover-client', r.clientName || '—');
     set('cover-date',   r.date || '—');
     if (isNQP) {
@@ -978,6 +979,13 @@
       if (eyebrow) eyebrow.textContent = 'Confidential · Liquidity Event — Tax Financing Review';
       var subtitle = document.querySelector('.cover-subtitle');
       if (subtitle) subtitle.textContent = 'A Smarter Way to Handle Your Tax Obligation';
+    } else if (isIQP) {
+      var eyebrowI = document.querySelector('.cover-eyebrow');
+      if (eyebrowI) eyebrowI.textContent = 'Confidential · Inherited Qualified Plan Review';
+      var subtitleI = document.querySelector('.cover-subtitle');
+      if (subtitleI) subtitleI.textContent = 'A Smarter Way to Handle an Inherited Qualified Plan';
+      var titleI = document.querySelector('.cover-title');
+      if (titleI) titleI.innerHTML = 'Keep More.<br><em>Owe Less.</em><br>Pass It On.';
     }
 
     // Tax rate on lender page
@@ -991,7 +999,9 @@
     // Outcomes page
     var sourceDesc = isNQP
       ? 'Tax Liability $' + Math.round(r.taxLiability||0).toLocaleString() + ' · IUL Funding $' + Math.round(r.dist).toLocaleString()
-      : 'Distribution $' + Math.round(r.dist).toLocaleString();
+      : (isIQP
+        ? 'Inherited Balance $' + Math.round(r.dist).toLocaleString() + ' · 10-Yr Window ' + (r.iqpInfo ? (r.iqpInfo.windowStartYear + '–' + r.iqpInfo.windowEndYear) : '')
+        : 'Distribution $' + Math.round(r.dist).toLocaleString());
 
     set('doc-inc-start',  r.incStart || 65);
     set('doc-inc-end',    r.incEnd   || 95);
@@ -1000,7 +1010,8 @@
     set('doc-inc-ages2',  (r.incStart||65) + '–' + (r.incEnd||95));
     set('doc-tax-r',      r.baseRate ? r.baseRate.toFixed(2) : '37.75');
     var insuredMeta = r.altInsured ? (' · Policy insured: ' + (r.insuredName||'—') + ', Age ' + (r.insuredAge||'—') + (r.insuredRelationship ? ' (' + r.insuredRelationship + ')' : '')) : '';
-    set('doc-outcomes-meta', 'Age ' + r.issueAge + ' · ' + sourceDesc + ' · ' + (r.payYears||7) + '-year funding · ' + (r.nSims||10000).toLocaleString() + ' simulations · 1975–2024 (50 yrs) · Version ' + (r.version||'—') + insuredMeta);
+    var iqpMeta = (isIQP && r.iqpInfo) ? (' · Decedent d. ' + r.iqpInfo.yearOfDeath + ' (age ' + r.iqpInfo.ageAtDeath + ') · Annual RMD ' + (r.iqpInfo.reachedRBD ? 'required' : 'not required')) : '';
+    set('doc-outcomes-meta', 'Age ' + r.issueAge + ' · ' + sourceDesc + ' · ' + (r.payYears||7) + '-year funding · ' + (r.nSims||10000).toLocaleString() + ' simulations · 1975–2024 (50 yrs) · Version ' + (r.version||'—') + insuredMeta + iqpMeta);
     set('doc-eta-yr1',    $f(r.etaYr1Med));
     set('doc-eta-total',  $f(r.etaTotalMed));
     set('doc-qp-total',   $f(r.qpTotalMed));
@@ -1025,26 +1036,28 @@
     var outcomesHeadline = document.getElementById('doc-outcomes-headline');
     if (outcomesHeadline) {
       var agesSpan = '<span id="doc-inc-ages">' + (r.incStart||65) + '–' + (r.incEnd||95) + '</span>';
-      outcomesHeadline.innerHTML = 'Tax-Free Income vs. ' + (isNQP ? 'Taxable Account' : 'Qualified Plan Taxable Distributions') + ' — Ages ' + agesSpan;
+      var compHeadlineLabel = isNQP ? 'Taxable Account' : (isIQP ? 'Inherited QP Taxable Distributions' : 'Qualified Plan Taxable Distributions');
+      outcomesHeadline.innerHTML = 'Tax-Free Income vs. ' + compHeadlineLabel + ' — Ages ' + agesSpan;
     }
     // Update chart QP legend label
     var qpLegendEl = document.querySelector('#doc-chart-svg text[x="685"]');
-    if (qpLegendEl) qpLegendEl.textContent = (isNQP ? 'Taxable Acct Net (50th)' : 'QP Taxable Net (50th)');
+    if (qpLegendEl) qpLegendEl.textContent = (isNQP ? 'Taxable Acct Net (50th)' : (isIQP ? 'Inherited QP Net (50th)' : 'QP Taxable Net (50th)'));
     var chartSublabel = document.getElementById('doc-chart-sublabel');
     if (chartSublabel) chartSublabel.textContent = isNQP
       ? 'Cumulative Income — ETA Tax-Free vs. Taxable Account (50th Percentile)'
-      : 'Cumulative Income — ETA Tax-Free vs. Qualified Plan Taxable (50th Percentile)';
+      : (isIQP ? 'Cumulative Income — ETA Tax-Free vs. Inherited QP Taxable (50th Percentile)' : 'Cumulative Income — ETA Tax-Free vs. Qualified Plan Taxable (50th Percentile)');
     // Update QP fact block label
     var qpFactLabel = document.querySelector('.fact-block .fact-label[for="doc-qp-total"], .fact-block:nth-child(3) .fact-label');
     // Update the 3rd fact block label text directly
     var factBlocks = document.querySelectorAll('.fact-block');
     if (factBlocks[2]) {
       var lbl = factBlocks[2].querySelector('.fact-label');
-      if (lbl) lbl.textContent = (isNQP ? 'Taxable Account Net · 50th' : 'QP Net Total · 50th Pctile');
+      if (lbl) lbl.textContent = (isNQP ? 'Taxable Account Net · 50th' : (isIQP ? 'Inherited QP Net · 50th Pctile' : 'QP Net Total · 50th Pctile'));
       var sub = factBlocks[2].querySelector('.fact-sub');
       if (sub) sub.textContent = isNQP
         ? '60/40 · ' + (r.ltcgRate||15).toFixed(2) + '% LTCG on gains · ' + (r.basisPct||40).toFixed(0) + '% cost basis'
-        : '60/40 · ' + (r.baseRate||0).toFixed(2) + '% income tax · after 59½';
+        : (isIQP ? '60/40 · ' + (r.baseRate||0).toFixed(2) + '% income tax · no early-withdrawal penalty'
+          : '60/40 · ' + (r.baseRate||0).toFixed(2) + '% income tax · after 59½');
     }
 
     var adv = r.advisor ? String(r.advisor).replace(' — Advisor','').trim() + ' — Advisor' : '';
@@ -1122,6 +1135,75 @@
       setText('mc-pct-25-desc', 'In 75% of sequences the outcome exceeded this level. This is the stress-test floor — appropriate for conservative planning. Even at the 25th percentile, the ETA structure\'s 0% floor and tax-free income provide meaningful advantages over a taxable investment account.');
     }
 
+    // Update CTA/content for Inherited QP
+    if (isIQP) {
+      var ctaHeadlineI = document.getElementById('why-cta-headline');
+      if (ctaHeadlineI) ctaHeadlineI.innerHTML = 'Ready to see what the <em>Enhanced Tax Advantage</em> can do for an inherited qualified plan?';
+      var ctaTextI = document.querySelector('.why-cta-text');
+      if (ctaTextI) ctaTextI.textContent = 'The next step is a formal carrier illustration built around the beneficiary\'s age, the decedent\'s required-beginning-date status, and the 10-year distribution window. ETA finances the tax drag created by the forced distribution — the full inherited balance goes to work for the beneficiary. Our team will walk you and your client through every component before any decision is made.';
+
+      var setTextI = function(id, html) { var el=document.getElementById(id); if(el) el.innerHTML=html; };
+
+      // ── PAGE 2: SITUATION ──────────────────────────────────────────────
+      setTextI('sit-sidebar-sub', 'WHEN AN<br>INHERITED<br>QP MEETS A<br>10-YEAR DEADLINE');
+      setTextI('sit-sidebar-tagline', '"The SECURE Act gave beneficiaries ten years. It didn\'t give them a plan for what to do with them."');
+      setTextI('sit-pull', 'You inherited a qualified plan — and with it, a ten-year clock. Now the question is: how much of that balance do you actually get to keep?');
+      setTextI('sit-headline', 'The SECURE Act turned an inherited qualified plan into a <em>forced</em> ten-year tax event. Nobody chose this timeline — but it\'s the law.');
+      setTextI('sit-title-1', 'A Ten-Year Deadline, Not a Choice');
+      setTextI('sit-text-1', 'Most non-spouse beneficiaries must fully distribute an inherited qualified plan within 10 years of the owner\'s death. There\'s no option to stretch it over a lifetime anymore — every dollar comes out, taxed as ordinary income, on a compressed timeline you didn\'t set.');
+      setTextI('sit-icon-2', '📅');
+      setTextI('sit-title-2', 'Bunched Distributions Push You Into Higher Brackets');
+      setTextI('sit-text-2', 'Spreading a large balance over ten years instead of a lifetime concentrates taxable income into a much shorter window — often pushing a beneficiary into materially higher marginal brackets than the original owner ever faced.');
+      setTextI('sit-title-3', 'You May Still Owe Annual RMDs — On the Decedent\'s Schedule');
+      setTextI('sit-text-3', 'If the original owner had already reached their required beginning date, the beneficiary also owes annual minimum distributions in years 1–9 — calculated off the beneficiary\'s own life expectancy — on top of the full ten-year deadline. Always confirm this determination with the client\'s CPA or the plan custodian.');
+
+      // ── PAGE 3: GOALS ──────────────────────────────────────────────────
+      setTextI('goals-tagline', '"The goal isn\'t to avoid the ten-year deadline. The goal is to control what happens to the money during it."');
+      setTextI('goals-headline', 'Finance the tax drag created by the forced distribution — and deploy the <em>full</em> inherited balance into a tax-free compounding asset.');
+      setTextI('goals-body', 'Rather than let the inherited plan force itself out over ten years and pay ordinary income tax along the way, a structured approach finances that tax obligation, deploys the full inherited balance into a tax-free asset, and generates income the IRS cannot touch — for life, not just for ten years.');
+      setTextI('goals-pillar-1', 'The full inherited balance — not the after-tax remainder — goes to work. The tax obligation created by the mandatory distribution is financed, not paid immediately out of pocket. The outstanding loan retires from the death benefit — never from your income. You enjoy the full benefit of compounding on 100% of the inherited balance for life.');
+      setTextI('goals-pillar-3-title', 'No RMDs on the Policy. Ever.');
+      setTextI('goals-pillar-3-text', 'Life insurance has no Required Minimum Distributions and no ten-year deadline. Once the inherited plan\'s tax drag is financed into the structure, income is taken on your schedule, at your pace — not the IRS\'s, and not the decedent\'s.');
+
+      // ── PAGE 5: ACC/DIST FOOTER ────────────────────────────────────────
+      setTextI('acc-dist-acc-text', 'The decedent built this balance — deferring tax and compounding it for decades. As the beneficiary, you inherit both the asset and the ten-year clock that now governs it.');
+      setTextI('acc-right-tool', 'Inherited qualified plan — ten-year forced clock');
+      setTextI('acc-dist-problem-text', 'Every mandatory distribution forces a taxable event on a schedule you didn\'t choose. A bad market year at the wrong point in the ten-year window locks in losses while the tax bill keeps coming. The inherited plan becomes a liability: every dollar out is ordinary income, on the decedent\'s compressed timeline.');
+      setTextI('acc-dist-footer-label-1', 'The Inherited QP Problem');
+      setTextI('acc-dist-footer-text-1', 'The same balance that deferred tax for the original owner now forces full ordinary income tax on the beneficiary within ten years — exactly when there\'s no flexibility left to manage the timing.');
+      setTextI('acc-dist-footer-text-2', 'Finance the tax drag created by the forced distribution. Deploy the full inherited balance into a tax-free asset. Take income as asset loans — uncorrelated to the market, protected by a 0% floor, with no further RMDs.');
+
+      // ── PAGE 6: LENDER — OPTION A ──────────────────────────────────────
+      setTextI('lender-a-rate-label', 'Federal + state income tax on the forced 10-year distribution');
+      setTextI('lender-a-desc', 'Do nothing. Let the inherited plan force itself out over ten years. Pay the full income tax as each distribution comes due, at your combined federal and state rate. The portion you hand to the IRS was always spoken for — but the SECURE Act chose the timing, not you.');
+      setTextI('lender-a-con-1', 'Mandatory, non-negotiable ten-year distribution deadline');
+      setTextI('lender-a-con-2', 'Only the after-tax net proceeds go to work — not the full inherited balance');
+      setTextI('lender-a-con-3', 'Possible annual RMDs on top of the ten-year deadline, if the decedent had begun theirs');
+      setTextI('lender-a-con-4', 'Bunched income risks pushing you into higher brackets during the window');
+      setTextI('lender-footer-insight', 'The tax obligation on this inherited balance exists regardless of what you do — the SECURE Act made sure of that. The question is only whether you finance it at a fixed commercial rate, or absorb it as ordinary income, bracket by bracket, over the next ten years.');
+      setTextI('lender-footer-why', 'The full inherited balance — including the amount that would have gone to taxes along the way — compounds inside a tax-free asset instead. The difference between compounding 100% of the inheritance and compounding what\'s left after ten years of forced withdrawals is the structural advantage.');
+
+      // ── PAGE 7: HOW ETA WORKS ──────────────────────────────────────────
+      setTextI('how-header', 'The Enhanced Tax Advantage finances the tax drag created by an inherited qualified plan\'s forced 10-year distribution, and deploys the full inherited balance into a tax-free compounding asset.');
+      setTextI('how-step-1-title', 'Inheritance &amp; Deposit');
+      setTextI('how-step-1-text', 'The inherited qualified plan begins its mandatory distribution schedule. The full amount — before tax — is deposited into a Premium Deposit Account (PDA). A bank simultaneously provides a loan to cover the resulting tax obligation. Nothing is paid out of pocket.');
+      setTextI('how-advantage-full-balance', 'The entire inherited balance — not the after-tax portion left after ten years of forced withdrawals — compounds inside the tax-free asset. The amount that would have gone to the IRS along the way now earns for you instead.');
+
+      // ── PAGE 8: BENEFITS ───────────────────────────────────────────────
+      setTextI('benefits-header', 'Four reasons the Enhanced Tax Advantage outperforms letting an inherited qualified plan force itself out over ten years.');
+      setTextI('benefit-1-text', 'A forced ten-year distribution hands a significant portion of an inherited balance to the IRS as it comes out. The ETA finances that tax drag and keeps the full inherited balance working. The difference between compounding the full inheritance and compounding what survives ten years of mandatory withdrawals is measured in millions over a lifetime income period.');
+      setTextI('bft-100-label', 'Of the inherited balance deployed —<br>not just what survives the 10-year window');
+      setTextI('bft-none-label', 'RMDs on the policy —<br>income on your schedule, not the decedent\'s');
+
+      // ── PAGE 9: MC METHODOLOGY ─────────────────────────────────────────
+      setTextI('mc-header', 'Not a projection. A probability distribution built from 50 years of real market history — applied to the forced 10-year inherited QP distribution and the ETA side by side.');
+      setTextI('mc-step-2-text', 'Each simulation draws a unique sequence of annual returns. Both the ETA and the inherited QP face the exact same sequence in each simulation — ensuring a fair, paired comparison. The same market year that affects the inherited plan affects the ETA.');
+      setTextI('mc-step-4-title', 'Inherited QP: 60/40 Portfolio, Forced Out Over 10 Years');
+      setTextI('mc-step-4-text', 'The inherited qualified plan uses a blended 60% equity / 40% bond portfolio return paired to the same historical year as the ETA, distributed on the mandatory schedule — annual RMDs in years 1–9 if the decedent had reached their required beginning date, with the full remaining balance forced out by the final year. Full downside exposure — no floor.');
+      setTextI('mc-pct-50-desc', 'Half of all 10,000 simulated market sequences produced more income than this; half produced less. This is the base case — what a beneficiary in the middle of all possible market outcomes would experience. Both ETA and the inherited QP are shown at their respective 50th percentiles.');
+      setTextI('mc-pct-25-desc', 'In 75% of sequences the outcome exceeded this level. This is the stress-test floor — appropriate for conservative planning. Even at the 25th percentile, the ETA structure\'s 0% floor and tax-free income provide meaningful advantages over a forced inherited QP distribution.');
+    }
+
     // Advantage
     var adv_amt = (r.etaTotalMed||0) - (r.qpTotalMed||0);
     set('doc-advantage', (adv_amt>=0?'+':'')+$f(adv_amt));
@@ -1138,7 +1220,7 @@
       set('doc-p2-insured', p2Insured);
       set('doc-p2-total', $f(r.etaTotalP2Med));
       set('doc-p2-ages', (r.p2isIns||'—') + '–' + (r.p2ieIns||'—'));
-      set('doc-p2-note', 'Not a comparison — the ' + (isNQP ? 'taxable account' : 'qualified plan') + ' above is already fully drawn down by this point. This is tax-free income only the policy can still produce.');
+      set('doc-p2-note', 'Not a comparison — the ' + (isNQP ? 'taxable account' : (isIQP ? 'inherited qualified plan' : 'qualified plan')) + ' above is already fully drawn down by this point. This is tax-free income only the policy can still produce.');
       var p2Row = document.getElementById('phase2-facts-row');
       if (p2Row) p2Row.style.display = 'grid';
     }
