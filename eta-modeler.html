@@ -3089,7 +3089,7 @@ function buildPage1(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
       <td>${$f(qpBOY)}</td>
       <td>${qpGrowth !== 0 ? $f(qpGrowth) : '—'}</td>
       <td>${isQpDist && qpTax > 0 ? $f(qpTax) : '—'}</td>
-      <td class="${isQpDist ? 'inc-val' : ''}">${isQpDist ? $f(qpGross) + (isRmdOnly ? ' <span style="font-size:8px;color:var(--red)">(RMD)</span>' : '') : '—'}</td>
+      <td class="${isQpDist ? 'inc-val' : ''}">${isQpDist ? $f(qpGross) : '—'}</td>
       <td class="${isQpDist ? 'inc-val' : ''}">${isQpDist ? $f(qpNet) : '—'}</td>
       <td>${$f(qpEOY)}</td>
     </tr>`;
@@ -3442,7 +3442,7 @@ function buildPage3(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
 
     rows += `<tr class="${rowCls}">
       ${yrCell}${ageCell}
-      <td class="${isQpDist ? 'green-col' : ''}">${isQpDist ? $f(qp.net) + (isRmdOnly ? ' <span style="font-size:8px;color:var(--red)">(RMD)</span>' : '') : '—'}</td>
+      <td class="${isQpDist ? 'green-col' : ''}">${isQpDist ? $f(qp.net) : '—'}</td>
       <td>${isIncome2 ? '—' : $f(qp.bal)}</td>
       <td style="border-left:2px solid rgba(201,168,76,.25)">${(isIncome||isIncome2) ? $f(e25.income) : '—'}</td>
       <td class="${(isIncome||isIncome2) ? 'gold-col' : ''}">${(isIncome||isIncome2) ? $f(e50.income) : '—'}</td>
