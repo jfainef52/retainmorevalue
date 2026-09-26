@@ -256,7 +256,7 @@ h1{font-family:'Playfair Display',serif;font-weight:600;font-size:25px;color:var
       set('doc-box2-sub', 'Financed 100% by a commercial bank — secured by the policy only, not your other assets');
 
       set('doc-rec1-title', 'Finance the mandatory distribution\'s tax drag — don\'t pay it out of pocket');
-      set('doc-rec1-text', 'A commercial bank finances the ' + $f(financedTax) + ' tax bill created by the forced 10-year distribution. No check written to the IRS as each year\'s withdrawal comes due. The bank loan is secured only by the policy — not your other assets — and is retired later from the policy\'s death benefit.' + (iw ? (iw.reachedRBD ? ' The original owner had already reached their required beginning date, so annual RMDs also apply in years 1–9 of the window.' : ' The original owner had not yet reached their required beginning date, so no annual minimum applies — only the full balance by the end of the window.') : ''));
+      set('doc-rec1-text', 'A commercial bank finances the ' + $f(financedTax) + ' tax bill created by the forced 10-year distribution. No check written to the IRS as each year\'s withdrawal comes due. The bank loan is secured only by the policy — not your other assets — and is retired later from the policy\'s death benefit.' + (iw ? (iw.reachedRBD ? ' The original owner had already reached their required beginning date, so annual RMDs also apply in years 1–9 of the window.' : ' The original owner had not yet reached their required beginning date, so no annual minimum applies — only the full balance by the end of the window.') : '') + ' The after-tax proceeds aren\'t spent as they come out — they\'re reinvested in a taxable account until age ' + incStart + ', then drawn down on that same schedule, which is what\'s actually compared to the tax-free policy income below.');
 
       set('doc-rec2-title', 'Deploy the full ' + $f(dist) + ' — not what\'s left after 10 years of forced withdrawals');
       set('doc-rec2-text', 'The full pre-tax value of the inherited plan funds a life insurance asset over a ' + payYears + '-year funding period. A 0% floor means market losses never reduce your principal in a down year — only upside participates, up to the policy cap.');
@@ -264,7 +264,7 @@ h1{font-family:'Playfair Display',serif;font-weight:600;font-size:25px;color:var
       set('doc-out1-lbl', 'Out of pocket during the 10-year distribution window — the tax bill is financed by the bank');
       set('doc-out2-val', $f(dist));
       set('doc-out2-lbl', 'Deployed into the tax-free asset — the full inherited balance, not the after-tax remainder');
-      set('doc-out4-lbl', 'More lifetime income vs. letting the inherited plan force itself out and paying ordinary income tax');
+      set('doc-out4-lbl', 'More lifetime income vs. reinvesting the mandatory distribution and drawing it down on the same schedule');
       set('doc-disc', 'All figures are hypothetical illustrations based on current assumptions and are not a guarantee of future results or tax outcomes. ETA income reflects the median (50th percentile) of ' + (r.nSims||10000).toLocaleString() + ' bootstrapped S&P 500 simulations. This is not tax, legal, or investment advice — consult qualified tax counsel or the plan custodian to confirm the RMD determination and 10-year window for your specific inheritance. Not valid without a complete carrier illustration.');
     } else {
       // ── QUALIFIED PLAN DISTRIBUTION ─────────────────────────────────
