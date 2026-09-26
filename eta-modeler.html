@@ -76,7 +76,7 @@ body{font-family:'IBM Plex Sans',sans-serif;background:var(--off);color:var(--te
 .src-toggle{display:flex;gap:0;margin-bottom:16px;border:1px solid var(--border);border-radius:4px;overflow:hidden}
 .src-btn{flex:1;padding:9px 10px;border:none;background:var(--off);font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:500;cursor:pointer;transition:all .15s;color:var(--muted);text-align:center;line-height:1.3;letter-spacing:.3px}
 .src-btn.active{background:var(--navy);color:var(--gold);font-weight:600}
-.src-btn:first-child{border-right:1px solid var(--border)}
+.src-btn:not(:last-child){border-right:1px solid var(--border)}
 .nqp-note{background:rgba(201,168,76,.07);border:1px solid rgba(201,168,76,.25);border-radius:4px;padding:10px 14px;font-size:11px;color:var(--text);line-height:1.6;margin-bottom:14px}
 .nqp-note strong{color:var(--navy)}
 .computed-derived{background:#e8f0e8;color:var(--green);font-weight:600}
@@ -381,10 +381,10 @@ table.sc-ldg tfoot td.gold-col { color:var(--gold); }
           <div class="stag">Client Profile</div>
           <div class="fg fr">
             <div class="field"><label class="fl">Client Name</label><input type="text" id="clientName" placeholder="ex. Amy Chavez-Valdez"/></div>
-            <div class="field"><label class="fl">Issue Age</label><input type="number" id="issueAge" placeholder="e.g. 49" min="18" max="80" oninput="recalcAll();rebuildPayoffDropdown()"/></div>
+            <div class="field"><label class="fl">Issue Age</label><input type="number" id="issueAge" placeholder="e.g. 49" min="18" max="80" oninput="recalcAll();rebuildPayoffDropdown();updateIQPWindow()"/></div>
           </div>
           <div class="fg fr">
-            <div class="field" id="dobRow"><label class="fl">Account Holder Date of Birth</label><input type="date" id="dob"/><div class="hint">Drives the exact RMD start age (73 vs. 75 under SECURE 2.0). Leave blank to fall back to an age-based estimate, which is ambiguous by up to a year around the 1959/1960 birth-year cutoff.</div></div>
+            <div class="field" id="dobRow"><label class="fl" id="dobLabel">Account Holder Date of Birth</label><input type="date" id="dob" oninput="updateIQPWindow()"/><div class="hint" id="dobHint">Drives the exact RMD start age (73 vs. 75 under SECURE 2.0). Leave blank to fall back to an age-based estimate, which is ambiguous by up to a year around the 1959/1960 birth-year cutoff.</div></div>
           </div>
           <div class="fg fr">
             <div class="field"><label class="fl">Gender</label><select id="gender"><option value="F">Female</option><option value="M">Male</option></select></div>
@@ -438,11 +438,24 @@ table.sc-ldg tfoot td.gold-col { color:var(--gold); }
           <div class="src-toggle">
             <button class="src-btn active" id="srcBtnQP" onclick="setSourceMode('qp')">Qualified Plan (QP)<br><span style="font-size:9px;opacity:.7;font-weight:400">IRA · 401(k) · TSP · 403(b)</span></button>
             <button class="src-btn" id="srcBtnNQP" onclick="setSourceMode('nqp')">Liquidity Event (Non-QP)<br><span style="font-size:9px;opacity:.7;font-weight:400">Business sale · Deferred comp · Inheritance</span></button>
+            <button class="src-btn" id="srcBtnIQP" onclick="setSourceMode('iqp')">Inherited Qualified Plan<br><span style="font-size:9px;opacity:.7;font-weight:400">Beneficiary · SECURE Act 10-Year Rule</span></button>
           </div>
 
           <!-- QP path label -->
           <div id="nqp-explainer" class="nqp-note" style="display:none">
             <strong>How this works:</strong> Enter the client's tax liability from the liquidity event. ETA finances 100% of that tax — the client commits <strong>2× the tax amount</strong> to the IUL (e.g. $500K tax → $1M into policy over the premium pay period). The comparison models investing the tax savings ($500K) in a taxable account instead.
+          </div>
+
+          <!-- Inherited QP path label -->
+          <div id="iqp-explainer" class="nqp-note" style="display:none">
+            <strong>How this works:</strong> Under the SECURE Act, a non-spouse beneficiary who inherits a qualified plan generally must fully distribute — and pay ordinary income tax on — the entire balance within 10 years of the owner's death. If the decedent had already reached their own required beginning date, the beneficiary also owes annual RMDs in years 1–9 (based on the beneficiary's own single life expectancy). This tool spreads that mandatory distribution evenly (COLA-adjusted) across the actual years remaining in the 10-year window, uses ETA to finance the resulting tax drag, and lets the policy keep providing tax-free income long after the inherited account is forced to zero. Enter the decedent's DOB/DOD below — the window and RMD requirement are computed automatically. <strong>Always confirm the RMD determination with the client's CPA or the plan custodian</strong> before finalizing a recommendation.
+          </div>
+          <div id="iqp-decedent-panel" style="display:none">
+            <div class="fg fr">
+              <div class="field"><label class="fl">Decedent Date of Birth</label><input type="date" id="decedentDob" oninput="updateIQPWindow()"/></div>
+              <div class="field"><label class="fl">Decedent Date of Death</label><input type="date" id="decedentDod" oninput="updateIQPWindow()"/></div>
+            </div>
+            <div id="iqpWindowSummary" class="nqp-note" style="display:none"></div>
           </div>
 
           <div class="fg">
@@ -606,10 +619,11 @@ table.sc-ldg tfoot td.gold-col { color:var(--gold); }
           <div class="sep"></div>
           <div class="stag">Income Parameters</div>
           <div class="fg fr3">
-            <div class="field"><label class="fl">Income Start Age</label><input type="number" id="incStart" placeholder="65" min="50" max="85"/></div>
-            <div class="field"><label class="fl">Income End Age</label><input type="number" id="incEnd" value="95" min="60" max="99"/></div>
+            <div class="field"><label class="fl" id="incStartLabel">Income Start Age</label><input type="number" id="incStart" placeholder="65" min="50" max="85"/></div>
+            <div class="field"><label class="fl" id="incEndLabel">Income End Age</label><input type="number" id="incEnd" value="95" min="60" max="99"/></div>
             <div class="field"><label class="fl">COLA (%)</label><input type="number" id="cola" value="3" step="0.25"/></div>
           </div>
+          <div id="iqpWindowHint" class="hint" style="display:none;margin:-6px 0 10px">Locked to the mandatory 10-year distribution window computed above (Phase 1). To model ETA income continuing after the inherited plan is exhausted, use the Phase 2 option below.</div>
           <div class="fg fr">
             <div class="field"><label class="fl">Min Net CSV Floor ($)</label><input type="text" id="csvFloor" value="$150,000" oninput="formatCurrency(this)"/></div>
             <div class="field"><label class="fl">Simulations</label><input type="number" id="nSims" value="10000" step="1000" min="1000" max="20000"/></div>
@@ -1254,6 +1268,62 @@ function resolveRmdAge(dobStr, issueAge) {
 }
 
 // ══════════════════════════════════════════════════════════
+// INHERITED QUALIFIED PLAN — SECURE Act 10-Year Rule
+// IRS Pub 590-B, Table I (Single Life Expectancy, effective for
+// distribution calendar years beginning 1/1/2022 and later).
+// ══════════════════════════════════════════════════════════
+const SINGLE_LIFE_TABLE = {0:84.6,1:83.7,2:82.8,3:81.8,4:80.8,5:79.8,6:78.8,7:77.9,8:76.9,9:75.9,10:74.9,
+  11:73.9,12:72.9,13:71.9,14:70.9,15:69.9,16:69.0,17:68.0,18:67.0,19:66.0,20:65.0,
+  21:64.1,22:63.1,23:62.1,24:61.1,25:60.2,26:59.2,27:58.2,28:57.3,29:56.3,30:55.3,
+  31:54.4,32:53.4,33:52.5,34:51.5,35:50.5,36:49.6,37:48.6,38:47.7,39:46.7,40:45.7,
+  41:44.8,42:43.8,43:42.9,44:41.9,45:41.0,46:40.0,47:39.0,48:38.1,49:37.1,50:36.2,
+  51:35.3,52:34.3,53:33.4,54:32.5,55:31.6,56:30.6,57:29.8,58:28.9,59:28.0,60:27.1,
+  61:26.2,62:25.4,63:24.5,64:23.7,65:22.9,66:22.0,67:21.2,68:20.4,69:19.6,70:18.8,
+  71:18.0,72:17.2,73:16.4,74:15.6,75:14.8,76:14.1,77:13.3,78:12.6,79:11.9,80:11.2,
+  81:10.5,82:9.9,83:9.3,84:8.7,85:8.1,86:7.6,87:7.1,88:6.6,89:6.1,90:5.7,
+  91:5.3,92:4.9,93:4.6,94:4.3,95:4.0,96:3.7,97:3.4,98:3.2,99:3.0,100:2.8,
+  101:2.6,102:2.5,103:2.3,104:2.2,105:2.1,106:2.1,107:2.1,108:2.0,109:2.0,110:2.0,
+  111:2.0,112:2.0,113:1.9,114:1.9,115:1.8,116:1.8,117:1.6,118:1.4,119:1.1,120:1.0};
+function singleLifeExpectancy(age) {
+  const a = Math.max(0, Math.min(120, Math.round(age)));
+  return SINGLE_LIFE_TABLE[a] || SINGLE_LIFE_TABLE[120];
+}
+// Resolves the mandatory 10-year distribution window from decedent DOB/DOD.
+// - windowStartYear/windowEndYear: the account must reach $0 by 12/31 of
+//   windowEndYear (year of death + 10).
+// - reachedRBD: true if the decedent had (or would have) reached their own
+//   Required Beginning Date by the calendar year of death — approximated as
+//   "died in or after the calendar year they turned their SECURE 2.0 RMD age
+//   (73/75)". This is the practical rule of thumb; the true RBD is April 1
+//   of the following year, so a death very early in the RMD-age year itself
+//   is a genuine edge case advisors should confirm against custodian records.
+//   When true, the beneficiary owes annual RMDs in years 1–9 of the window
+//   (Table I, reduce-by-one method); when false, no annual minimum applies —
+//   only the full-payout-by-year-10 deadline.
+// - yearsElapsed/yearsRemaining: how much of the 10-year window is already
+//   behind the client as of today, vs. how many tax years are left to plan.
+function resolveInheritedQPWindow(decedentDobStr, decedentDodStr) {
+  if (!decedentDobStr || !decedentDodStr) return null;
+  const dDob = new Date(decedentDobStr), dDod = new Date(decedentDodStr);
+  if (isNaN(dDob) || isNaN(dDod) || dDod <= dDob) return null;
+  const decedentBirthYear = dDob.getFullYear();
+  const yearOfDeath = dDod.getFullYear();
+  const hadBirthdayByDeath = (dDod.getMonth() > dDob.getMonth()) ||
+    (dDod.getMonth() === dDob.getMonth() && dDod.getDate() >= dDob.getDate());
+  const ageAtDeath = yearOfDeath - decedentBirthYear - (hadBirthdayByDeath ? 0 : 1);
+  const decedentRmdAge = rmdStartAgeFromBirthYear(decedentBirthYear);
+  const yearTurnsRmdAge = decedentBirthYear + decedentRmdAge;
+  const reachedRBD = yearOfDeath >= yearTurnsRmdAge;
+  const windowStartYear = yearOfDeath + 1;
+  const windowEndYear = yearOfDeath + 10;
+  const currentYear = new Date().getFullYear();
+  const yearsElapsed = Math.max(0, Math.min(10, currentYear - windowStartYear));
+  const yearsRemaining = Math.max(1, windowEndYear - Math.max(currentYear, windowStartYear) + 1);
+  return {decedentBirthYear, yearOfDeath, ageAtDeath, decedentRmdAge, reachedRBD,
+          windowStartYear, windowEndYear, currentYear, yearsElapsed, yearsRemaining};
+}
+
+// ══════════════════════════════════════════════════════════
 // QP COMPARATOR
 // Distribution stays in QP, grows tax-deferred at S&P total return
 // Taxable withdrawals at combined rate (fed+state+penalty)
@@ -1266,10 +1336,16 @@ function resolveRmdAge(dobStr, issueAge) {
 // since the solved withdrawal is designed to deplete the account and so
 // already exceeds the RMD minimum, but kept for correctness).
 // ══════════════════════════════════════════════════════════
-function simQP(dist, combinedTaxRate, baseRate, issueAge, incStart, incEnd, colaRate, returns, rmdAge=null) {
+function simQP(dist, combinedTaxRate, baseRate, issueAge, incStart, incEnd, colaRate, returns, rmdAge=null, divisorFn=null) {
   // returns = net blended QP return already: (eqWt×(price+div) + bdWt×bond) − fee
   // No separate fee application needed here
   // baseRate = fed + state (after 59.5, no penalty)
+  // divisorFn(age, yearsSinceIncStart): optional override for the RMD floor
+  // divisor — defaults to the ordinary Uniform Lifetime Table (rmdDivisor).
+  // Passed as a reduce-by-one Single Life Expectancy divisor for Inherited
+  // QP mode, where the divisor shrinks by exactly 1 each year rather than
+  // being re-looked-up from a table keyed by current age.
+  const divFn = divisorFn || ((age)=>rmdDivisor(age));
   const cola = colaRate/100;
   const fee  = 0;
   const nYrs = returns.length;
@@ -1288,7 +1364,7 @@ function simQP(dist, combinedTaxRate, baseRate, issueAge, incStart, incEnd, cola
     const age = issueAge + i;
     bal = bal*(1-fee)*(1+returns[i]);
     if (hasEarlyRmd && age >= rmdAge) {
-      bal = Math.max(0, bal - bal/rmdDivisor(age));
+      bal = Math.max(0, bal - bal/divFn(age, age-rmdAge));
     }
   }
   const balAtStart = bal;
@@ -1316,7 +1392,7 @@ function simQP(dist, combinedTaxRate, baseRate, issueAge, incStart, incEnd, cola
       b2 = b2*(1-fee)*(1+ret);
       if (hasEarlyRmd && age >= rmdAge) {
         const taxR = taxRateForAge(age);
-        const g = b2/rmdDivisor(age);
+        const g = b2/divFn(age, age-rmdAge);
         const n = g * (1 - taxR);
         b2 = Math.max(0, b2 - g);
         rows.push({yr, age, gross:g, net:n, bal:b2, ret, isRmd:true});
@@ -1329,7 +1405,7 @@ function simQP(dist, combinedTaxRate, baseRate, issueAge, incStart, incEnd, cola
       b2 = b2*(1-fee)*(1+ret);
       let g = Math.min(bestW * Math.pow(1+cola, j), b2);
       if (rmdAge && age >= rmdAge) {
-        const rmdMin = Math.min(b2/rmdDivisor(age), b2);
+        const rmdMin = Math.min(b2/divFn(age, j), b2);
         g = Math.max(g, rmdMin);
       }
       const n = g * (1 - taxR);
@@ -1445,17 +1521,21 @@ function togglePhase2() {
 function setSourceMode(mode) {
   _sourceMode = mode;
   const isNQP = mode === 'nqp';
+  const isIQP = mode === 'iqp';
 
   // Toggle buttons
-  document.getElementById('srcBtnQP').classList.toggle('active', !isNQP);
+  document.getElementById('srcBtnQP').classList.toggle('active', !isNQP && !isIQP);
   document.getElementById('srcBtnNQP').classList.toggle('active', isNQP);
+  document.getElementById('srcBtnIQP').classList.toggle('active', isIQP);
 
-  // Show/hide NQP explainer
+  // Show/hide explainer panels
   document.getElementById('nqp-explainer').style.display = isNQP ? 'block' : 'none';
+  document.getElementById('iqp-explainer').style.display = isIQP ? 'block' : 'none';
+  document.getElementById('iqp-decedent-panel').style.display = isIQP ? 'block' : 'none';
 
   // Input label
   document.getElementById('distLabel').textContent = isNQP
-    ? 'Tax Liability Amount' : 'QP Balance / Distribution Amount';
+    ? 'Tax Liability Amount' : (isIQP ? 'Inherited QP Balance' : 'QP Balance / Distribution Amount');
   document.getElementById('distribution').placeholder = isNQP
     ? 'ex. $500,000' : 'ex. $576,862';
 
@@ -1467,22 +1547,89 @@ function setSourceMode(mode) {
 
   // Equity allocation field label — describes whichever comparator is active
   const eqLbl = document.getElementById('qpEqWtLabel');
-  if (eqLbl) eqLbl.textContent = isNQP ? 'Investment Account Equity Allocation (%)' : 'QP Equity Allocation (%)';
+  if (eqLbl) eqLbl.textContent = isNQP ? 'Investment Account Equity Allocation (%)'
+    : (isIQP ? 'Inherited QP Equity Allocation (%)' : 'QP Equity Allocation (%)');
 
-  // Penalty row — hidden for NQP (no 59½ issue)
-  document.getElementById('penaltyRow').style.display = isNQP ? 'none' : 'flex';
-  if (isNQP) document.getElementById('penaltyChk').checked = false;
+  // Penalty row — hidden for NQP (no 59½ issue) and for IQP (inherited
+  // qualified plan distributions are never subject to the 10% early-
+  // withdrawal penalty, regardless of the beneficiary's own age)
+  document.getElementById('penaltyRow').style.display = (isNQP || isIQP) ? 'none' : 'flex';
+  if (isNQP || isIQP) document.getElementById('penaltyChk').checked = false;
 
-  // DOB / RMD row — hidden for NQP (a liquidity event has no RMD concept;
-  // the tax liability isn't sitting in a qualified plan)
+  // DOB row — hidden for NQP (a liquidity event has no RMD concept). Shown
+  // for both QP (account holder's own DOB) and IQP (repurposed as the
+  // beneficiary's own DOB, needed for an exact Single Life Table lookup).
   const dobRow = document.getElementById('dobRow');
   if (dobRow) dobRow.style.display = isNQP ? 'none' : 'block';
+  const dobLabel = document.getElementById('dobLabel');
+  const dobHint = document.getElementById('dobHint');
+  if (dobLabel && dobHint) {
+    if (isIQP) {
+      dobLabel.textContent = 'Beneficiary Date of Birth';
+      dobHint.textContent = 'Drives the exact age used to look up the beneficiary\'s Single Life Expectancy factor (Table I) for the 10-year RMD calculation. Leave blank to fall back to Issue Age.';
+    } else {
+      dobLabel.textContent = 'Account Holder Date of Birth';
+      dobHint.textContent = 'Drives the exact RMD start age (73 vs. 75 under SECURE 2.0). Leave blank to fall back to an age-based estimate, which is ambiguous by up to a year around the 1959/1960 birth-year cutoff.';
+    }
+  }
+
+  // Income Start/End Age — locked and auto-computed for IQP, since the
+  // beneficiary doesn't elect when the mandatory distribution period runs;
+  // it's fixed by the decedent's date of death.
+  const incStartEl = document.getElementById('incStart');
+  const incEndEl = document.getElementById('incEnd');
+  const incStartLbl = document.getElementById('incStartLabel');
+  const incEndLbl = document.getElementById('incEndLabel');
+  if (incStartEl && incEndEl) {
+    incStartEl.readOnly = isIQP;
+    incEndEl.readOnly = isIQP;
+    incStartEl.classList.toggle('computed-derived', isIQP);
+    incEndEl.classList.toggle('computed-derived', isIQP);
+  }
+  if (incStartLbl) incStartLbl.textContent = isIQP ? 'Window Start Age (auto)' : 'Income Start Age';
+  if (incEndLbl) incEndLbl.textContent = isIQP ? 'Window End Age (auto)' : 'Income End Age';
+  document.getElementById('iqpWindowHint').style.display = isIQP ? 'block' : 'none';
 
   // Combined rate label
   document.getElementById('combinedRateLabel').textContent = isNQP
-    ? 'Combined Tax Rate (Liquidity Event)' : 'Combined Tax Rate (QP Distribution)';
+    ? 'Combined Tax Rate (Liquidity Event)' : (isIQP ? 'Combined Tax Rate (Inherited QP Distribution)' : 'Combined Tax Rate (QP Distribution)');
 
+  if (isIQP) updateIQPWindow();
   recalcAll();
+}
+
+// ══════════════════════════════════════════════════════════
+// INHERITED QP — recompute the mandatory 10-year window whenever
+// decedent DOB/DOD or the beneficiary's age/DOB change, and push
+// the result into the (locked) Income Start/End Age fields.
+// ══════════════════════════════════════════════════════════
+function updateIQPWindow() {
+  if (_sourceMode !== 'iqp') return;
+  const summaryEl = document.getElementById('iqpWindowSummary');
+  const decedentDob = document.getElementById('decedentDob').value;
+  const decedentDod = document.getElementById('decedentDod').value;
+  const age = parseInt(document.getElementById('issueAge').value);
+  const win = resolveInheritedQPWindow(decedentDob, decedentDod);
+  if (!win || isNaN(age)) {
+    summaryEl.style.display = 'none';
+    document.getElementById('incStart').value = '';
+    document.getElementById('incEnd').value = '';
+    return;
+  }
+  const incStart = age;
+  const incEnd = age + win.yearsRemaining - 1;
+  document.getElementById('incStart').value = incStart;
+  document.getElementById('incEnd').value = incEnd;
+  summaryEl.style.display = 'block';
+  summaryEl.innerHTML = `<strong>10-Year Window:</strong> Year of death ${win.yearOfDeath} (decedent age ${win.ageAtDeath}) &nbsp;→&nbsp; ` +
+    `distribution years run ${win.windowStartYear}–${win.windowEndYear}, ` +
+    `<strong>${win.yearsRemaining} year${win.yearsRemaining===1?'':'s'} remaining</strong> as of ${win.currentYear}` +
+    (win.yearsElapsed > 0 ? ` (${win.yearsElapsed} year${win.yearsElapsed===1?'':'s'} already elapsed)` : '') + `.<br>` +
+    `<strong>Annual RMDs ${win.reachedRBD ? 'REQUIRED' : 'NOT required'} in years 1–${Math.max(win.yearsRemaining-1,0)}:</strong> ` +
+    (win.reachedRBD
+      ? `decedent had reached their own required beginning date (RMD age ${win.decedentRmdAge}) by ${win.yearOfDeath} — the beneficiary must take annual minimums (Single Life Table, reduce-by-one method) plus the full remaining balance in the final year.`
+      : `decedent had not yet reached their required beginning date (RMD age ${win.decedentRmdAge}) — no annual minimum applies, only the full balance by the end of ${win.windowEndYear}.`) +
+    ` <em>Confirm this determination with the plan custodian or the client's CPA.</em>`;
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1504,7 +1651,8 @@ function recalcAll() {
 
   const fed = parseFloat(document.getElementById('fedRate').value)||0;
   const state = parseFloat(document.getElementById('stateRate').value)||0;
-  const penalty = (!isNQP && document.getElementById('penaltyChk').checked) ? 10 : 0;
+  const isIQP = _sourceMode === 'iqp';
+  const penalty = (!isNQP && !isIQP && document.getElementById('penaltyChk').checked) ? 10 : 0;
   const combined = fed+state+penalty;
   document.getElementById('combinedRateDisplay').textContent = combined.toFixed(2)+'%';
   document.getElementById('penaltyBadge').style.display = penalty?'inline-block':'none';
@@ -1700,21 +1848,46 @@ function calculate() {
   const age = parseInt(document.getElementById('issueAge').value);
   const dob = document.getElementById('dob').value;
   const isNQP = _sourceMode === 'nqp';
+  const isIQP = _sourceMode === 'iqp';
+
+  // Inherited QP: resolve the mandatory 10-year window from decedent DOB/DOD,
+  // then derive the RMD floor. rmdAge here is repurposed as "the age at which
+  // the reduce-by-one Single Life Expectancy floor applies" — set equal to
+  // incStart itself (so it never triggers the standard "early/pre-income RMD"
+  // branch) only when the decedent had reached their own required beginning
+  // date; otherwise null, meaning no annual minimum, just the hard 10-year
+  // full-payout deadline (already enforced by incEnd via the level-withdrawal
+  // solve). iqpDivisorFn implements the reduce-by-one method: the Table I
+  // factor is looked up ONCE for the beneficiary's age in the window's first
+  // year, then reduced by exactly 1 for each year that follows — never
+  // re-looked-up from the table like the ordinary Uniform Lifetime Table is.
+  let iqpWindow = null, iqpDivisorFn = null;
+  if (isIQP) {
+    iqpWindow = resolveInheritedQPWindow(document.getElementById('decedentDob').value, document.getElementById('decedentDod').value);
+    if (!iqpWindow) return alert('Enter a valid Decedent Date of Birth and Date of Death (death must be after birth).');
+    const beneBirthYear = dob ? new Date(dob).getFullYear() : (new Date().getFullYear() - age);
+    const beneAgeAtWindowStart = iqpWindow.windowStartYear - beneBirthYear;
+    const initialFactor = singleLifeExpectancy(beneAgeAtWindowStart);
+    const factorAsOfNow = initialFactor - iqpWindow.yearsElapsed;
+    iqpDivisorFn = (age2, j) => Math.max(1, factorAsOfNow - j);
+  }
   // RMDs are a qualified-plan concept only — a Liquidity Event (NQP) case has
   // no QP and no RMD requirement, so rmdAge stays null for that mode. This is
   // the single source of truth: every downstream RMD banner/row/tag in the
   // ledger keys off d.rmdAge being truthy, so nulling it here removes RMD
   // display everywhere else automatically.
-  const rmdAge = isNQP ? null : resolveRmdAge(dob, age);
+  const rmdAge = isNQP ? null : (isIQP ? (iqpWindow.reachedRBD ? age : null) : resolveRmdAge(dob, age));
   const taxOrDist = parseNum('distribution');
   // NQP: user enters tax liability; IUL funding = 2× tax
-  // QP: dist is the full distribution
+  // QP / IQP: dist is the full distribution (inherited balance, for IQP)
   const dist = isNQP ? taxOrDist * 2 : taxOrDist;
   const taxLiability = isNQP ? taxOrDist : 0; // used for comparator seeding
 
   const fed = parseFloat(document.getElementById('fedRate').value)||0;
   const state = parseFloat(document.getElementById('stateRate').value)||0;
-  const penalty = (!isNQP && document.getElementById('penaltyChk').checked) ? 10 : 0;
+  // No 10% early-withdrawal penalty ever applies to inherited plan
+  // distributions, regardless of the beneficiary's own age.
+  const penalty = (!isNQP && !isIQP && document.getElementById('penaltyChk').checked) ? 10 : 0;
   const combined = fed+state+penalty;
   const pdaFee = parseFloat(document.getElementById('pdaFee').value)||1400;
   const pdaRate = parseFloat(document.getElementById('pdaRate').value)||3.5;
@@ -1829,7 +2002,12 @@ function calculate() {
   const {rows: bankRows, totalDraws} = buildBankLoan(dist, combined, sofrRate, sofrSpread, payoffYear, plr, age, 100, financedTax, yearlyDraws);
   const payoffBalance = bankRows[payoffYear-1]?.prevLoan || financedTax;
 
-  _prog = {name, age, dob, rmdAge, dist, taxLiability, isNQP, fed, state, penalty, combined,
+  _prog = {name, age, dob, rmdAge, dist, taxLiability, isNQP, isIQP, iqpDivisorFn,
+           iqpInfo: iqpWindow ? {yearOfDeath:iqpWindow.yearOfDeath, ageAtDeath:iqpWindow.ageAtDeath,
+             reachedRBD:iqpWindow.reachedRBD, decedentRmdAge:iqpWindow.decedentRmdAge,
+             windowStartYear:iqpWindow.windowStartYear, windowEndYear:iqpWindow.windowEndYear,
+             yearsElapsed:iqpWindow.yearsElapsed, yearsRemaining:iqpWindow.yearsRemaining} : null,
+           fed, state, penalty, combined,
            pdaFee, pdaRate, payYears, pdaNet, afterTaxRate, annualPrem, totalPrem,
            pdaRows, financedTax, taxObligation, loanOverrideActive, loanLTVPct,
            maxLoanLTV, excessLiquidity, multiYearActive, financingSchedule, totalDraws,
@@ -1867,7 +2045,9 @@ function calculate() {
               <div class="ii"><span class="ik">Total Premiums (${payYears} yrs)</span><span class="iv hl">${$f(totalPrem)}</span></div>
               <div class="ii"><span class="ik">Income Start Age</span><span class="iv hl">Age ${is} <span style="opacity:.6">(account holder)</span></span></div>
               <div class="ii"><span class="ik">Income End Age</span><span class="iv hl">Age ${ie} <span style="opacity:.6">(account holder)</span></span></div>
-              ${isNQP ? '' : `<div class="ii"><span class="ik">QP Required Minimum Distribution Age</span><span class="iv ${rmdAge < is ? 'hl' : ''}">Age ${rmdAge}${dob ? '' : ' (est. from issue age — enter DOB for exact age)'}${rmdAge < is ? ` — forced RMDs precede elected income` : ''}</span></div>`}
+              ${isIQP ? `<div class="ii"><span class="ik">Mandatory Distribution Window</span><span class="iv hl">${is}–${ie} (${ie-is+1} yr${ie-is+1===1?'':'s'} · decedent d. ${iqpWindow.yearOfDeath})</span></div>
+              <div class="ii"><span class="ik">Annual RMD Required (Yrs 1–${Math.max(ie-is,0)})</span><span class="iv ${iqpWindow.reachedRBD?'hl':''}">${iqpWindow.reachedRBD ? 'YES — decedent had reached RBD' : 'No — full payout by final year only'}</span></div>`
+              : (isNQP ? '' : `<div class="ii"><span class="ik">QP Required Minimum Distribution Age</span><span class="iv ${rmdAge < is ? 'hl' : ''}">Age ${rmdAge}${dob ? '' : ' (est. from issue age — enter DOB for exact age)'}${rmdAge < is ? ` — forced RMDs precede elected income` : ''}</span></div>`)}
             </div>
             <div>
               <div class="ii"><span class="ik">COLA on Income</span><span class="iv hl">${cola}% annually</span></div>
@@ -1879,7 +2059,7 @@ function calculate() {
             </div>
           </div>
           ${altInsured ? `<div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(201,168,76,.2);font-size:10.5px;color:var(--muted);line-height:1.5">
-            <b style="color:var(--navy)">Account holder for tax/distribution purposes:</b> ${name}, Age ${age} — all tax${isNQP ? '' : ', RMD,'} and income-timing figures above are based on the account holder, not the insured.
+            <b style="color:var(--navy)">${isIQP ? 'Beneficiary' : 'Account holder'} for tax/distribution purposes:</b> ${name}, Age ${age} — all tax${isNQP ? '' : ', RMD,'} and income-timing figures above are based on the ${isIQP ? 'beneficiary' : 'account holder'}, not the insured.
           </div>` : ''}
           ${loanOverrideActive && !multiYearActive ? `
           <div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(201,168,76,.2)">
@@ -2227,7 +2407,7 @@ async function generateMC() {
     allAvAtInc.push(ePath[incStartIdx]?.av||0);
     const qp=d.isNQP
       ? simInvestmentAccount(d.taxLiability, d.basisPct, d.ltcgRate, d.age, d.is, d.ie, d.cola, qpRets)
-      : simQP(d.dist, d.combined, d.fed+d.state, d.age, d.is, d.ie, d.cola, qpRets, d.rmdAge);
+      : simQP(d.dist, d.combined, d.fed+d.state, d.age, d.is, d.ie, d.cola, qpRets, d.rmdAge, d.iqpDivisorFn);
     qp.rows.forEach(row=>{if(qpByAge[row.age]){qpByAge[row.age].gross.push(row.gross);qpByAge[row.age].net.push(row.net);qpByAge[row.age].bal.push(row.bal);}});
   }
 
@@ -2332,7 +2512,7 @@ async function generateMC() {
   PCTS.forEach(p=>{
     strandQP[p] = d.isNQP
       ? simInvestmentAccount(d.taxLiability, d.basisPct, d.ltcgRate, d.age, d.is, d.ie, d.cola, strandPaths[p].pathQPRets)
-      : simQP(d.dist, d.combined, d.fed+d.state, d.age, d.is, d.ie, d.cola, strandPaths[p].pathQPRets, d.rmdAge);
+      : simQP(d.dist, d.combined, d.fed+d.state, d.age, d.is, d.ie, d.cola, strandPaths[p].pathQPRets, d.rmdAge, d.iqpDivisorFn);
   });
 
   // Full policy debit/credit detail on each percentile strand's actual return
@@ -2493,7 +2673,7 @@ async function generateMC() {
     // when the advisor opens the audit report from the button below.
     localStorage.setItem('eta_audit_data', JSON.stringify({
       clientName: d.name, advisor: adv||'', date: dateStr, issueAge: d.age,
-      isNQP: d.isNQP||false, carrierKey: d.carrierKey, incStart: d.is, incEnd: d.ie,
+      isNQP: d.isNQP||false, isIQP: d.isIQP||false, iqpInfo: d.iqpInfo||null, carrierKey: d.carrierKey, incStart: d.is, incEnd: d.ie,
       cola: d.cola, dataYrs: d.dataYrs, nSims: d.nSims,
       bands: PCTS.reduce((o,p)=>{
         o[p] = {
@@ -2520,6 +2700,8 @@ async function generateMC() {
       dist:           d.dist,
       taxLiability:   d.taxLiability||0,
       isNQP:          d.isNQP||false,
+      isIQP:          d.isIQP||false,
+      iqpInfo:        d.iqpInfo||null,
       financedTax:    d.financedTax||0,
       taxObligation:  d.taxObligation||0,
       loanOverrideActive: d.loanOverrideActive||false,
@@ -2583,14 +2765,16 @@ function buildPage1(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
   const endCSV = etaPct[finalHorizonAge]?.[50]?.csvNet || 0;
 
   // STAT STRIP
-  const compLabel = d.isNQP ? 'Taxable Account' : 'Qualified Plan';
-  const compSeedLabel = d.isNQP ? 'Tax Liability Financed' : 'Account Initial Balance';
+  const compLabel = d.isNQP ? 'Taxable Account' : (d.isIQP ? 'Inherited Qualified Plan' : 'Qualified Plan');
+  const compSeedLabel = d.isNQP ? 'Tax Liability Financed' : (d.isIQP ? 'Inherited Balance' : 'Account Initial Balance');
   const compSeedVal = d.isNQP ? d.taxLiability : d.dist;
-  const compNetLabel = d.isNQP ? `Total Net Income\nTaxable Account (After Tax)` : `Total Net Distributions\nQualified Plan (After Tax)`;
-  const compTaxLabel = d.isNQP ? `Tax Obligation Financed\nLiquidity Event` : `Taxes Paid — Qualified Plan\nOrdinary Income Tax`;
+  const compNetLabel = d.isNQP ? `Total Net Income\nTaxable Account (After Tax)` : (d.isIQP ? `Total Net Distributions\nInherited QP (After Tax)` : `Total Net Distributions\nQualified Plan (After Tax)`);
+  const compTaxLabel = d.isNQP ? `Tax Obligation Financed\nLiquidity Event` : (d.isIQP ? `Taxes Paid — Inherited QP\nOrdinary Income Tax` : `Taxes Paid — Qualified Plan\nOrdinary Income Tax`);
   const compTaxSub = d.isNQP
     ? `ETA finances 100% — client retains $${Math.round(d.taxLiability/1000)}K`
-    : `${d.combined.toFixed(2)}% rate (incl. penalty) / ${(d.fed+d.state).toFixed(2)}% after age 59½`;
+    : (d.isIQP
+      ? `${d.combined.toFixed(2)}% rate — no early-withdrawal penalty on inherited plans · full payout forced within 10 yrs of death`
+      : `${d.combined.toFixed(2)}% rate (incl. penalty) / ${(d.fed+d.state).toFixed(2)}% after age 59½`);
 
   const statStrip = `
     <div class="stat-strip">
@@ -2667,10 +2851,13 @@ function buildPage1(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
     if (yr === 1 && prevSection !== 'fund') {
       const accEndAge = isRmdOnly ? d.rmdAge - 1 : (d.rmdAge && d.rmdAge < d.is ? d.rmdAge - 1 : d.is - 1);
       const accYrs = accEndAge - d.age + 1;
-      secHdr = accYrs > 0 ? `ACCUMULATION PHASE — YEARS 1–${accYrs} (NO DISTRIBUTIONS)` : (d.isNQP ? `DISTRIBUTION PHASE BEGINS` : `REQUIRED MINIMUM DISTRIBUTIONS — BEGIN AGE ${d.rmdAge}`);
+      secHdr = accYrs > 0 ? `ACCUMULATION PHASE — YEARS 1–${accYrs} (NO DISTRIBUTIONS)` : (d.isIQP
+        ? `10-YEAR FORCED DISTRIBUTION WINDOW BEGINS${d.rmdAge ? ' (ANNUAL RMDs REQUIRED)' : ' (NO ANNUAL RMD — FULL PAYOUT REQUIRED BY YEAR ' + (d.ie-d.age+1) + ')'}`
+        : (d.isNQP ? `DISTRIBUTION PHASE BEGINS` : `REQUIRED MINIMUM DISTRIBUTIONS — BEGIN AGE ${d.rmdAge}`));
       secHdrRight = accYrs > 0
         ? `ACCUMULATION PHASE — YEARS 1–${accYrs} (POLICY GROWING, NO WITHDRAWALS)${d.altInsured ? ` — INSURED AGE ${insAgeAt(1)}–${insAgeAt(accYrs)}` : ''}`
-        : (d.isNQP ? `POLICY CONTINUES ACCUMULATING` : `POLICY CONTINUES ACCUMULATING — NO RMD REQUIREMENT ON LIFE INSURANCE`);
+        : (d.isIQP ? `POLICY GROWS UNTOUCHED WHILE THE INHERITED QP IS FORCED OUT OVER ${d.ie-d.age+1} YEAR${d.ie-d.age+1===1?'':'S'}`
+          : (d.isNQP ? `POLICY CONTINUES ACCUMULATING` : `POLICY CONTINUES ACCUMULATING — NO RMD REQUIREMENT ON LIFE INSURANCE`));
       prevSection = accYrs > 0 ? 'fund' : 'rmd';
     }
     if (isRmdOnly && prevSection !== 'rmd') {
@@ -3030,7 +3217,9 @@ function buildPage3(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
     if (yr === 1 && prevSection !== 'acc') {
       const accEndAge = (d.rmdAge && d.rmdAge < d.is) ? d.rmdAge - 1 : d.is - 1;
       const accYrs = accEndAge - d.age + 1;
-      secHdr = accYrs > 0 ? `ACCUMULATION PHASE — YEARS 1–${accYrs} (NO DISTRIBUTIONS)` : (d.isNQP ? `DISTRIBUTION PHASE BEGINS` : `REQUIRED MINIMUM DISTRIBUTIONS — BEGIN AGE ${d.rmdAge}`);
+      secHdr = accYrs > 0 ? `ACCUMULATION PHASE — YEARS 1–${accYrs} (NO DISTRIBUTIONS)` : (d.isIQP
+        ? `10-YEAR FORCED DISTRIBUTION WINDOW BEGINS${d.rmdAge ? ' (ANNUAL RMDs REQUIRED)' : ' (NO ANNUAL RMD — FULL PAYOUT REQUIRED BY YEAR ' + (d.ie-d.age+1) + ')'}`
+        : (d.isNQP ? `DISTRIBUTION PHASE BEGINS` : `REQUIRED MINIMUM DISTRIBUTIONS — BEGIN AGE ${d.rmdAge}`));
       prevSection = accYrs > 0 ? 'acc' : 'rmd';
     }
     if (isRmdOnly && prevSection !== 'rmd') { secHdr = `QP: REQUIRED MINIMUM DISTRIBUTIONS BEGIN AGE ${d.rmdAge} — ETA POLICY HAS NO RMD REQUIREMENT AND KEEPS GROWING UNTOUCHED${d.altInsured ? ` (INSURED AGE ${d.insuredAge + (a - d.age)})` : ''}`; prevSection = 'rmd'; }
