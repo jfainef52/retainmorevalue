@@ -129,27 +129,27 @@ h1{font-family:'Playfair Display',serif;font-weight:600;font-size:25px;color:var
 
   <div class="stag">What This Delivers</div>
   <div class="deliver-grid">
-    <div class="dbox">
+    <div class="dbox" id="dbox-out1">
       <div class="dv" id="doc-out1-val">$0</div>
       <div class="dl" id="doc-out1-lbl">Out of pocket at closing — the full tax bill is financed by the bank</div>
     </div>
-    <div class="dbox">
+    <div class="dbox" id="dbox-out2">
       <div class="dv" id="doc-out2-val">$2,000,000</div>
       <div class="dl" id="doc-out2-lbl">Deployed into the tax-free asset — the full liquidity event value, not the after-tax remainder</div>
     </div>
-    <div class="dbox hl">
+    <div class="dbox hl" id="dbox-out3">
       <div class="dv" id="doc-out3-val">$27,147,631</div>
       <div class="dl" id="doc-out3-lbl">Total tax-free income (median) · ages 70–100 · growing 3%/yr</div>
     </div>
-    <div class="dbox hl">
+    <div class="dbox hl" id="dbox-out4">
       <div class="dv" id="doc-out4-val">2.62×</div>
       <div class="dl" id="doc-out4-lbl">More lifetime income vs. paying the tax and investing the net proceeds</div>
     </div>
-    <div class="dbox">
-      <div class="dv">0% floor</div>
-      <div class="dl">Market losses never reduce your index-linked principal — ever</div>
+    <div class="dbox" id="dbox-floor">
+      <div class="dv" id="doc-floor-val">0% floor</div>
+      <div class="dl" id="doc-floor-lbl">Market losses never reduce your index-linked principal — ever</div>
     </div>
-    <div class="dbox hl">
+    <div class="dbox hl" id="dbox-out6">
       <div class="dv" id="doc-out6-val">$20,460,263+</div>
       <div class="dl" id="doc-out6-lbl">Net asset value at age 100 — passes to your beneficiary income-tax-free</div>
     </div>
@@ -182,6 +182,9 @@ h1{font-family:'Playfair Display',serif;font-weight:600;font-size:25px;color:var
     var raw = localStorage.getItem('eta_mc_data');
     if (!raw) return;
     var r = JSON.parse(raw);
+    // Annual distributions or a plan larger than the amount moved: compare the policy PLUS the plan
+    // that stays invested against leaving the whole plan alone.
+    if (r.wpActive && !r.isNQP && !r.isIQP) { r.etaTotalMed = r.wpEtaTotal50; r.qpTotalMed = r.wpQpTotal50; }
 
     var $f = function(n){ return '$' + Math.round(n||0).toLocaleString(); };
     var set = function(id, val){ var el=document.getElementById(id); if(el) el.textContent = val; };
@@ -192,7 +195,7 @@ h1{font-family:'Playfair Display',serif;font-weight:600;font-size:25px;color:var
     var dist = r.dist || 0;                      // NQP: 2x tax liability (IUL funding). QP/IQP: full/inherited distribution.
     var taxLiability = r.taxLiability || 0;       // NQP only
     var combined = r.taxRate || 0;                // QP/IQP: combined fed+state(+penalty) rate
-    var financedTax = isNQP ? taxLiability : dist * (combined/100); // QP/IQP: bank-financed distribution tax
+    var financedTax = isNQP ? taxLiability : (r.annualMode ? (r.taxObligation||0) : dist * (combined/100)); // QP/IQP: bank-financed distribution tax (annual mode: the schedule's own total, penalty years included)
     var payYears = r.payYears || 7;
     var annualPrem = r.annualPrem || 0;
     var incStart = r.incStart || 65;
@@ -297,10 +300,34 @@ h1{font-family:'Playfair Display',serif;font-weight:600;font-size:25px;color:var
     set('doc-rec3-text', 'Starting at age ' + incStart + ', income is taken as policy loans — never reported to the IRS, never subject to income or capital gains tax, and never mandated by a Required Minimum Distribution schedule. You control the timing and the amount for life.');
     set('doc-rec3-sub', $f(etaYr1) + '/yr median starting income · ' + cola + '% COLA · policy loans, not reported as income');
 
+    if (!isNQP && !isIQP && r.annualMode) {
+      var penYears = (r.fundSchedule || []).some(function(x){ return x.pen; });
+      set('doc-rec1-title', 'Finance each year\'s distribution tax — don\'t pay it out of pocket');
+      set('doc-rec1-text', 'A commercial bank finances the ' + $f(financedTax) + ' of tax on the ' + payYears + ' annual distributions' + (penYears ? ', including the early-withdrawal penalty on any distribution taken before age 59½' : '') + '. No check written to the IRS. The bank loan is secured only by the policy — not your other assets — and is retired later from the policy\'s death benefit.');
+      var heldPda = (r.pdaRetYears || 0) > 0;
+      set('doc-rec2-text', 'Each year\'s pre-tax distribution funds a life insurance asset over a ' + payYears + '-year funding period.' + (heldPda ? ' In the first ' + r.pdaRetYears + ' year' + (r.pdaRetYears>1?'s':'') + ', ' + r.pdaRetPct + '% of each distribution is held at the bank in a premium deposit account, which secures the loan while the policy\'s cash value builds; the rest funds the premium. After that a level premium is drawn from that account.' : '') + ' A 0% floor means market losses never reduce your principal in a down year — only upside participates, up to the policy cap.');
+      if (r.premSchedule && r.premSchedule.length) set('doc-rec2-sub', (heldPda ? $f(r.premSchedule[0]) + ' early premiums, then ' : '') + $f(r.levelPremium) + ' level · ' + payYears + ' annual premiums · 0% floor / index cap crediting');
+      set('doc-out1-lbl', 'Out of pocket on each distribution — every year\'s tax bill is financed by the bank');
+    }
     set('doc-out1-val', '$0');
     set('doc-out3-val', $f(etaTotal));
-    set('doc-out3-lbl', 'Total tax-free income (median) · ages ' + incStart + '–' + incEnd + ' · growing ' + cola + '%/yr');
+    set('doc-out3-lbl', (r.wpActive && !isNQP && !isIQP) ? 'Total after-tax income (median) — tax-free policy income plus the plan that stays invested · ages ' + incStart + '–' + incEnd : 'Total tax-free income (median) · ages ' + incStart + '–' + incEnd + ' · growing ' + cola + '%/yr');
     set('doc-out4-val', ratio.toFixed(2) + '×');
+    if (r.rothOn && r.wholePlan && r.wholePlan[50] && !isNQP && !isIQP) {
+      // Roth comparison selected: show leave-it-alone, Roth, and ETA side by side on the median path
+      var wp = r.wholePlan[50];
+      var byId = function(id){ return document.getElementById(id); };
+      var ord = {'dbox-out1':1, 'dbox-out2':2, 'dbox-out6':3, 'dbox-out4':4, 'dbox-floor':5, 'dbox-out3':6};
+      Object.keys(ord).forEach(function(k){ var b = byId(k); if (b) b.style.order = ord[k]; });
+      set('doc-out4-val', $f(wp.sqNet));
+      set('doc-out4-lbl', 'Leave the plan alone — total after-tax income (median) · ages ' + incStart + '–' + incEnd + ' · taxed as withdrawn');
+      var b4 = byId('dbox-out4'); if (b4) b4.classList.remove('hl');
+      set('doc-floor-val', $f(wp.rothNet));
+      set('doc-floor-lbl', 'Roth conversion path — total after-tax income (median) · ' + (r.rothTaxSrc === 'outside' ? $f(wp.rothOutsideTax) + ' of conversion tax paid from outside funds' : $f(wp.rothConvTax) + ' of conversion tax paid from the converted dollars'));
+      set('doc-out3-val', $f(wp.etaNet));
+      set('doc-out3-lbl', 'ETA path — total after-tax income (median) · ' + $f(wp.policyTotal) + ' tax-free from the policy' + (wp.remNet > 0 ? ' + ' + $f(wp.remNet) + ' after tax from the plan that stays invested' : '') + ' · ' + (wp.sqNet > 0 ? (wp.etaNet / wp.sqNet).toFixed(2) + '× leaving the plan alone' : ''));
+    }
+    if (r.wpActive && !isNQP && !isIQP && !(r.rothOn && r.wholePlan)) set('doc-out4-lbl', 'More lifetime after-tax income vs. leaving the whole plan alone and paying ordinary income tax');
     set('doc-out6-val', $f(nav) + '+');
     set('doc-out6-lbl', 'Net asset value at age ' + incEnd + ' — passes to your beneficiary income-tax-free');
 
