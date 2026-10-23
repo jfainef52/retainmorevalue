@@ -504,6 +504,48 @@ table.sc-ldg tfoot td.gold-col { color:var(--gold); }
           <label class="fl" id="distLabel">QP Distribution Amount</label>
           <div class="field"><input type="text" id="distribution" placeholder="ex. $2,000,000" oninput="formatCurrency(this);recalcAll()"/></div>
         </div>
+        <div class="fg fr">
+          <div class="field"><label class="fl">How the QP dollars move</label>
+            <select id="fundMode" onchange="onFundModeChange()">
+              <option value="lump">One lump-sum distribution (PDA)</option>
+              <option value="annual">Annual distributions straight to premium</option>
+            </select>
+          </div>
+          <div class="field"></div>
+        </div>
+        <div class="hint">Annual: each year's distribution is taxed that year, the tax is financed, and the full distribution is that year's premium &mdash; no PDA. The number of distributions is Pay Years below. The QP that has not yet been distributed stays invested on the same market returns.</div>
+        <div id="annualPanel" style="display:none">
+          <div class="chk-row">
+            <input type="checkbox" id="annDelayChk" onchange="recalcAll()"/>
+            <label for="annDelayChk">Hold the premium until the 59&frac12; date when it falls later in the same policy year &mdash; the distribution is taken and the premium paid on that date, so no penalty applies (flexible premium)</label>
+          </div>
+          <div class="fg fr">
+            <div class="field"><label class="fl">First Distribution / Policy Start Date</label>
+              <input type="date" id="fundStartDate" oninput="recalcAll()"/>
+              <div class="hint">With the Date of Birth above, each year's age is exact and the 10% penalty applies only to distributions made before 59&frac12;.</div>
+            </div>
+            <div class="field"><label class="fl">Yearly edits</label>
+              <button type="button" onclick="resetAnnualOverrides()" style="background:var(--off);border:1px solid var(--border);border-radius:3px;padding:7px 10px;font-size:11px;cursor:pointer;color:var(--navy)">Reset distributions, rates and penalty flags</button>
+            </div>
+          </div>
+          <div class="fg fr">
+            <div class="field"><label class="fl">Bank-held PDA &mdash; % of each distribution held back</label>
+              <input type="number" id="annRetPct" value="50" min="0" max="90" step="5" oninput="recalcAll()"/></div>
+            <div class="field"><label class="fl">PDA retention years</label>
+              <input type="number" id="annRetYears" value="2" min="0" max="5" step="1" oninput="recalcAll()"/></div>
+          </div>
+          <div class="hint" style="margin-bottom:8px">Same pattern as the Enhanced Pension modeler. In the retention years part of each distribution sits in a premium deposit account at the bank, which gives the lender collateral while the policy's cash surrender value is small; the rest is that year's premium. After that the whole distribution goes into the PDA and a level premium is drawn from it, solved to deplete the PDA. PDA rate and fee are in the Premium Deposit Account section below. Set the percentage to 0 for no retention.</div>
+          <div style="overflow-x:auto">
+            <table class="dst" id="annualScheduleTable">
+              <thead><tr><th>Yr</th><th style="text-align:left">Date &middot; age</th><th style="text-align:right">Distribution ($)</th><th style="text-align:right">Federal %</th><th style="text-align:center">10% penalty</th><th style="text-align:right">Tax + penalty financed</th></tr></thead>
+              <tbody id="annualScheduleBody"></tbody>
+              <tfoot><tr style="font-weight:600;border-top:2px solid var(--border)"><td colspan="2">Total</td><td style="text-align:right" id="an-total-dist">&mdash;</td><td></td><td></td><td style="text-align:right" id="an-total-tax">&mdash;</td></tr></tfoot>
+            </table>
+          </div>
+          <div class="hint" id="annualSummary" style="margin:8px 0 4px"></div>
+          <div class="hint" id="annualPdaSummary" style="margin:4px 0 4px"></div>
+          <div class="hint">Federal % defaults to the top bracket (or the flat rate if bracket mode is off), the same conservative assumption as the lump sum. Lower it for years where the client expects a lower bracket.</div>
+        </div>
         <div class="stag" style="font-size:8px;margin-bottom:8px">Premium Deposit Account &mdash; Interest Tax</div>
         <div class="fg fr">
           <div class="field"><label class="fl">Federal Rate %</label><input type="number" id="fedRate" value="30.0" step="0.1" oninput="recalcAll()"/></div>
@@ -526,11 +568,11 @@ table.sc-ldg tfoot td.gold-col { color:var(--gold); }
         </div>
         <div class="hint" id="bracketNote"></div>
         <div class="hint">Federal and state rates above drive the premium deposit account, exactly as in the ETA income modeler &mdash; the premium schedule reconciles between the two tools for identical inputs. Bracket mode governs the financed tax on the distribution and the required distribution projection.</div>
-        <div class="fg">
+        <div class="fg" id="preAmountWrap">
           <label class="fl">Distributed Before 59½ (penalty applies to this portion only)</label>
           <div class="field"><input type="text" id="preAmount" placeholder="$0" oninput="formatCurrency(this);recalcAll()"/></div>
         </div>
-        <div class="hint">Leave at $0 to defer the entire distribution past 59½. Coverage can still be placed now by funding minimum premium from non-qualified assets, which locks insurability without incurring the penalty.</div>
+        <div class="hint" id="preAmountHint">Leave at $0 to defer the entire distribution past 59½. Coverage can still be placed now by funding minimum premium from non-qualified assets, which locks insurability without incurring the penalty.</div>
         <div class="chk-row" style="display:none">
           <input type="checkbox" id="penaltyChk" onchange="recalcAll()"/>
           <label for="penaltyChk">penalty</label>
@@ -541,8 +583,8 @@ table.sc-ldg tfoot td.gold-col { color:var(--gold); }
         <div class="stag">Premium Deposit Account</div>
         <div class="fg fr3">
           <div class="field"><label class="fl">Pay Years</label><input type="number" id="payYears" value="7" min="1" max="20" oninput="recalcAll();rebuildPayoffDropdown()"/></div>
-          <div class="field"><label class="fl">PDA Rate %</label><input type="number" id="pdaRate" value="3.633" step="0.001" oninput="recalcAll()"/></div>
-          <div class="field"><label class="fl">PDA Fee $</label><input type="number" id="pdaFee" value="0" step="100" oninput="recalcAll()"/></div>
+          <div class="field" id="pdaRateField"><label class="fl">PDA Rate %</label><input type="number" id="pdaRate" value="3.633" step="0.001" oninput="recalcAll()"/></div>
+          <div class="field" id="pdaFeeField"><label class="fl">PDA Fee $</label><input type="number" id="pdaFee" value="0" step="100" oninput="recalcAll()"/></div>
         </div>
 
         <div class="sep"></div>
@@ -1466,7 +1508,7 @@ function makeRng(seed){let s=seed>>>0||0x2f6e2b1;return function(){s^=s<<13;s>>>
 function runQPPath(cfg, paired, rng){
   const {qpBalance,currentAge,horizonAge,rmdAge,equityAlloc,mgmtFee,
          fedRate,stateRate,nonQpGrossRate,nonQpStart,nonQpBasis,
-         annualDist=0,distYears=0,
+         annualDist=0,distYears=0,distSchedule=null,
          useBrackets=false,filing='married',bracketIdx=0.025,
          ssAnnual=0,ssStartAge=70,includeIrmaa=true,medicarePeople=2}=cfg;
   const bondAlloc=1-equityAlloc, incRate=fedRate+stateRate;
@@ -1477,7 +1519,8 @@ function runQPPath(cfg, paired, rng){
     // ETA path: the distribution leaves the plan during the pay years. Removing
     // it at the front (not netting it off the ending balance) is what captures
     // the compounding the estate never has to carry.
-    if(distYears && (age-currentAge)<distYears) qp=Math.max(0, qp-annualDist);
+    if(distSchedule){ const x=distSchedule[age-currentAge]||0; if(x>0) qp=Math.max(0, qp-x); }
+    else if(distYears && (age-currentAge)<distYears) qp=Math.max(0, qp-annualDist);
     let rmd=0;
     if(age>=Math.floor(rmdAge)){const d=ultDivisor(age); if(d) rmd=Math.min(qp,qp/d);}
     qp-=rmd;
@@ -1536,7 +1579,7 @@ function runQPMonteCarlo(cfg, paired, sims, seed){
    numbers. Any future change to runQPPath's tax section must be mirrored here. */
 function rebuildQPLedger(cfg, paired, seed, simIndex){
   const {qpBalance,currentAge,horizonAge,rmdAge,equityAlloc,mgmtFee,fedRate,stateRate,
-         nonQpGrossRate,nonQpStart,nonQpBasis,annualDist=0,distYears=0,
+         nonQpGrossRate,nonQpStart,nonQpBasis,annualDist=0,distYears=0,distSchedule=null,
          useBrackets=false,filing='married',bracketIdx=0.025,
          ssAnnual=0,ssStartAge=70,includeIrmaa=true,medicarePeople=2}=cfg;
   const rng=makeRng(subSeed(seed,simIndex));
@@ -1545,7 +1588,8 @@ function rebuildQPLedger(cfg, paired, seed, simIndex){
   const rows=[];
   for(let age=currentAge; age<=horizonAge; age++){
     let dist=0;
-    if(distYears && (age-currentAge)<distYears){ dist=Math.min(qp,annualDist); qp-=dist; }
+    if(distSchedule){ const x=distSchedule[age-currentAge]||0; dist=Math.min(qp,x); qp-=dist; }
+    else if(distYears && (age-currentAge)<distYears){ dist=Math.min(qp,annualDist); qp-=dist; }
     let rmd=0;
     if(age>=Math.floor(rmdAge)){ const d=ultDivisor(age); if(d) rmd=Math.min(qp,qp/d); }
     qp-=rmd;
@@ -2072,16 +2116,274 @@ function getTaxObligation(){
   return fed + st + pen;
 }
 
+// ══════════════════════════════════════════════════════════
+// WHOLE-PLAN ENGINE — scheduled QP distributions, remaining QP,
+// Roth conversion, and the three-path comparison.
+// Pure functions (no DOM) so they can be tested on their own.
+// ══════════════════════════════════════════════════════════
+
+// Parses a yyyy-mm-dd string into {y, m(0-based), d}, or null.
+function _ymd(str) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(str||'');
+  return m ? {y:+m[1], m:+m[2]-1, d:+m[3]} : null;
+}
+
+// Age at the k-th annual distribution (k = 1 for the first). With a date of
+// birth AND a first-distribution date the age is exact, and the 10% penalty
+// test is against the actual 59½ date (six months after the 59th birthday).
+// Without both, falls back to Issue Age + k − 1 (integer), which treats a
+// distribution in the year the client turns 59 as penalized.
+function distributionAge(dobStr, startStr, k, issueAge) {
+  const dob = _ymd(dobStr), st = _ymd(startStr);
+  if (dob && st) {
+    const distMs = Date.UTC(st.y + k - 1, st.m, st.d);
+    const dobMs  = Date.UTC(dob.y, dob.m, dob.d);
+    const turns595 = Date.UTC(dob.y, dob.m + 714, dob.d); // 59 years 6 months
+    const nextMs = Date.UTC(st.y + k, st.m, st.d); // start of the following policy year
+    return {age:(distMs - dobMs)/(365.2425*86400000), exact:true,
+            under595: distMs < turns595, dateStr:new Date(distMs).toISOString().slice(0,10),
+            reliefMs: turns595, reliefStr:new Date(turns595).toISOString().slice(0,10),
+            // true when the 59½ date still falls inside this policy year, so the premium can be
+            // held until then and paid late in the same year (flexible premium)
+            canHold: turns595 > distMs && turns595 < nextMs,
+            ageAt: ms => (ms - dobMs)/(365.2425*86400000)};
+  }
+  if (isNaN(issueAge)) return {age:NaN, exact:false, under595:false, dateStr:''};
+  const age = issueAge + k - 1;
+  return {age, exact:false, under595: age < 59.5, dateStr:''};
+}
+
+
+// Applies the "hold the premium until 59½" option to one distribution. Only a
+// distribution whose 59½ date falls inside the same policy year can be held —
+// the premium is then paid late in that year and the penalty never applies.
+function holdUntil595(a) {
+  if (!a || !a.exact || !a.under595 || !a.canHold) return {held:false, dateStr:a?a.dateStr:'', age:a?a.age:NaN, heldFrom:''};
+  return {held:true, dateStr:a.reliefStr, age:a.ageAt(a.reliefMs), heldFrom:a.dateStr};
+}
+
+// ══════════════════════════════════════════════════════════
+// FUNDING METHOD — annual QP distributions straight to premium
+// Each year's distribution is its own taxable event: tax (and the 10%
+// penalty while the account holder is under 59½) is financed by the bank that
+// year and the whole distribution is that year's premium. No PDA.
+// ══════════════════════════════════════════════════════════
+// Bank-held premium deposit account for ANNUAL distributions — the Enhanced Pension funding pattern.
+// Years 1..retYears: retPct of each distribution is held back in the PDA (collateral for the bank loan
+// while the policy's cash surrender value is still small); the rest of that year's distribution is the
+// premium, with the PDA / loan fee taken from the Year-1 premium share. Later years: the whole
+// distribution goes into the PDA and a LEVEL premium is drawn from it, solved so the PDA reaches ~$0 at
+// the end of the premium years. PDA interest is ordinary income, taxed each year at pdaTaxPct (federal +
+// state only — never the 10% penalty). Lump-sum funding does not use this.
+function buildAnnualPDA(dists, pdaRatePct, pdaTaxPct, retYears, retPct, fee, minPremYears) {
+  const n = dists.length;
+  const premYears = Math.max(n, minPremYears || 0);
+  retYears = Math.max(0, Math.min(Math.round(retYears||0), premYears - 1)); // keep at least one level-premium year
+  retPct = Math.max(0, Math.min(retPct||0, 100));
+  function simulate(L) {
+    let bal = 0; const rows = [];
+    for (let yr=1; yr<=premYears; yr++) {
+      const boy = bal, d = yr<=n ? dists[yr-1] : 0;
+      let premium = 0, toPda = 0, fees = 0;
+      if (yr <= retYears) {
+        toPda = d*retPct/100; fees = yr===1 ? (fee||0) : 0;
+        premium = Math.max(0, d - toPda - fees);
+        bal += toPda;
+      } else {
+        fees = yr===1 ? (fee||0) : 0;           // no retention years: the fee comes off the deposit
+        toPda = d - fees; bal += toPda;
+      }
+      const interest = bal*(pdaRatePct/100), taxOnInt = interest*(pdaTaxPct/100), netInt = interest - taxOnInt;
+      bal += netInt;
+      if (yr > retYears) { premium = L; bal -= premium; }
+      rows.push({yr, boy, dist:d, toPda, fees, interest, taxOnInt, netInt, prem:premium, eoy:bal});
+    }
+    return {finalBal:bal, rows};
+  }
+  const totalIn = dists.reduce((s,x)=>s+x, 0);
+  let lo = 0, hi = Math.max(1, totalIn), guard = 0;
+  while (simulate(hi).finalBal > 0 && guard < 60) { hi *= 1.5; guard++; }
+  for (let it=0; it<60; it++) { const mid=(lo+hi)/2; if (simulate(mid).finalBal > 0) lo = mid; else hi = mid; }
+  const levelPremium = (lo+hi)/2;
+  const rows = simulate(levelPremium).rows.map(r => ({...r, eoy: Math.max(0, r.eoy)}));
+  const totalPrem = rows.reduce((s,r) => s + r.prem, 0);
+  return {levelPremium, premYears, retYears, retPct, rows, totalPrem, pdaPeak: Math.max(...rows.map(r=>r.eoy))};
+}
+
+// The bank-held PDA plan for the current schedule. PDA interest is taxed at the raw federal + state
+// fields (never the bracket-derived rate), exactly as the lump-sum PDA is.
+function annualPlan(rows) {
+  rows = rows || getAnnualSchedule();
+  const fed  = parseFloat(document.getElementById('fedRate').value)||0;
+  const st   = parseFloat(document.getElementById('stateRate').value)||0;
+  const rate = parseFloat(document.getElementById('pdaRate').value);
+  const fee  = parseFloat(document.getElementById('pdaFee').value);
+  const retY = parseInt(document.getElementById('annRetYears').value);
+  const retP = parseFloat(document.getElementById('annRetPct').value);
+  return buildAnnualPDA(rows.map(r => r.dist), isNaN(rate) ? 0 : rate, fed + st,
+                        isNaN(retY) ? 2 : retY, isNaN(retP) ? 50 : retP, isNaN(fee) ? 0 : fee, 7);
+}
+let _annualOv = {}; // {yr: {dist, fed, pen}} — only values the advisor changed
+
+function fundIsAnnual() {
+  const el = document.getElementById('fundMode');
+  return !!el && el.value === 'annual';
+}
+// Conservative default, same as the lump-sum path: top bracket unless a flat rate is entered
+function defaultFedPct() { return useBrackets() ? 37 : (parseFloat(document.getElementById('fedRate').value)||0); }
+
+function getAnnualSchedule(useOverrides = true) {
+  const N = Math.max(1, parseInt(document.getElementById('payYears').value)||1);
+  const total = parseNum('distribution');
+  const fed0 = defaultFedPct();
+  const state = parseFloat(document.getElementById('stateRate').value)||0;
+  const dob = document.getElementById('accountHolderDOB').value;
+  const start = document.getElementById('fundStartDate').value;
+  const baseAge = getAccountHolderAge();
+  const even = total / N;
+  const holdChk = document.getElementById('annDelayChk');
+  const holdDelay = !!(holdChk && holdChk.checked);
+  const rows = [];
+  for (let k=1; k<=N; k++) {
+    const ov = useOverrides ? (_annualOv[k] || {}) : {};
+    const a = distributionAge(dob, start, k, baseAge || NaN);
+    const h = holdDelay ? holdUntil595(a) : {held:false, dateStr:a.dateStr, age:a.age, heldFrom:''};
+    const autoPen = a.under595 && !h.held;
+    const dist = (ov.dist != null) ? ov.dist : even;
+    const fedPct = (ov.fed != null) ? ov.fed : fed0;
+    const pen = (ov.pen != null) ? ov.pen : autoPen;
+    const rate = fedPct + state + (pen ? 10 : 0);
+    const tax = dist*rate/100;
+    rows.push({yr:k, dist, fedPct, state, pen, autoPen, rate, tax, loan:tax,
+               age:h.age, exact:a.exact, dateStr:h.dateStr, delayed:h.held, delayedFrom:h.heldFrom,
+               holdBlocked: holdDelay && a.under595 && !h.held});
+  }
+  return rows;
+}
+
+const _anInp = "background:var(--off);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:11.5px;padding:5px 7px;text-align:right";
+
+function rebuildAnnualTable() {
+  const body = document.getElementById('annualScheduleBody');
+  if (!body) return;
+  const rows = getAnnualSchedule();
+  body.innerHTML = rows.map(r => `<tr>
+    <td>${r.yr}</td>
+    <td style="text-align:left" id="an-when-${r.yr}">&mdash;</td>
+    <td style="text-align:right"><input type="text" id="an-dist-${r.yr}" value="$${Math.round(r.dist).toLocaleString()}" style="width:110px;${_anInp}" oninput="formatCurrency(this);onAnnualEdit(${r.yr})"/></td>
+    <td style="text-align:right"><input type="number" step="0.25" id="an-fed-${r.yr}" value="${r.fedPct}" style="width:68px;${_anInp}" oninput="onAnnualEdit(${r.yr})"/></td>
+    <td style="text-align:center"><input type="checkbox" id="an-pen-${r.yr}" ${r.pen?'checked':''} onchange="onAnnualEdit(${r.yr})"/></td>
+    <td style="text-align:right" id="an-tax-${r.yr}">&mdash;</td>
+  </tr>`).join('');
+  updateAnnualTable();
+}
+
+function onAnnualEdit(k) {
+  const def = getAnnualSchedule(false)[k-1];
+  if (!def) return;
+  const ov = _annualOv[k] || (_annualOv[k] = {});
+  const dist = parseNum('an-dist-'+k);
+  const fed = parseFloat(document.getElementById('an-fed-'+k).value);
+  const pen = document.getElementById('an-pen-'+k).checked;
+  ov.dist = (Math.abs(dist - def.dist) > 0.5) ? dist : null;
+  ov.fed  = (!isNaN(fed) && Math.abs(fed - def.fedPct) > 0.001) ? fed : null;
+  ov.pen  = (pen !== def.autoPen) ? pen : null;
+  recalcAll();
+}
+
+function resetAnnualOverrides() { _annualOv = {}; rebuildAnnualTable(); recalcAll(); }
+
+function updateAnnualTable() {
+  const rows = getAnnualSchedule();
+  let totDist=0, totTax=0, totPen=0, penYrs=0, firstFree=null;
+  rows.forEach(r => {
+    const when = document.getElementById('an-when-'+r.yr);
+    if (when) when.textContent = r.exact ? `${r.dateStr} · age ${r.age.toFixed(1)}${r.delayed ? ' (held from '+r.delayedFrom+')' : ''}` : (isNaN(r.age) ? '—' : `Age ${r.age} (age basis)`);
+    const tx = document.getElementById('an-tax-'+r.yr);
+    if (tx) tx.textContent = r.dist>0 ? '$'+Math.round(r.tax).toLocaleString()+(r.pen ? ' *' : '') : '—';
+    const pc = document.getElementById('an-pen-'+r.yr);
+    if (pc && document.activeElement !== pc) pc.checked = r.pen;
+    totDist += r.dist; totTax += r.tax;
+    if (r.pen) { totPen += r.dist*0.10; penYrs++; } else if (firstFree===null) firstFree = r;
+  });
+  const heldRows = rows.filter(r => r.delayed), blocked = rows.filter(r => r.holdBlocked);
+  const byYear = {};
+  rows.forEach(r => { if (r.exact && r.dist>0) { const y = r.dateStr.slice(0,4); (byYear[y] = byYear[y] || [0,0]); byYear[y][0]++; byYear[y][1] += r.dist; } });
+  const bunched = Object.keys(byYear).filter(y => byYear[y][0] > 1).map(y => [y, byYear[y][0], byYear[y][1]]);
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  set('an-total-dist', '$'+Math.round(totDist).toLocaleString());
+  set('an-total-tax',  '$'+Math.round(totTax).toLocaleString());
+  const pdaSum = document.getElementById('annualPdaSummary');
+  if (pdaSum) {
+    if (totDist > 0) {
+      const pl = annualPlan(rows), f$ = n => '$'+Math.round(n).toLocaleString();
+      const early = pl.rows.slice(0, pl.retYears);
+      pdaSum.innerHTML = (parseInt(document.getElementById('payYears').value)||0) < 7
+        ? '<span style="color:var(--red)">Annual distributions need at least 7 pay years &mdash; the premium schedule runs at least 7 years.</span>'
+        : (pl.retYears > 0
+          ? `<strong>Bank-held PDA:</strong> ${pl.retPct}% of each distribution is held back in years 1&ndash;${pl.retYears} (peak PDA ${f$(pl.pdaPeak)}), standing behind the loan while the cash surrender value is small. ` +
+            `Premium years 1&ndash;${pl.retYears}: ${early.map(r=>f$(r.prem)).join(' / ')}; years ${pl.retYears+1}&ndash;${pl.premYears}: <strong>${f$(pl.levelPremium)} level</strong>. ` +
+            `Total premium ${f$(pl.totalPrem)} (the distributions plus the PDA's after-tax interest) &mdash; check it against the MEC limit.`
+          : `No PDA retention: a ${f$(pl.levelPremium)} level premium is drawn from the PDA from year 1. Total premium ${f$(pl.totalPrem)}.`);
+    } else pdaSum.innerHTML = '';
+  }
+  const sum = document.getElementById('annualSummary');
+  if (sum) {
+    const n = rows.length;
+    sum.innerHTML = totDist>0
+      ? `<strong>${n} annual distributions totaling $${Math.round(totDist).toLocaleString()}</strong> — tax and penalty financed: <strong>$${Math.round(totTax).toLocaleString()}</strong>. ` +
+        (penYrs ? `<span style="color:var(--red)">${penYrs} of ${n} distributions fall before 59½ (10% penalty $${Math.round(totPen).toLocaleString()}).</span>` : `No distribution falls before 59½.`) +
+        (penYrs && firstFree ? ` First penalty-free distribution: year ${firstFree.yr}${firstFree.dateStr ? ' ('+firstFree.dateStr+')' : ''}.` : '') +
+        (rows.some(r=>r.exact) ? '' : ` Enter the date of birth and a first-distribution date for exact 59½ timing.`) +
+        (heldRows.length ? ` <strong>Held to the 59½ date:</strong> year${heldRows.length>1?'s':''} ${heldRows.map(r=>r.yr+' ('+r.delayedFrom+' → '+r.dateStr+')').join(', ')} — premium paid late in that policy year, no penalty.` : '') +
+        (blocked.length ? ` <span style="color:var(--red)">Year${blocked.length>1?'s':''} ${blocked.map(r=>r.yr).join(', ')} can't be held: the 59½ date falls after that policy year ends, so the penalty stays.</span>` : '') +
+        (bunched.length ? ` <span style="color:var(--red)">Same tax year: ${bunched.map(b=>b[0]+' carries '+b[1]+' distributions ($'+Math.round(b[2]).toLocaleString()+')').join('; ')} — check the federal % for that year.</span>` : '')
+      : '';
+  }
+}
+
+function refreshAnnualTable() {
+  const panel = document.getElementById('annualPanel');
+  if (!panel) return;
+  if (panel.contains(document.activeElement) && document.activeElement.tagName === 'INPUT'
+      && document.getElementById('annualScheduleBody').children.length === getAnnualSchedule().length) {
+    updateAnnualTable();
+  } else {
+    rebuildAnnualTable();
+  }
+}
+
+function onFundModeChange() {
+  const annual = fundIsAnnual();
+  const show = (id, on, disp='') => { const el = document.getElementById(id); if (el) el.style.display = on ? disp : 'none'; };
+  show('annualPanel', annual, 'block');
+  show('preAmountWrap', !annual, '');
+  show('preAmountHint', !annual, '');
+  show('pdaRateField', true, '');   // PDA rate and fee apply in both funding methods
+  show('pdaFeeField', true, '');
+  const lo = document.getElementById('loanOverrideChk');
+  if (lo) { if (annual) { lo.checked = false; } lo.disabled = annual; }
+  const dl = document.getElementById('distLabel');
+  if (dl) dl.textContent = annual ? 'Total QP Amount to Distribute (spread over the Pay Years)' : 'QP Distribution Amount';
+  recalcAll();
+  rebuildPayoffDropdown();
+}
+
 /* ── Phase 1: PDA + premium schedule + bank ledger ───────────────────────── */
 function recalcAll(){
-  const dist   = parseNum('distribution');
+  const annual = fundIsAnnual();
+  const annualRows = annual ? getAnnualSchedule() : null;
+  const dist   = annual ? annualRows.reduce((s,r)=>s+r.dist,0) : parseNum('distribution');
   const fed    = parseFloat(document.getElementById('fedRate').value)||0;
   const st     = parseFloat(document.getElementById('stateRate').value)||0;
-  const dt = distributionTax();
+  const annualTax = annual ? annualRows.reduce((s,r)=>s+r.tax,0) : 0;
+  const dt = annual ? {effective: dist>0 ? 100*annualTax/dist : 0, marginal:0, penalty:0, wait:0, walkedRate:0} : distributionTax();
   const combined = dt.effective;
   document.getElementById('combinedRateDisplay').value = combined.toFixed(2) + '%';
   const preA = parseNum('preAmount');
-  document.getElementById('bracketNote').innerHTML = useBrackets()
+  document.getElementById('bracketNote').innerHTML = annual
+    ? 'Annual distributions &mdash; each year is taxed at the federal and state rate in the schedule above; the rate shown here is the blended rate on the total, penalty included.'
+    : useBrackets()
     ? `Top bracket <b>${(dt.marginal*100).toFixed(0)}%</b> applied to every dollar, plus state \u2014 <b>${combined.toFixed(2)}%</b>. ` +
       `Walking the brackets from the bottom would give <b>${dt.walkedRate.toFixed(2)}%</b>, so this assumption adds ` +
       `<b>${fmt$(dist*(combined-dt.walkedRate)/100)}</b> of tax. Deliberately conservative: any error favours taking no action.` +
@@ -2115,7 +2417,11 @@ function recalcAll(){
   // tools produce must reconcile exactly for the same inputs, because the same
   // policy designer builds illustrations from both. Bracket mode governs the
   // financed tax on the distribution and the RMD projection — not the PDA.
-  const pda = calcPDA(dist, fed, st, pdaFee, pdaRate, payYears);
+  const annualPlanObj = annual ? annualPlan(annualRows) : null;
+  const pda = annual
+    ? {pdaNet:dist, afterTaxRate:0, annualPrem:annualPlanObj.levelPremium, totalPrem:annualPlanObj.totalPrem, pdaTaxRate:(fed+st)/100,
+       rows: annualPlanObj.rows.map(r => ({yr:r.yr, boy:r.boy, interest:r.interest, taxOnInt:r.taxOnInt, netInt:r.netInt, prem:r.prem, eoy:r.eoy}))}
+    : calcPDA(dist, fed, st, pdaFee, pdaRate, payYears);
 
   document.getElementById('premSummary').innerHTML =
     `<div class="pda-row"><span class="pda-key">Net into PDA</span><span class="pda-val">${fmt$(pda.pdaNet)}</span></div>
@@ -2128,6 +2434,17 @@ function recalcAll(){
     h += `<tr><td>${r.yr}</td><td>${fmt$(r.boy)}</td><td>${fmt$(r.interest)}</td><td>${fmt$(r.taxOnInt)}</td><td>${fmt$(r.prem)}</td><td>${fmt$(r.eoy)}</td></tr>`;
   });
   document.getElementById('pdaTbl').innerHTML = h;
+  if (annual) {
+    const pl = annualPlanObj;
+    document.getElementById('premSummary').innerHTML =
+      `<div class="pda-row"><span class="pda-key">Premium, years 1&ndash;${pl.retYears||0}${pl.retYears>0?' ('+pl.retPct+'% of each distribution held in the bank PDA)':''}</span><span class="pda-val">${pl.retYears>0 ? pl.rows.slice(0,pl.retYears).map(r=>fmt$(r.prem)).join(' / ') : '&mdash;'}</span></div>
+       <div class="pda-row"><span class="pda-key">Level premium, years ${pl.retYears+1}&ndash;${pl.premYears}</span><span class="pda-val g">${fmt$(pl.levelPremium)}</span></div>
+       <div class="pda-row"><span class="pda-key">Total premium into policy</span><span class="pda-val">${fmt$(pl.totalPrem)}</span></div>
+       <div class="pda-row"><span class="pda-key">Financed tax and penalty, all years</span><span class="pda-val">${fmt$(annualTax)}</span></div>`;
+    document.getElementById('pdaTbl').innerHTML = '<tr><th>Yr</th><th>Date &middot; age</th><th>Distribution</th><th>Penalty</th><th>Financed</th><th>Into PDA</th><th>Premium</th><th>End PDA</th></tr>' +
+      annualRows.map(r => { const pr = pl.rows[r.yr-1]; return `<tr><td>${r.yr}</td><td>${r.exact ? r.dateStr+' · '+r.age.toFixed(1)+(r.delayed?' (held from '+r.delayedFrom+')':'') : (isNaN(r.age)?'&mdash;':'Age '+r.age)}</td><td>${fmt$(r.dist)}</td><td>${r.pen?'10%':'&mdash;'}</td><td>${fmt$(r.tax)}</td><td>${fmt$(pr.toPda)}</td><td>${fmt$(pr.prem)}</td><td>${fmt$(pr.eoy)}</td></tr>`; }).join('');
+    refreshAnnualTable();
+  }
 
   const issueAge   = parseInt(document.getElementById('issueAge').value)||60;
   const payoffYear = parseInt(document.getElementById('payoffYear').value)||20;
@@ -2137,10 +2454,10 @@ function recalcAll(){
   const override   = parseNum('loanOverride');
 
   const loanOverrideChk = document.getElementById('loanOverrideChk').checked;
-  const multiYearActive = loanOverrideChk && document.getElementById('multiYearChk').checked;
+  const multiYearActive = annual || (loanOverrideChk && document.getElementById('multiYearChk').checked);
   let financingSchedule = [], multiYearError = '';
   if (multiYearActive) {
-    financingSchedule = getFinancingSchedule();
+    financingSchedule = annual ? annualRows.filter(r => r.dist > 0).map(r => ({yr:r.yr, dist:r.dist, tax:r.tax, loan:r.tax})) : getFinancingSchedule();
     const badYr = financingSchedule.find(r => r.yr >= payoffYear);
     if (badYr) multiYearError = `Financing Year ${badYr.yr} is at or after the Bank Loan Payoff Year (${payoffYear}) — all financing draws must occur before payoff.`;
   }
@@ -2187,7 +2504,8 @@ function recalcAll(){
   });
   document.getElementById('bankTbl').innerHTML = b;
 
-  _preIllus = {dist, combined, pda, bankLoan: bl, required, payoffYear, issueAge,
+  _preIllus = {annualMode: annual, annualRows, distSchedule: annual ? annualRows.map(r => r.dist) : null,
+               dist, combined, pda, bankLoan: bl, required, payoffYear, issueAge,
                multiYearActive: multiYearActive && !multiYearError, financingSchedule, totalDraws: bl.totalDraws};
 }
 
@@ -2304,6 +2622,8 @@ function runEstate(){
   // Two runs, same seed so the two paths see identical return sequences.
   const mc = runQPMonteCarlo(cfg, paired, sims, 20260801);
   const dist = _preIllus ? _preIllus.dist : 0;
+  // ETA side: either one lump in year 1, or the annual schedule from Phase 1
+  const etaDistCfg = (_preIllus && _preIllus.annualMode) ? {distSchedule: _preIllus.distSchedule} : {annualDist: dist, distYears: 1};
   const payYears = parseInt(document.getElementById('payYears').value)||7;
   // The QP distribution is a single lump sum in year 1 (same assumption
   // calcPDA/_preIllus already use for the financed-tax and PDA calc, and the
@@ -2314,7 +2634,7 @@ function runEstate(){
   // throw off its own phantom RMDs / "Non-Qualified Estate" reinvestment —
   // that money's actual fate is already tracked by the PDA + policy columns.
   const mcEta = runQPMonteCarlo(
-    Object.assign({}, cfg, {annualDist: dist, distYears: 1}),
+    Object.assign({}, cfg, etaDistCfg),
     paired, sims, 20260801);
 
   // ETA side: carrier ledger, deterministic. Net DB is already net of loan.
@@ -2478,6 +2798,8 @@ function runEstate(){
     insuredRelationship: altInsured ? (document.getElementById('insuredRelationship').value.trim()||'') : '',
     carrier: _illustration.carrier, scenario: _illustration.activeScenario,
     qpBalance: qp, totalPremium: _illustration.totalPremium,
+    annualMode: _preIllus ? !!_preIllus.annualMode : false,
+    fundSchedule: (_preIllus && _preIllus.annualRows) ? _preIllus.annualRows.map(r=>({yr:r.yr, dist:r.dist, fedPct:r.fedPct, state:r.state, pen:r.pen, tax:r.tax, dateStr:r.dateStr||'', delayed:!!r.delayed, delayedFrom:r.delayedFrom||'', toPda:((_preIllus.pda.rows||[])[r.yr-1]||{}).toPda||0, prem:((_preIllus.pda.rows||[])[r.yr-1]||{}).prem||0, eoy:((_preIllus.pda.rows||[])[r.yr-1]||{}).eoy||0})) : [],
     financedTax: _preIllus ? (_preIllus.multiYearActive ? _preIllus.totalDraws : _preIllus.dist * _preIllus.combined/100) : 0,
     multiYearActive: _preIllus ? !!_preIllus.multiYearActive : false,
     financingSchedule: _preIllus ? (_preIllus.financingSchedule||[]) : [],
@@ -2532,7 +2854,7 @@ function runEstate(){
               .map(r=>({a:r.age, hy:r.year, ret:+(r.ret).toFixed(4), rmd:Math.round(r.rmd),
                         tax:Math.round(r.tax), drag:Math.round(r.drag), qp:Math.round(r.qp),
                         side:Math.round(r.side), basis:Math.round(r.basis), cum:Math.round(r.cumTax)})),
-    etaQpRows: rebuildQPLedger(Object.assign({},cfg,{annualDist:dist,distYears:1}),
+    etaQpRows: rebuildQPLedger(Object.assign({},cfg,etaDistCfg),
                  paired, mcEta.seed, mcEta.p50.simIndex)
               .map(r=>({a:r.age, d:Math.round(r.dist), rmd:Math.round(r.rmd),
                         tax:Math.round(r.tax), qp:Math.round(r.qp), side:Math.round(r.side),
@@ -2570,11 +2892,13 @@ function runEstate(){
     auditBands[k] = {
       income: mc[k].qpFinal + mc[k].sideFinal,
       doNothingRows: rebuildQPLedger(cfg, paired, mc.seed, mc[k].simIndex).map(thinQP),
-      etaRows: rebuildQPLedger(Object.assign({},cfg,{annualDist:dist,distYears:1}),
+      etaRows: rebuildQPLedger(Object.assign({},cfg,etaDistCfg),
                  paired, mcEta.seed, mcEta[k].simIndex).map(thinQP)
     };
   });
   localStorage.setItem('eta_estate_audit_data', JSON.stringify({
+    annualMode: _preIllus ? !!_preIllus.annualMode : false,
+    fundSchedule: (_preIllus && _preIllus.annualRows) ? _preIllus.annualRows.map(r=>({yr:r.yr, dist:r.dist, fedPct:r.fedPct, state:r.state, pen:r.pen, tax:r.tax, dateStr:r.dateStr||'', delayed:!!r.delayed, delayedFrom:r.delayedFrom||'', toPda:((_preIllus.pda.rows||[])[r.yr-1]||{}).toPda||0, prem:((_preIllus.pda.rows||[])[r.yr-1]||{}).prem||0, eoy:((_preIllus.pda.rows||[])[r.yr-1]||{}).eoy||0})) : [],
     clientName: document.getElementById('clientName').value || '',
     advisor: document.getElementById('advisorName').value || '',
     date: new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}),
