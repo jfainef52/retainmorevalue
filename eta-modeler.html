@@ -498,9 +498,71 @@ table.sc-ldg tfoot td.gold-col { color:var(--gold); }
             <span class="rv" id="combinedRateDisplay">—</span>
           </div>
 
+          <div id="fundingBlock">
+          <div class="sep"></div>
+          <div class="stag">Funding Method &amp; Comparison Paths</div>
+          <div class="fg fr">
+            <div class="field"><label class="fl">How the QP dollars move</label>
+              <select id="fundMode" onchange="onFundModeChange()">
+                <option value="lump">One lump-sum distribution (PDA)</option>
+                <option value="annual">Annual distributions straight to premium</option>
+              </select>
+              <div class="hint">Annual: each year's distribution is taxed that year, the tax is financed, and the full distribution is that year's premium. No PDA.</div>
+            </div>
+            <div class="field"><label class="fl">Total QP Balance (optional)</label>
+              <input type="text" id="totalQpBalance" placeholder="defaults to the amount repositioned" oninput="formatCurrency(this);recalcAll()"/>
+              <div class="hint">The client's whole qualified plan. Whatever is not repositioned stays in the QP on the same market returns and is shown beside the policy, so the comparison is whole plan against whole plan.</div>
+            </div>
+          </div>
+          <div id="annualPanel" style="display:none">
+            <div class="chk-row">
+              <input type="checkbox" id="annDelayChk" onchange="recalcAll()"/>
+              <label for="annDelayChk">Hold the premium until the 59½ date when it falls later in the same policy year — the distribution is taken and the premium paid on that date, so no penalty applies (flexible premium)</label>
+            </div>
+            <div class="fg fr">
+              <div class="field"><label class="fl">First Distribution / Policy Start Date</label>
+                <input type="date" id="fundStartDate" oninput="recalcAll()"/>
+                <div class="hint">With the Date of Birth above, each year's age is exact and the 10% penalty applies only to distributions made before age 59½. The number of distributions is the Premium Pay Period below.</div>
+              </div>
+              <div class="field"><label class="fl">Yearly edits</label>
+                <button type="button" onclick="resetAnnualOverrides()" style="background:var(--off);border:1px solid var(--border);border-radius:3px;padding:7px 10px;font-size:11px;cursor:pointer;color:var(--navy)">Reset distributions, rates and penalty flags</button>
+              </div>
+            </div>
+            <div class="fg fr">
+              <div class="field"><label class="fl">Bank-held PDA — % of each distribution held back</label>
+                <input type="number" id="annRetPct" value="50" min="0" max="90" step="5" oninput="recalcAll()"/></div>
+              <div class="field"><label class="fl">PDA retention years</label>
+                <input type="number" id="annRetYears" value="2" min="0" max="5" step="1" oninput="recalcAll()"/></div>
+            </div>
+            <div class="hint" style="margin-bottom:8px">Same pattern as the Enhanced Pension modeler. In the retention years part of each distribution sits in a premium deposit account at the bank, which gives the lender collateral while the policy's cash surrender value is still small; the rest is that year's premium. After that the whole distribution goes into the PDA and a level premium is drawn from it, solved to deplete the PDA. PDA yield and fee are the fields in the PDA section below. Set the percentage to 0 for no retention.</div>
+            <div style="overflow-x:auto">
+              <table class="dst" id="annualScheduleTable">
+                <thead><tr><th>Yr</th><th style="text-align:left">Date · age</th><th style="text-align:right">Distribution ($)</th><th style="text-align:right">Federal %</th><th style="text-align:center">10% penalty</th><th style="text-align:right">Tax + penalty financed</th></tr></thead>
+                <tbody id="annualScheduleBody"></tbody>
+                <tfoot><tr style="font-weight:600;border-top:2px solid var(--border)"><td colspan="2">Total</td><td style="text-align:right" id="an-total-dist">—</td><td></td><td></td><td style="text-align:right" id="an-total-tax">—</td></tr></tfoot>
+              </table>
+            </div>
+            <div class="hint" id="annualSummary" style="margin:8px 0 4px"></div>
+            <div class="hint" id="annualPdaSummary" style="margin:4px 0 4px"></div>
+          </div>
+          <div class="chk-row" style="margin-top:10px">
+            <input type="checkbox" id="rothChk" onchange="onFundModeChange()"/>
+            <label for="rothChk">Add a Roth conversion path — convert the same dollars on the same schedule and compare it with the status quo and the ETA</label>
+          </div>
+          <div id="rothPanel" style="display:none">
+            <div class="fg"><label class="fl">Roth conversion tax is paid from</label>
+              <div class="field"><select id="rothTaxSrc" onchange="recalcAll()">
+                <option value="haircut">The converted dollars (only the after-tax amount reaches the Roth)</option>
+                <option value="outside">Outside funds (the full amount reaches the Roth)</option>
+              </select></div>
+              <div class="hint">Conversions carry no 10% penalty. Outside-funds mode tracks the dollars paid and what they would have grown to, so the cost stays visible.</div>
+            </div>
+          </div>
+          </div>
+
           <div class="sep"></div>
           <div class="stag">PDA — Sinking Fund</div>
-          <div class="fg fr">
+          <div class="fg fr" id="pdaFeeRow">
             <div class="field"><label class="fl">PDA Origination Fee ($)</label><input type="number" id="pdaFee" value="1400" step="100" oninput="recalcAll()"/></div>
             <div class="field"><label class="fl">PDA Yield Rate (%)</label><input type="number" id="pdaRate" value="3.50" step="0.25" oninput="recalcAll()"/></div>
           </div>
@@ -1083,7 +1145,8 @@ function simETAPath(carrierRows, bankRows, pdaRows, annualPrem, payYears,
     const stdChg = carrier.stdCharges||0;
     const surrChg = carrier.surrenderCharge||0;
     // Premium from PDA: paid in years 1..payYears
-    const prem = (yr<=payYears) ? annualPrem : 0;
+    // annualPrem may be a per-year array (annual-distribution funding)
+    const prem = Array.isArray(annualPrem) ? (annualPrem[i]||0) : ((yr<=payYears) ? annualPrem : 0);
 
     // Income: participating loan drawn at PLR
     let income = 0;
@@ -1122,7 +1185,7 @@ function simETAPath(carrierRows, bankRows, pdaRows, annualPrem, payYears,
       //   credits = O * (cappedReturn * BCR + PB)
       //   AV = av + net_prem - stdChg - C + credits
       const premLoad = carrier.premCharges || 0;
-      const netPrem = yr <= payYears ? Math.max(0, prem - premLoad) : prem;
+      const netPrem = prem > 0 ? Math.max(0, prem - premLoad) : 0;
       O = Math.max(0, (av + netPrem - 0.5*stdChg) / (1 + 0.5*bcf));
       bonusChg = O * bcf;
       idx = Math.min(Math.max(ret, FLOOR), CAP);
@@ -1156,7 +1219,7 @@ function solveIncomeFromAV(avSeries, surrSeries, bankRows, annualPrem, payYears,
   const params = CARRIER_PARAMS[carrierKey];
   const plrR = plr/100;
   const cola = colaRate/100;
-  let lo=0, hi=annualPrem*50, best=0;
+  let lo=0, hi=(Array.isArray(annualPrem) ? Math.max(...annualPrem) : annualPrem)*50, best=0;
   for (let iter=0;iter<60;iter++) {
     const mid=(lo+hi)/2;
     let cumIncomeLoan=0, ok=true;
@@ -1722,7 +1785,10 @@ function setSourceMode(mode) {
     ? 'Combined Tax Rate (Liquidity Event)' : (isIQP ? 'Combined Tax Rate (Inherited QP Distribution)' : 'Combined Tax Rate (QP Distribution)');
 
   if (isIQP) updateIQPWindow();
-  recalcAll();
+  // Funding method / Roth / remaining-QP controls apply to the Qualified Plan source only
+  const fb = document.getElementById('fundingBlock');
+  if (fb) fb.style.display = (isNQP || isIQP) ? 'none' : 'block';
+  onFundModeChange();
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1767,7 +1833,9 @@ function recalcAll() {
   const isNQP = _sourceMode === 'nqp';
   // For NQP: user enters tax liability; IUL funding = 2× that
   // For QP: dist is the full distribution amount
-  const dist = isNQP ? taxOrDist * 2 : taxOrDist;
+  const annual = fundIsAnnual();
+  const annualRows = annual ? getAnnualSchedule() : null;
+  const dist = annual ? annualRows.reduce((s,r)=>s+r.dist,0) : (isNQP ? taxOrDist * 2 : taxOrDist);
   const financedTaxAmt = isNQP ? taxOrDist : 0; // displayed in PDA summary for NQP
 
   // Update NQP derived funding display
@@ -1779,11 +1847,17 @@ function recalcAll() {
   const fed = parseFloat(document.getElementById('fedRate').value)||0;
   const state = parseFloat(document.getElementById('stateRate').value)||0;
   const isIQP = _sourceMode === 'iqp';
-  const penalty = (!isNQP && !isIQP && document.getElementById('penaltyChk').checked) ? 10 : 0;
+  const penalty = (!isNQP && !isIQP && !annual && document.getElementById('penaltyChk').checked) ? 10 : 0;
   const combined = fed+state+penalty;
   document.getElementById('combinedRateDisplay').textContent = combined.toFixed(2)+'%';
   document.getElementById('penaltyBadge').style.display = penalty?'inline-block':'none';
-  if (dist>0) {
+  if (annual) {
+    const payYearsA = parseInt(document.getElementById('payYears').value)||1;
+    const planA = dist>0 ? annualPlan(annualRows) : null;
+    document.getElementById('annualPremium').value = planA ? '$'+Math.round(planA.levelPremium).toLocaleString()+' level (Yr '+(planA.retYears+1)+'+)' : '';
+    document.getElementById('pda-summary').style.display = 'none';
+    refreshAnnualTable();
+  } else if (dist>0) {
     const pdaFee = parseFloat(document.getElementById('pdaFee').value)||1400;
     const pdaRate = parseFloat(document.getElementById('pdaRate').value)||3.5;
     const payYears = parseInt(document.getElementById('payYears').value)||7;
@@ -1968,6 +2042,424 @@ function getFinancingSchedule() {
 }
 
 // ══════════════════════════════════════════════════════════
+// WHOLE-PLAN ENGINE — scheduled QP distributions, remaining QP,
+// Roth conversion, and the three-path comparison.
+// Pure functions (no DOM) so they can be tested on their own.
+// ══════════════════════════════════════════════════════════
+
+// Parses a yyyy-mm-dd string into {y, m(0-based), d}, or null.
+function _ymd(str) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(str||'');
+  return m ? {y:+m[1], m:+m[2]-1, d:+m[3]} : null;
+}
+
+// Age at the k-th annual distribution (k = 1 for the first). With a date of
+// birth AND a first-distribution date the age is exact, and the 10% penalty
+// test is against the actual 59½ date (six months after the 59th birthday).
+// Without both, falls back to Issue Age + k − 1 (integer), which treats a
+// distribution in the year the client turns 59 as penalized.
+function distributionAge(dobStr, startStr, k, issueAge) {
+  const dob = _ymd(dobStr), st = _ymd(startStr);
+  if (dob && st) {
+    const distMs = Date.UTC(st.y + k - 1, st.m, st.d);
+    const dobMs  = Date.UTC(dob.y, dob.m, dob.d);
+    const turns595 = Date.UTC(dob.y, dob.m + 714, dob.d); // 59 years 6 months
+    const nextMs = Date.UTC(st.y + k, st.m, st.d); // start of the following policy year
+    return {age:(distMs - dobMs)/(365.2425*86400000), exact:true,
+            under595: distMs < turns595, dateStr:new Date(distMs).toISOString().slice(0,10),
+            reliefMs: turns595, reliefStr:new Date(turns595).toISOString().slice(0,10),
+            // true when the 59½ date still falls inside this policy year, so the premium can be
+            // held until then and paid late in the same year (flexible premium)
+            canHold: turns595 > distMs && turns595 < nextMs,
+            ageAt: ms => (ms - dobMs)/(365.2425*86400000)};
+  }
+  if (isNaN(issueAge)) return {age:NaN, exact:false, under595:false, dateStr:''};
+  const age = issueAge + k - 1;
+  return {age, exact:false, under595: age < 59.5, dateStr:''};
+}
+
+// Remaining qualified plan. Scheduled distributions leave at the START of each
+// listed year (capped at what is left), the remainder earns that year's return,
+// and income / RMDs come out at year end — the same convention as simQP.
+// A level, COLA-adjusted gross withdrawal is solved so the account reaches $0
+// at incEnd. With an empty schedule this is the status-quo comparator.
+function simQPSchedule(startBal, schedByYr, issueAge, incStart, incEnd, colaRate, returns, rmdAge, baseRate, earlyRate) {
+  const cola = colaRate/100, nYrs = returns.length;
+  const taxR = age => (age < 59.5 ? earlyRate : baseRate)/100;
+  function walk(W, keep) {
+    let bal = startBal, residual = 0;
+    const rows = keep ? [] : null;
+    for (let i=0; i<nYrs; i++) {
+      const yr=i+1, age=issueAge+i, ret=returns[i]||0;
+      let out=0, short=0, gross=0, isRmd=false;
+      const s = schedByYr[yr];
+      if (s && s.dist>0) { out = Math.min(s.dist, bal); short = s.dist - out; bal -= out; }
+      if (age > incEnd) { bal = 0; }
+      else {
+        bal = bal*(1+ret);
+        if (age >= incStart) {
+          gross = Math.min(W*Math.pow(1+cola, age-incStart), bal);
+          if (rmdAge && age >= rmdAge) gross = Math.max(gross, Math.min(bal/rmdDivisor(age), bal));
+        } else if (rmdAge && age >= rmdAge) {
+          gross = bal/rmdDivisor(age); isRmd = true;
+        }
+        bal = Math.max(0, bal - gross);
+        if (age === incEnd) residual = bal;
+      }
+      if (keep) {
+        const tax = gross*taxR(age);
+        rows.push({yr, age, ret, out, short, gross, tax, net:gross-tax, bal, isRmd});
+      }
+    }
+    return {residual, rows};
+  }
+  let lo=0, hi=Math.max(1, startBal*3);
+  for (let it=0; it<60; it++) {
+    const mid=(lo+hi)/2;
+    if (walk(mid,false).residual > 0.5) lo=mid; else hi=mid;
+  }
+  const res = walk(lo, true);
+  return {rows:res.rows, grossW:lo, netW:lo*(1-taxR(incStart)), residual:res.residual};
+}
+
+// True when the remaining QP cannot fund a scheduled distribution on this path.
+function qpScheduleShortfall(startBal, schedByYr, returns) {
+  const yrs = Object.keys(schedByYr).map(Number);
+  if (!yrs.length) return false;
+  const maxYr = Math.max(...yrs);
+  let bal = startBal;
+  for (let i=0; i<maxYr && i<returns.length; i++) {
+    const s = schedByYr[i+1];
+    if (s && s.dist>0) { if (s.dist > bal + 0.5) return true; bal -= s.dist; }
+    bal *= (1+(returns[i]||0));
+  }
+  return false;
+}
+
+// Roth conversion path. `outs[i]` is the dollars converted at the start of
+// year i+1 (the same dollars that leave the QP), `rates[i]` the federal+state
+// rate on that conversion (never the 10% penalty — conversions are exempt).
+// taxFromProceeds=true: tax comes out of the converted dollars (the "haircut").
+// false: tax is paid from outside funds and the Roth receives the full amount;
+// the outside dollars are tracked and compounded at the same returns so the
+// cost isn't hidden. Roth income is solved level + COLA to deplete at incEnd,
+// and is tax-free.
+function simRoth(outs, rates, taxFromProceeds, issueAge, incStart, incEnd, colaRate, returns) {
+  const cola = colaRate/100, nYrs = returns.length;
+  function walk(W, keep) {
+    let bal = 0, finalBal = 0;
+    const rows = keep ? [] : null;
+    for (let i=0; i<nYrs; i++) {
+      const yr=i+1, age=issueAge+i, ret=returns[i]||0;
+      const conv = outs[i]||0, taxDue = conv*(rates[i]||0)/100;
+      const deposit = taxFromProceeds ? conv - taxDue : conv;
+      let wd = 0;
+      if (age > incEnd) { bal = 0; }
+      else {
+        bal = (bal + deposit)*(1+ret);
+        if (age >= incStart) { wd = Math.min(W*Math.pow(1+cola, age-incStart), bal); bal -= wd; }
+        if (age === incEnd) finalBal = bal;
+      }
+      if (keep) rows.push({yr, age, ret, conv, taxDue, taxOutside: taxFromProceeds?0:taxDue, deposit, wd, bal});
+    }
+    return {finalBal, rows};
+  }
+  const totalDeposit = outs.reduce((s,x,i)=>s + (x||0), 0);
+  let lo=0, hi=Math.max(1, totalDeposit*5);
+  for (let it=0; it<60; it++) {
+    const mid=(lo+hi)/2;
+    if (walk(mid,false).finalBal > 0.5) lo=mid; else hi=mid;
+  }
+  const res = walk(lo, true);
+  const ieIdx = Math.min(nYrs-1, incEnd-issueAge);
+  let outsideTax=0, outsideFV=0, convTax=0;
+  res.rows.forEach((r,i)=>{
+    convTax += r.taxDue;
+    if (r.taxOutside>0) {
+      outsideTax += r.taxOutside;
+      let g=1; for (let t=i; t<=ieIdx; t++) g *= (1+(returns[t]||0));
+      outsideFV += r.taxOutside*g;
+    }
+  });
+  return {rows:res.rows, W:lo, convTax, outsideTax, outsideFV};
+}
+
+// All three whole-plan paths on ONE return sequence.
+//   sq   — leave the entire QP alone (status quo)
+//   rem  — the QP that stays behind after the scheduled distributions (ETA side)
+//   roth — the Roth account built from the same distributions, if enabled
+function computeThreePath(d, rets) {
+  const sched = {};
+  d.fundSchedule.forEach(r => { sched[r.yr] = {dist:r.dist}; });
+  const base = d.fed + d.state;
+  const sq  = simQPSchedule(d.totalQp, {},    d.age, d.is, d.ie, d.cola, rets, d.rmdAge, base, d.combined);
+  const rem = simQPSchedule(d.totalQp, sched, d.age, d.is, d.ie, d.cola, rets, d.rmdAge, base, d.combined);
+  let roth = null;
+  if (d.rothOn) {
+    const outs  = rem.rows.map(r => r.out);
+    const rates = rem.rows.map((r,i) => { const f = d.fundSchedule.find(x => x.yr===i+1); return f ? f.fedPct + f.state : 0; });
+    roth = simRoth(outs, rates, d.rothTaxSrc==='haircut', d.age, d.is, d.ie, d.cola, rets);
+  }
+  return {sq, rem, roth};
+}
+
+// Summary figures for one percentile path — used by the page and the saved data.
+function tpMetrics(d, p, tp, etaPct, bandIncome, policyTotal) {
+  const sum = (rows, f) => rows.reduce((s,r)=>s+(f(r)||0), 0);
+  const sq = tp.sq.rows, rem = tp.rem.rows;
+  const m = {};
+  m.sqNet = sum(sq, r=>r.net); m.sqGross = sum(sq, r=>r.gross); m.sqTax = m.sqGross - m.sqNet;
+  m.sqYr1 = (sq.find(r=>r.age===d.is)||{}).net || 0;
+  m.remNet = sum(rem, r=>r.net); m.remGross = sum(rem, r=>r.gross); m.remTax = m.remGross - m.remNet;
+  m.remYr1 = (rem.find(r=>r.age===d.is)||{}).net || 0;
+  m.remOut = sum(rem, r=>r.out); m.remShort = sum(rem, r=>r.short);
+  const lastFundYr = Math.max(...d.fundSchedule.map(r=>r.yr));
+  m.remBalEndFunding = (rem[lastFundYr-1]||{}).bal || 0;
+  let fundTax=0, fundPen=0, convTax=0;
+  d.fundSchedule.forEach(f => {
+    const out = (rem[f.yr-1]||{}).out || 0;
+    fundTax += out*f.rate/100;
+    if (f.pen) fundPen += out*0.10;
+    convTax += out*(f.fedPct+f.state)/100;
+  });
+  m.fundTax = fundTax; m.fundPen = fundPen;
+  m.policyYr1 = bandIncome[p]; m.policyTotal = policyTotal;
+  m.etaNet = policyTotal + m.remNet;
+  m.etaTaxTotal = fundTax + m.remTax;
+  m.nav = (etaPct[d.ie] && etaPct[d.ie][p] ? etaPct[d.ie][p].csvNet : 0) || 0;
+  m.sqTaxTotal = m.sqTax;
+  if (tp.roth) {
+    m.rothInc = sum(tp.roth.rows, r=>r.wd);
+    m.rothYr1 = (tp.roth.rows.find(r=>r.age===d.is)||{}).wd || 0;
+    m.rothConvTax = tp.roth.convTax;
+    m.rothOutsideTax = tp.roth.outsideTax; m.rothOutsideFV = tp.roth.outsideFV;
+    m.rothNet = m.rothInc + m.remNet;
+    m.rothTaxTotal = convTax + m.remTax;
+    m.rothAtFundEnd = (tp.roth.rows[lastFundYr-1]||{}).bal || 0;
+  }
+  return m;
+}
+
+// Applies the "hold the premium until 59½" option to one distribution. Only a
+// distribution whose 59½ date falls inside the same policy year can be held —
+// the premium is then paid late in that year and the penalty never applies.
+function holdUntil595(a) {
+  if (!a || !a.exact || !a.under595 || !a.canHold) return {held:false, dateStr:a?a.dateStr:'', age:a?a.age:NaN, heldFrom:''};
+  return {held:true, dateStr:a.reliefStr, age:a.ageAt(a.reliefMs), heldFrom:a.dateStr};
+}
+
+// Bank-held premium deposit account for ANNUAL distributions — the Enhanced Pension funding pattern.
+// Years 1..retYears: retPct of each distribution is held back in the PDA (collateral for the bank loan
+// while the policy's cash surrender value is still small); the rest of that year's distribution is the
+// premium, with the PDA / loan fee taken from the Year-1 premium share. Later years: the whole
+// distribution goes into the PDA and a LEVEL premium is drawn from it, solved so the PDA reaches ~$0 at
+// the end of the premium years. PDA interest is ordinary income, taxed each year at pdaTaxPct (federal +
+// state only — never the 10% penalty). Lump-sum funding does not use this.
+function buildAnnualPDA(dists, pdaRatePct, pdaTaxPct, retYears, retPct, fee, minPremYears) {
+  const n = dists.length;
+  const premYears = Math.max(n, minPremYears || 0);
+  retYears = Math.max(0, Math.min(Math.round(retYears||0), premYears - 1)); // keep at least one level-premium year
+  retPct = Math.max(0, Math.min(retPct||0, 100));
+  function simulate(L) {
+    let bal = 0; const rows = [];
+    for (let yr=1; yr<=premYears; yr++) {
+      const boy = bal, d = yr<=n ? dists[yr-1] : 0;
+      let premium = 0, toPda = 0, fees = 0;
+      if (yr <= retYears) {
+        toPda = d*retPct/100; fees = yr===1 ? (fee||0) : 0;
+        premium = Math.max(0, d - toPda - fees);
+        bal += toPda;
+      } else {
+        fees = yr===1 ? (fee||0) : 0;           // no retention years: the fee comes off the deposit
+        toPda = d - fees; bal += toPda;
+      }
+      const interest = bal*(pdaRatePct/100), taxOnInt = interest*(pdaTaxPct/100), netInt = interest - taxOnInt;
+      bal += netInt;
+      if (yr > retYears) { premium = L; bal -= premium; }
+      rows.push({yr, boy, dist:d, toPda, fees, interest, taxOnInt, netInt, prem:premium, eoy:bal});
+    }
+    return {finalBal:bal, rows};
+  }
+  const totalIn = dists.reduce((s,x)=>s+x, 0);
+  let lo = 0, hi = Math.max(1, totalIn), guard = 0;
+  while (simulate(hi).finalBal > 0 && guard < 60) { hi *= 1.5; guard++; }
+  for (let it=0; it<60; it++) { const mid=(lo+hi)/2; if (simulate(mid).finalBal > 0) lo = mid; else hi = mid; }
+  const levelPremium = (lo+hi)/2;
+  const rows = simulate(levelPremium).rows.map(r => ({...r, eoy: Math.max(0, r.eoy)}));
+  const totalPrem = rows.reduce((s,r) => s + r.prem, 0);
+  return {levelPremium, premYears, retYears, retPct, rows, totalPrem, pdaPeak: Math.max(...rows.map(r=>r.eoy))};
+}
+
+// ══════════════════════════════════════════════════════════
+// FUNDING METHOD — annual QP distributions straight to premium
+// Each year's distribution is its own taxable event: the tax (and the 10%
+// penalty while the account holder is under 59½) is financed by the bank that
+// year, and the whole distribution goes into the policy as that year's premium.
+// Per-year federal rate and penalty can be edited, so a lower bracket in a
+// staggered year shows up in the numbers instead of being assumed.
+// ══════════════════════════════════════════════════════════
+let _annualOv = {}; // {yr: {dist, fed, pen}} — only values the advisor changed
+
+function fundIsAnnual() {
+  const el = document.getElementById('fundMode');
+  return _sourceMode === 'qp' && !!el && el.value === 'annual';
+}
+
+function getAnnualSchedule(useOverrides = true) {
+  const N = Math.max(1, parseInt(document.getElementById('payYears').value)||1);
+  const total = parseNum('distribution');
+  const fed0 = parseFloat(document.getElementById('fedRate').value)||0;
+  const state = parseFloat(document.getElementById('stateRate').value)||0;
+  const dob = document.getElementById('dob').value;
+  const start = document.getElementById('fundStartDate').value;
+  const issueAge = parseInt(document.getElementById('issueAge').value);
+  const even = total / N;
+  const holdChk = document.getElementById('annDelayChk');
+  const holdDelay = !!(holdChk && holdChk.checked);
+  const rows = [];
+  for (let k=1; k<=N; k++) {
+    const ov = useOverrides ? (_annualOv[k] || {}) : {};
+    const a = distributionAge(dob, start, k, issueAge);
+    const h = holdDelay ? holdUntil595(a) : {held:false, dateStr:a.dateStr, age:a.age, heldFrom:''};
+    const autoPen = a.under595 && !h.held;
+    const dist = (ov.dist != null) ? ov.dist : even;
+    const fedPct = (ov.fed != null) ? ov.fed : fed0;
+    const pen = (ov.pen != null) ? ov.pen : autoPen;
+    const rate = fedPct + state + (pen ? 10 : 0);
+    const tax = dist*rate/100;
+    rows.push({yr:k, dist, fedPct, state, pen, autoPen, rate, tax, loan:tax,
+               age:h.age, exact:a.exact, dateStr:h.dateStr, delayed:h.held, delayedFrom:h.heldFrom,
+               holdBlocked: holdDelay && a.under595 && !h.held});
+  }
+  return rows;
+}
+
+// The bank-held PDA plan for the current schedule (annual mode only)
+function annualPlan(rows) {
+  rows = rows || getAnnualSchedule();
+  const fed  = parseFloat(document.getElementById('fedRate').value)||0;
+  const st   = parseFloat(document.getElementById('stateRate').value)||0;
+  const rate = parseFloat(document.getElementById('pdaRate').value);
+  const fee  = parseFloat(document.getElementById('pdaFee').value);
+  const retY = parseInt(document.getElementById('annRetYears').value);
+  const retP = parseFloat(document.getElementById('annRetPct').value);
+  return buildAnnualPDA(rows.map(r => r.dist), isNaN(rate) ? 3.5 : rate, fed + st,
+                        isNaN(retY) ? 2 : retY, isNaN(retP) ? 50 : retP, isNaN(fee) ? 1400 : fee, 7);
+}
+
+const _anInp = "background:var(--off);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:11.5px;padding:5px 7px;text-align:right";
+
+function rebuildAnnualTable() {
+  const body = document.getElementById('annualScheduleBody');
+  if (!body) return;
+  const rows = getAnnualSchedule();
+  body.innerHTML = rows.map(r => `<tr>
+    <td>${r.yr}</td>
+    <td style="text-align:left" id="an-when-${r.yr}">—</td>
+    <td style="text-align:right"><input type="text" id="an-dist-${r.yr}" value="$${Math.round(r.dist).toLocaleString()}" style="width:110px;${_anInp}" oninput="formatCurrency(this);onAnnualEdit(${r.yr})"/></td>
+    <td style="text-align:right"><input type="number" step="0.25" id="an-fed-${r.yr}" value="${r.fedPct}" style="width:68px;${_anInp}" oninput="onAnnualEdit(${r.yr})"/></td>
+    <td style="text-align:center"><input type="checkbox" id="an-pen-${r.yr}" ${r.pen?'checked':''} onchange="onAnnualEdit(${r.yr})"/></td>
+    <td style="text-align:right" id="an-tax-${r.yr}">—</td>
+  </tr>`).join('');
+  updateAnnualTable();
+}
+
+function onAnnualEdit(k) {
+  const def = getAnnualSchedule(false)[k-1];
+  if (!def) return;
+  const ov = _annualOv[k] || (_annualOv[k] = {});
+  const dist = parseNum('an-dist-'+k);
+  const fed = parseFloat(document.getElementById('an-fed-'+k).value);
+  const pen = document.getElementById('an-pen-'+k).checked;
+  ov.dist = (Math.abs(dist - def.dist) > 0.5) ? dist : null;
+  ov.fed  = (!isNaN(fed) && Math.abs(fed - def.fedPct) > 0.001) ? fed : null;
+  ov.pen  = (pen !== def.autoPen) ? pen : null;
+  recalcAll();
+}
+
+function resetAnnualOverrides() {
+  _annualOv = {};
+  rebuildAnnualTable();
+  recalcAll();
+}
+
+function updateAnnualTable() {
+  const rows = getAnnualSchedule();
+  let totDist=0, totTax=0, totPen=0, penYrs=0, firstFree=null;
+  rows.forEach(r => {
+    const when = document.getElementById('an-when-'+r.yr);
+    if (when) when.textContent = r.exact ? `${r.dateStr} · age ${r.age.toFixed(1)}${r.delayed ? ' (held from '+r.delayedFrom+')' : ''}` : (isNaN(r.age) ? '—' : `Age ${r.age} (issue-age basis)`);
+    const tx = document.getElementById('an-tax-'+r.yr);
+    if (tx) tx.textContent = r.dist>0 ? '$'+Math.round(r.tax).toLocaleString()+(r.pen ? ' *' : '') : '—';
+    const pc = document.getElementById('an-pen-'+r.yr);
+    if (pc && document.activeElement !== pc) pc.checked = r.pen;
+    totDist += r.dist; totTax += r.tax;
+    if (r.pen) { totPen += r.dist*0.10; penYrs++; } else if (firstFree===null) firstFree = r;
+  });
+  const heldRows = rows.filter(r => r.delayed), blocked = rows.filter(r => r.holdBlocked);
+  const byYear = {};
+  rows.forEach(r => { if (r.exact && r.dist>0) { const y = r.dateStr.slice(0,4); (byYear[y] = byYear[y] || [0,0]); byYear[y][0]++; byYear[y][1] += r.dist; } });
+  const bunched = Object.keys(byYear).filter(y => byYear[y][0] > 1).map(y => [y, byYear[y][0], byYear[y][1]]);
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  set('an-total-dist', '$'+Math.round(totDist).toLocaleString());
+  set('an-total-tax',  '$'+Math.round(totTax).toLocaleString());
+  const pdaSum = document.getElementById('annualPdaSummary');
+  if (pdaSum) {
+    if (totDist > 0) {
+      const pl = annualPlan(rows), f$ = n => '$'+Math.round(n).toLocaleString();
+      const early = pl.rows.slice(0, pl.retYears);
+      pdaSum.innerHTML = pl.retYears > 0
+        ? `<strong>Bank-held PDA:</strong> ${pl.retPct}% of each distribution is held back in years 1–${pl.retYears} (peak PDA ${f$(pl.pdaPeak)}), which stands behind the loan while the cash surrender value is small. ` +
+          `Premium years 1–${pl.retYears}: ${early.map(r=>f$(r.prem)).join(' / ')}; years ${pl.retYears+1}–${pl.premYears}: <strong>${f$(pl.levelPremium)} level</strong>, drawn from the PDA so it reaches $0. ` +
+          `Total premium ${f$(pl.totalPrem)} (the distributions plus the PDA's after-tax interest) — check it against the MEC limit.`
+        : `No PDA retention: the whole distribution goes into the PDA each year and a ${f$(pl.levelPremium)} level premium is drawn from it from year 1. Total premium ${f$(pl.totalPrem)}.`;
+    } else pdaSum.innerHTML = '';
+  }
+  const sum = document.getElementById('annualSummary');
+  if (sum) {
+    const n = rows.length;
+    sum.innerHTML = totDist>0
+      ? `<strong>${n} annual distributions totaling $${Math.round(totDist).toLocaleString()}</strong> — tax and penalty financed: <strong>$${Math.round(totTax).toLocaleString()}</strong>. ` +
+        (penYrs ? `<span style="color:var(--red)">${penYrs} of ${n} distributions fall before 59½ (10% penalty $${Math.round(totPen).toLocaleString()}).</span>` : `No distribution falls before 59½.`) +
+        (penYrs && firstFree ? ` First penalty-free distribution: year ${firstFree.yr}${firstFree.dateStr ? ' ('+firstFree.dateStr+')' : ''}.` : '') +
+        (rows.some(r=>r.exact) ? '' : ` Enter the date of birth and a first-distribution date for exact 59½ timing.`) +
+        (heldRows.length ? ` <strong>Held to the 59½ date:</strong> year${heldRows.length>1?'s':''} ${heldRows.map(r=>r.yr+' ('+r.delayedFrom+' → '+r.dateStr+')').join(', ')} — premium paid late in that policy year, no penalty.` : '') +
+        (blocked.length ? ` <span style="color:var(--red)">Year${blocked.length>1?'s':''} ${blocked.map(r=>r.yr).join(', ')} can't be held: the 59½ date falls after that policy year ends, so the penalty stays.</span>` : '') +
+        (bunched.length ? ` <span style="color:var(--red)">Same tax year: ${bunched.map(b=>b[0]+' carries '+b[1]+' distributions ($'+Math.round(b[2]).toLocaleString()+')').join('; ')} — check the federal % for that year.</span>` : '')
+      : '';
+  }
+}
+
+function refreshAnnualTable() {
+  const panel = document.getElementById('annualPanel');
+  if (!panel) return;
+  if (panel.contains(document.activeElement) && document.activeElement.tagName === 'INPUT'
+      && document.getElementById('annualScheduleBody').children.length === getAnnualSchedule().length) {
+    updateAnnualTable();
+  } else {
+    rebuildAnnualTable();
+  }
+}
+
+function onFundModeChange() {
+  const annual = fundIsAnnual();
+  const isQP = _sourceMode === 'qp';
+  const show = (id, on, disp='block') => { const el = document.getElementById(id); if (el) el.style.display = on ? disp : 'none'; };
+  show('annualPanel', annual);
+  show('pdaFeeRow', true, '');   // PDA yield and fee apply in both funding methods
+  if (annual) show('pda-summary', false);
+  show('penaltyRow', isQP && !annual, 'flex');
+  if (annual) document.getElementById('penaltyChk').checked = false;
+  const lo = document.getElementById('loanOverrideChk');
+  if (lo) { if (annual) { lo.checked = false; } lo.disabled = annual; }
+  const dl = document.getElementById('distLabel');
+  if (dl && isQP) dl.textContent = annual ? 'Total QP Amount to Reposition' : 'QP Balance / Distribution Amount';
+  show('rothPanel', document.getElementById('rothChk').checked);
+  recalcAll();
+  rebuildPayoffDropdown();
+}
+
+// ══════════════════════════════════════════════════════════
 // STEP 1: CALCULATE → Build Step 2 panel
 // ══════════════════════════════════════════════════════════
 function calculate() {
@@ -2018,14 +2510,17 @@ function calculate() {
   const taxOrDist = parseNum('distribution');
   // NQP: user enters tax liability; IUL funding = 2× tax
   // QP / IQP: dist is the full distribution (inherited balance, for IQP)
-  const dist = isNQP ? taxOrDist * 2 : taxOrDist;
+  const annualMode = !isNQP && !isIQP && fundIsAnnual();
+  const annualSchedule = annualMode ? getAnnualSchedule() : null;
+  const dist = annualMode ? annualSchedule.reduce((s,r)=>s+r.dist,0) : (isNQP ? taxOrDist * 2 : taxOrDist);
   const taxLiability = isNQP ? taxOrDist : 0; // used for comparator seeding
 
   const fed = parseFloat(document.getElementById('fedRate').value)||0;
   const state = parseFloat(document.getElementById('stateRate').value)||0;
   // No 10% early-withdrawal penalty ever applies to inherited plan
   // distributions, regardless of the beneficiary's own age.
-  const penalty = (!isNQP && !isIQP && document.getElementById('penaltyChk').checked) ? 10 : 0;
+  // (Annual-distribution funding sets the penalty year by year instead.)
+  const penalty = (!isNQP && !isIQP && !annualMode && document.getElementById('penaltyChk').checked) ? 10 : 0;
   const combined = fed+state+penalty;
   const pdaFee = parseFloat(document.getElementById('pdaFee').value)||1400;
   const pdaRate = parseFloat(document.getElementById('pdaRate').value)||3.5;
@@ -2099,12 +2594,17 @@ function calculate() {
     if (p2ie <= p2is) return alert('Phase 2 End Age (Insured) must be after Phase 2 Start Age (Insured).');
   }
 
-  const {pdaNet, afterTaxRate, annualPrem, totalPrem, rows: pdaRows, pdaTaxRate} =
-    calcPDA(dist, fed, state, pdaFee, pdaRate, payYears);
+  // Annual distributions use the bank-held PDA pattern from the Enhanced Pension modeler; lump sum is unchanged.
+  const annualPlanObj = annualMode ? annualPlan(annualSchedule) : null;
+  if (annualMode && payYears < 7) return alert('Annual distributions need at least 7 pay years (the premium schedule runs at least 7 years).');
+  const {pdaNet, afterTaxRate, annualPrem, totalPrem, rows: pdaRows, pdaTaxRate} = annualMode
+    ? {pdaNet:dist, afterTaxRate:(1-(fed+state)/100)*pdaRate/100, annualPrem:annualPlanObj.levelPremium, totalPrem:annualPlanObj.totalPrem, pdaTaxRate:(fed+state)/100,
+       rows: annualPlanObj.rows.map(r => ({yr:r.yr, boy:r.boy, interest:r.interest, taxOnInt:r.taxOnInt, netInt:r.netInt, prem:r.prem, eoy:r.eoy, toPda:r.toPda, fees:r.fees, dist:r.dist}))}
+    : calcPDA(dist, fed, state, pdaFee, pdaRate, payYears);
 
   // Projected tax obligation (always computed, independent of any override).
   // For NQP: taxLiability (user-entered). For QP: dist × combinedRate.
-  const taxObligation = isNQP ? taxLiability : dist*(combined/100);
+  const taxObligation = isNQP ? taxLiability : (annualMode ? annualSchedule.reduce((s,r)=>s+r.tax,0) : dist*(combined/100));
 
   // Year-1 loan principal: defaults to the tax obligation, but can be
   // overridden (up to Max LTV × dist) to draw excess liquidity from the bank
@@ -2115,7 +2615,16 @@ function calculate() {
   let loanOverrideActive = false, loanLTVPct = 0, maxLoanLTV = 0, excessLiquidity = 0;
   let multiYearActive = false, financingSchedule = [];
   const loanOverrideChk = document.getElementById('loanOverrideChk').checked;
-  if (loanOverrideChk) {
+  if (annualMode) {
+    // Each year's tax (and penalty, while under 59½) is financed that year.
+    const badYr = annualSchedule.find(r => r.yr >= payoffYear);
+    if (badYr) return alert(`Distribution year ${badYr.yr} is at or after the Bank Loan Payoff Year (${payoffYear}). Every financed distribution must occur before payoff.`);
+    multiYearActive = true;
+    financingSchedule = annualSchedule.filter(r => r.dist > 0).map(r => ({yr:r.yr, dist:r.dist, tax:r.tax, loan:r.tax}));
+    financedTax = financingSchedule.find(r=>r.yr===1)?.loan || 0;
+    loanOverrideActive = true;
+    excessLiquidity = 0;
+  } else if (loanOverrideChk) {
     multiYearActive = document.getElementById('multiYearChk').checked;
     if (multiYearActive) {
       financingSchedule = getFinancingSchedule();
@@ -2141,7 +2650,18 @@ function calculate() {
   const {rows: bankRows, totalDraws} = buildBankLoan(dist, combined, sofrRate, sofrSpread, payoffYear, plr, age, 100, financedTax, yearlyDraws);
   const payoffBalance = bankRows[payoffYear-1]?.prevLoan || financedTax;
 
-  _prog = {name, age, dob, rmdAge, dist, taxLiability, isNQP, isIQP, iqpDivisorFn, iqpWindowEnd, iqpLumpDefer,
+  // Whole-plan comparison inputs
+  const premArr = annualMode ? annualPlanObj.rows.map(r => r.prem) : null;
+  const totalQpIn = parseNum('totalQpBalance');
+  const totalQp = (!isNQP && !isIQP && totalQpIn > 0) ? totalQpIn : dist;
+  if (totalQp < dist - 0.5) return alert('Total QP Balance can\'t be less than the amount being repositioned (' + $f(dist) + ').');
+  const rothOn = !isNQP && !isIQP && document.getElementById('rothChk').checked;
+  const rothTaxSrc = document.getElementById('rothTaxSrc').value;
+  const fundSchedule = annualMode ? annualSchedule
+    : [{yr:1, dist, fedPct:fed, state, pen:penalty>0, autoPen:penalty>0, rate:combined, tax:dist*combined/100, loan:dist*combined/100, age, exact:false, dateStr:''}];
+  const threePathOn = !isNQP && !isIQP && (annualMode || totalQp > dist + 0.5 || rothOn);
+
+  _prog = {name, age, dob, rmdAge, annualMode, annualSchedule, annualPlan: annualPlanObj, premArr, totalQp, rothOn, rothTaxSrc, fundSchedule, threePathOn, dist, taxLiability, isNQP, isIQP, iqpDivisorFn, iqpWindowEnd, iqpLumpDefer,
            iqpInfo: iqpWindow ? {yearOfDeath:iqpWindow.yearOfDeath, ageAtDeath:iqpWindow.ageAtDeath,
              reachedRBD:iqpWindow.reachedRBD, decedentRmdAge:iqpWindow.decedentRmdAge,
              windowStartYear:iqpWindow.windowStartYear, windowEndYear:iqpWindow.windowEndYear,
@@ -2168,6 +2688,43 @@ function calculate() {
 
   // Carrier name
   const carrierName = carrierKey==='NLG'?'National Life Group — Summit Pref+':'Pacific Life — ECV Pref+';
+
+  // Funding section of Step 2 — PDA schedule (lump sum) or annual distribution schedule with bank-held PDA
+  const fundingSectionHTML = annualMode ? `
+        <div style="margin-bottom:16px">
+          <div class="stag" style="margin-bottom:10px">Annual Distribution Schedule — ${annualSchedule.length} Years, ${annualPlanObj.retYears>0 ? annualPlanObj.retPct+'% Held at the Bank in a PDA in Years 1–'+annualPlanObj.retYears : 'Level Premium Drawn From the PDA'}</div>
+          <div style="overflow-x:auto">
+            <table class="dst">
+              <thead><tr><th>Yr</th><th>Age</th><th style="text-align:left">Date · exact age</th><th style="text-align:right">Distribution</th><th style="text-align:right">Fed %</th><th style="text-align:right">Penalty</th><th style="text-align:right">Tax + Penalty Financed</th><th style="text-align:right">Into PDA</th><th style="text-align:right">Premium to Policy</th><th style="text-align:right">EOY PDA</th></tr></thead>
+              <tbody>${annualPlanObj.rows.map(pr => { const r = annualSchedule[pr.yr-1] || {dist:0,fedPct:0,pen:false,tax:0,exact:false}; return `<tr><td>${pr.yr}</td><td>${age+pr.yr-1}</td><td style="text-align:left">${r.exact ? r.dateStr+' · '+r.age.toFixed(1)+(r.delayed ? ' (held from '+r.delayedFrom+')' : '') : '—'}</td><td style="text-align:right">${$f(r.dist)}</td><td style="text-align:right">${r.fedPct!=null?r.fedPct.toFixed(2)+'%':'—'}</td><td style="text-align:right">${r.pen ? '<b style="color:#8b2020">Yes</b>' : 'No'}</td><td style="text-align:right">${$f(r.tax)}</td><td style="text-align:right">${$f(pr.toPda)}</td><td style="text-align:right">${$f(pr.prem)}</td><td style="text-align:right">${$f(pr.eoy)}</td></tr>`; }).join('')}</tbody>
+              <tfoot><tr><td colspan="3" style="text-align:left">Total</td><td style="text-align:right">${$f(dist)}</td><td></td><td></td><td style="text-align:right">${$f(taxObligation)}</td><td></td><td style="text-align:right">${$f(totalPrem)}</td><td>$0 depleted</td></tr></tfoot>
+            </table>
+          </div>
+          <div style="font-size:10px;color:var(--muted);margin-top:6px">
+            ${annualPlanObj.retYears>0 ? `Years 1–${annualPlanObj.retYears}: ${annualPlanObj.retPct}% of each distribution stays in the bank-held PDA (peak ${$f(annualPlanObj.pdaPeak)}) as collateral for the loan while the cash surrender value is small. ` : ''}Premium is ${annualPlanObj.retYears>0 ? 'half the distribution early, then ' : ''}<b>${$f(annualPlanObj.levelPremium)} level</b> from year ${annualPlanObj.retYears+1}. PDA yield ${pdaRate.toFixed(2)}%, interest taxed at ${(fed+state).toFixed(2)}%. Run the carrier illustration with this exact premium schedule and check the total against the MEC limit. ${totalQp > dist + 0.5 ? `The remaining ${$f(totalQp - dist)} of the ${$f(totalQp)} plan stays invested and is carried on the whole-plan comparison page.` : ''}
+          </div>
+        </div>` : `
+        <div style="margin-bottom:16px">
+          <div class="stag" style="margin-bottom:10px">PDA Funding Schedule — ${payYears}-Year Premium Spread</div>
+          <div style="overflow-x:auto">
+            <table class="dst">
+              <thead><tr>
+                <th>Yr</th><th>Age</th><th style="text-align:right">BOY PDA</th>
+                <th style="text-align:right">Gross Int</th><th style="text-align:right">Tax on Int</th>
+                <th style="text-align:right">Net Int</th><th style="text-align:right">Premium Paid</th>
+                <th style="text-align:right">EOY PDA</th>
+              </tr></thead>
+              <tbody>${pdaTableRows}</tbody>
+              <tfoot><tr>
+                <td colspan="6" style="text-align:left">Total premiums into policy</td>
+                <td style="text-align:right">${$f(totalPrem)}</td><td>$0 depleted</td>
+              </tr></tfoot>
+            </table>
+          </div>
+          <div style="font-size:10px;color:var(--muted);margin-top:6px">
+            PDA net deposit ${$f(pdaNet)} · yield ${pdaRate.toFixed(2)}% · after-tax rate ${(afterTaxRate*100).toFixed(3)}% (${(pdaTaxRate*100).toFixed(2)}% ordinary income tax on interest${isNQP ? '' : ', no QP penalty'}) · annuity-depletes over ${payYears} years
+          </div>
+        </div>`;
 
   const step2HTML=`
     <div class="card anim">
@@ -2233,27 +2790,7 @@ function calculate() {
           </div>
         </div>
 
-        <div style="margin-bottom:16px">
-          <div class="stag" style="margin-bottom:10px">PDA Funding Schedule — ${payYears}-Year Premium Spread</div>
-          <div style="overflow-x:auto">
-            <table class="dst">
-              <thead><tr>
-                <th>Yr</th><th>Age</th><th style="text-align:right">BOY PDA</th>
-                <th style="text-align:right">Gross Int</th><th style="text-align:right">Tax on Int</th>
-                <th style="text-align:right">Net Int</th><th style="text-align:right">Premium Paid</th>
-                <th style="text-align:right">EOY PDA</th>
-              </tr></thead>
-              <tbody>${pdaTableRows}</tbody>
-              <tfoot><tr>
-                <td colspan="6" style="text-align:left">Total premiums into policy</td>
-                <td style="text-align:right">${$f(totalPrem)}</td><td>$0 depleted</td>
-              </tr></tfoot>
-            </table>
-          </div>
-          <div style="font-size:10px;color:var(--muted);margin-top:6px">
-            PDA net deposit ${$f(pdaNet)} · yield ${pdaRate.toFixed(2)}% · after-tax rate ${(afterTaxRate*100).toFixed(3)}% (${(pdaTaxRate*100).toFixed(2)}% ordinary income tax on interest${isNQP ? '' : ', no QP penalty'}) · annuity-depletes over ${payYears} years
-          </div>
-        </div>
+        ${fundingSectionHTML}
 
         <div class="adv-fields">
           <div class="fg"><label class="fl">Version / Label</label><div class="field"><input type="text" id="l-ver" placeholder="v1.0"/></div></div>
@@ -2533,7 +3070,7 @@ async function generateMC() {
     const yrsUsed =pairedSeq.map(p=>p[2]);  // historical calendar year drawn
     let ePath;
     try {
-      ePath=simETAPath(carrier,d.bankRows,d.pdaRows,d.annualPrem,d.payYears,d.payoffYear,d.age,d.is,d.ie,d.cola,d.floor,d.plr,0,rets,d.cap,d.floorRate,d.carrierKey);
+      ePath=simETAPath(carrier,d.bankRows,d.pdaRows,(d.premArr||d.annualPrem),d.payYears,d.payoffYear,d.age,d.is,d.ie,d.cola,d.floor,d.plr,0,rets,d.cap,d.floorRate,d.carrierKey);
     } catch(e) {
       ov.style.display='none';
       return showErr('Simulation error: ' + e.message + ' | stack: ' + e.stack.split('\n')[1]);
@@ -2567,7 +3104,7 @@ async function generateMC() {
     // solve/ranking is identical whether or not Phase 2 is on — Phase 2's
     // own solvency window is handled separately, once, on the already-
     // selected percentile paths below.
-    allPathIncome[j]=solveIncomeFromAV(allPathAV[j].slice(0,nYrs1),allPathSurr[j].slice(0,nYrs1),d.bankRows,d.annualPrem,d.payYears,d.payoffYear,d.age,d.is,d.ie,d.cola,d.floor,d.plr,d.carrierKey);
+    allPathIncome[j]=solveIncomeFromAV(allPathAV[j].slice(0,nYrs1),allPathSurr[j].slice(0,nYrs1),d.bankRows,(d.premArr||d.annualPrem),d.payYears,d.payoffYear,d.age,d.is,d.ie,d.cola,d.floor,d.plr,d.carrierKey);
     if(j%1000===0){sub.textContent=`Solving income: ${j.toLocaleString()} / ${N_paths.toLocaleString()}…`;fill.style.width=(83+Math.round(j/N_paths*7))+'%';await tick();}
   }
   // Rank strictly by Phase 1 income — NOT by a combined Phase1+Phase2
@@ -2677,7 +3214,7 @@ async function generateMC() {
   // only; not used elsewhere in the normal output.
   const strandPolicy={};
   PCTS.forEach(p=>{
-    strandPolicy[p] = simETAPath(carrier, d.bankRows, d.pdaRows, d.annualPrem, d.payYears,
+    strandPolicy[p] = simETAPath(carrier, d.bankRows, d.pdaRows, (d.premArr||d.annualPrem), d.payYears,
       d.payoffYear, d.age, d.is, d.ie, d.cola, d.floor, d.plr, bandIncome[p],
       strandPaths[p].pathRets, d.cap, d.floorRate, d.carrierKey);
   });
@@ -2720,7 +3257,21 @@ async function generateMC() {
   const rateEnvLabel=d.rateEnv==='ease'?'easing — 4% floor':d.rateEnv==='tight'?'tightening stress test':'flat / stable';
 
   // Build the full output — Page 1 (median side-by-side) + Page 2 (scenario comparison)
-  let pg1, pg2, pg3;
+  let pg1, pg2, pg3, pg4 = '', threePath = null;
+  if (d.threePathOn) {
+    // Whole-plan comparison on each percentile strand's own return sequence
+    try {
+      threePath = {};
+      PCTS.forEach(p => { threePath[p] = computeThreePath(d, strandPaths[p].pathQPRets); });
+      const schedForShortfall = {}; d.fundSchedule.forEach(r => { schedForShortfall[r.yr] = {dist:r.dist}; });
+      let shortCt = 0;
+      for (let j=0; j<N_paths; j++) if (qpScheduleShortfall(d.totalQp, schedForShortfall, allPathQPRets[j])) shortCt++;
+      threePath.shortfallPct = shortCt / N_paths;
+      pg4 = buildPage4(ageRange, etaPct, d, bandIncome, totalByBand1, threePath, dateStr, adv, poolLabel, N, carrierMeta);
+    } catch(e) {
+      pg4 = `<div style="padding:40px;color:red;font-family:monospace">PAGE 4 ERROR: ${e.message}<br><pre>${e.stack}</pre></div>`;
+    }
+  }
   try {
     pg1 = buildPage1(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
                      totalMedQPNet, totalMedQPGross, dateStr, adv, ver, poolLabel, N, carrierMeta,
@@ -2754,6 +3305,7 @@ async function generateMC() {
   <div class="eta-page">${pg1}</div>
   <div class="eta-page page-break">${pg2}</div>
   <div class="eta-page page-break">${pg3}</div>
+  ${pg4 ? `<div class="eta-page page-break">${pg4}</div>` : ''}
   `;
 
   fill.style.width='100%';await tick();
@@ -2833,6 +3385,9 @@ async function generateMC() {
     localStorage.setItem('eta_audit_data', JSON.stringify({
       clientName: d.name, advisor: adv||'', date: dateStr, issueAge: d.age,
       isNQP: d.isNQP||false, isIQP: d.isIQP||false, iqpInfo: d.iqpInfo||null, carrierKey: d.carrierKey, incStart: d.is, incEnd: d.ie,
+      annualMode: d.annualMode||false, totalQp: d.totalQp||d.dist, rothOn: d.rothOn||false, rothTaxSrc: d.rothTaxSrc||'haircut',
+      fundSchedule: (d.fundSchedule||[]).map(r=>({yr:r.yr, dist:r.dist, fedPct:r.fedPct, state:r.state, pen:r.pen, tax:r.tax, dateStr:r.dateStr||'', age:r.age, delayed:!!r.delayed, delayedFrom:r.delayedFrom||'', toPda:((d.pdaRows||[])[r.yr-1]||{}).toPda||0, prem:((d.pdaRows||[])[r.yr-1]||{}).prem||0, eoy:((d.pdaRows||[])[r.yr-1]||{}).eoy||0})),
+      pdaRetPct: d.annualPlan ? d.annualPlan.retPct : 0, pdaRetYears: d.annualPlan ? d.annualPlan.retYears : 0,
       cola: d.cola, dataYrs: d.dataYrs, nSims: d.nSims,
       bands: PCTS.reduce((o,p)=>{
         o[p] = {
@@ -2841,12 +3396,34 @@ async function generateMC() {
           policyRows: strandPolicy[p].map(r=>({yr:r.yr, age:r.age, ret:r.ret, idx:r.idx, creditRate:r.creditRate,
             prem:r.prem, stdChg:r.stdChg, bonusChg:r.bonusChg, credits:r.credits, av:r.av, income:r.income,
             incomeLoan:r.incomeLoan, bankLoan:r.bankLoan, totalLoan:r.totalLoan, surrChg:r.surrChg, csvNet:r.csvNet})),
-          qpRows: strandQP[p].rows.map((r,i)=>({yr:r.yr, age:r.age, ret:strandPaths[p].pathQPRets[i], gross:r.gross, net:r.net, bal:r.bal}))
+          qpRows: strandQP[p].rows.map((r,i)=>({yr:r.yr, age:r.age, ret:strandPaths[p].pathQPRets[i], gross:r.gross, net:r.net, bal:r.bal})),
+          // Whole-plan comparison (present only when Page 4 was produced)
+          threePath: threePath ? {
+            sq:   threePath[p].sq.rows.map(r=>({yr:r.yr, age:r.age, ret:r.ret, gross:r.gross, tax:r.tax, net:r.net, bal:r.bal})),
+            rem:  threePath[p].rem.rows.map(r=>({yr:r.yr, age:r.age, ret:r.ret, out:r.out, short:r.short, gross:r.gross, tax:r.tax, net:r.net, bal:r.bal})),
+            roth: threePath[p].roth ? threePath[p].roth.rows.map(r=>({yr:r.yr, age:r.age, ret:r.ret, conv:r.conv, taxDue:r.taxDue, taxOutside:r.taxOutside, deposit:r.deposit, wd:r.wd, bal:r.bal})) : null
+          } : null
         };
         return o;
       }, {})
     }));
 
+    const wpActive = !!threePath && (d.annualMode || d.totalQp > d.dist + 0.5);
+    const wpM = {};
+    if (wpActive) PCTS.forEach(p => { wpM[p] = tpMetrics(d, p, threePath[p], etaPct, bandIncome, totalByBand1[p]); });
+    // cumulative after-tax income by age: ETA = policy income + the QP that stays; status quo = whole plan
+    const wpCum = (p, kind) => {
+      const rows = kind==='sq' ? threePath[p].sq.rows : threePath[p].rem.rows;
+      const roth = kind==='roth' && threePath[p].roth ? threePath[p].roth.rows : [];
+      let c = rows.filter(r => r.age < d.is).reduce((s,r) => s + r.net, 0);
+      return incAges.map(a => {
+        const rr = rows.find(r => r.age===a) || {net:0};
+        c += rr.net;
+        if (kind==='eta') c += bandIncome[p]*Math.pow(1+d.cola/100, a-d.is);
+        if (kind==='roth') c += (roth.find(r => r.age===a) || {wd:0}).wd;
+        return c;
+      });
+    };
     localStorage.setItem('eta_mc_data', JSON.stringify({
       clientName:     d.name,
       advisor:        adv||'',
@@ -2906,9 +3483,160 @@ async function generateMC() {
       etaTotalP225:   d.phase2On ? totalByBand2[25] : 0,
       etaTotalP275:   d.phase2On ? totalByBand2[75] : 0,
       navAtP2EndMed:  navAtP2End,
+      // Funding method + whole-plan comparison (null / false when not used)
+      annualMode:     d.annualMode||false,
+      taxObligationTotal: d.taxObligation||0,
+      totalQp:        d.totalQp||d.dist,
+      fundSchedule:   (d.fundSchedule||[]).map(r=>({yr:r.yr, dist:r.dist, fedPct:r.fedPct, state:r.state, pen:r.pen, tax:r.tax, dateStr:r.dateStr||'', age:r.age})),
+      rothOn:         d.rothOn||false,
+      rothTaxSrc:     d.rothTaxSrc||'haircut',
+      wholePlan:      threePath ? PCTS.reduce((o,p)=>{ o[p]=tpMetrics(d,p,threePath[p],etaPct,bandIncome,totalByBand1[p]); return o; }, {shortfallPct:threePath.shortfallPct}) : null,
+      // Whole-plan headline figures for the client documents. They use these only when
+      // wpActive is true (annual distributions, or a plan larger than the amount moved):
+      // the fair comparison is then policy + the QP that stays invested vs. leaving the plan alone.
+      wpActive:       wpActive,
+      premSchedule:   d.premArr||null,
+      levelPremium:   d.annualPlan ? d.annualPlan.levelPremium : 0,
+      pdaRetPct:      d.annualPlan ? d.annualPlan.retPct : 0,
+      pdaRetYears:    d.annualPlan ? d.annualPlan.retYears : 0,
+      pdaPeak:        d.annualPlan ? d.annualPlan.pdaPeak : 0,
+      wpPolicyTotal:  wpActive ? wpM[50].policyTotal : 0,
+      wpRemNet:       wpActive ? wpM[50].remNet : 0,
+      wpEtaTotal25:   wpActive ? wpM[25].etaNet : 0,
+      wpEtaTotal50:   wpActive ? wpM[50].etaNet : 0,
+      wpEtaTotal75:   wpActive ? wpM[75].etaNet : 0,
+      wpQpTotal50:    wpActive ? wpM[50].sqNet : 0,
+      wpCumEta25: wpActive ? wpCum(25,'eta') : [], wpCumEta50: wpActive ? wpCum(50,'eta') : [],
+      wpCumEta75: wpActive ? wpCum(75,'eta') : [], wpCumQp50:  wpActive ? wpCum(50,'sq')  : [],
+      // Three-path cumulative after-tax income (median) for the Roth comparison page of the discussion doc
+      rothCum:        (d.rothOn && threePath) ? {ages: incAges, sq: wpCum(50,'sq'), eta: wpCum(50,'eta'), roth: wpCum(50,'roth')} : null,
     }));
   } catch(e) { console.warn('Discussion doc data write failed:', e); };
 }
+
+// ══════════════════════════════════════════════════════════
+// PAGE 4: WHOLE-PLAN COMPARISON — status quo / Roth / ETA + remaining QP
+// ══════════════════════════════════════════════════════════
+function buildPage4(ageRange, etaPct, d, bandIncome, totalByBand1, tp, dateStr, adv, poolLabel, N, carrierMeta) {
+  const PC = [25,50,75];
+  const M = {}; PC.forEach(p => { M[p] = tpMetrics(d, p, tp[p], etaPct, bandIncome, totalByBand1[p]); });
+  const m = M[50], roth = !!d.rothOn;
+  const cell = "padding:7px 12px;border-bottom:1px solid var(--border);text-align:right;font-family:'IBM Plex Mono',monospace;font-size:11px";
+  const lcell = "padding:7px 12px;border-bottom:1px solid var(--border);text-align:left;font-size:11px";
+  const hcell = "padding:8px 12px;background:var(--navy);color:var(--gold);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;text-align:right;font-weight:600";
+  const sec = (t, sub) => `<div style="padding:12px 28px 4px"><div style="font-family:'Playfair Display',serif;font-size:13px;color:var(--navy)">${t}</div>${sub?`<div style="font-size:9px;color:var(--muted);margin-top:2px">${sub}</div>`:''}</div>`;
+  const rothHdr = roth ? `<th style="${hcell}">Roth conversion + remaining QP</th>` : '';
+  const line = (label, sq, ro, eta, bold) => `<tr style="${bold?'background:var(--gold-pale);font-weight:600':''}"><td style="${lcell}">${label}</td><td style="${cell}">${sq}</td>${roth?`<td style="${cell}">${ro}</td>`:''}<td style="${cell}">${eta}</td></tr>`;
+  const dash = '—';
+
+  // ── Headline cards (median) ──
+  const card = (title, big, sub, color) => `<div style="padding:12px 20px;border-right:1px solid var(--border)"><div style="font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:5px">${title}</div><div style="font-family:'Playfair Display',serif;font-size:21px;color:${color}">${big}</div><div style="font-size:9px;color:var(--muted);margin-top:2px">${sub}</div></div>`;
+  const cards = `<div style="display:grid;grid-template-columns:repeat(${roth?3:2},1fr);border-bottom:1px solid var(--border)">
+    ${card('Status quo — whole QP, taxable', $f(m.sqNet), `After tax · ages ${d.is}–${d.ie} · median`, 'var(--red)')}
+    ${roth ? card('Roth conversion + remaining QP', $f(m.rothNet), `Tax-free Roth ${$f(m.rothInc)} + taxable QP ${$f(m.remNet)}`, 'var(--navy)') : ''}
+    ${card('ETA policy + remaining QP', $f(m.etaNet), `Tax-free policy ${$f(m.policyTotal)} + taxable QP ${$f(m.remNet)}`, 'var(--green)')}
+  </div>`;
+
+  // ── Median detail ──
+  const fundYrs = d.fundSchedule.length;
+  const detail = `<table style="width:100%;border-collapse:collapse"><thead><tr><th style="${hcell};text-align:left">Median path</th><th style="${hcell}">Status quo</th>${rothHdr}<th style="${hcell}">ETA + remaining QP</th></tr></thead><tbody>
+    ${line('Moved out of the QP', dash, $f(m.remOut), $f(m.remOut))}
+    ${line(`Tax paid at the time of the move${d.annualMode?` (${fundYrs} yrs)`:''}`, dash,
+        roth ? (d.rothTaxSrc==='haircut' ? $f(m.rothConvTax)+' from proceeds' : $f(m.rothOutsideTax)+' from outside funds') : dash,
+        $f(m.fundTax - m.fundPen)+' financed')}
+    ${line('10% early-withdrawal penalty', dash, roth ? 'None (conversion)' : dash, m.fundPen>0 ? $f(m.fundPen)+' financed' : 'None')}
+    ${line('QP balance left at end of funding years', dash, $f(m.remBalEndFunding), $f(m.remBalEndFunding))}
+    ${line(`Year-1 income, age ${d.is} (after tax)`, $f(m.sqYr1), $f(m.rothYr1 + m.remYr1), $f(m.policyYr1 + m.remYr1))}
+    ${line('— of which tax-free', dash, $f(m.rothYr1), $f(m.policyYr1))}
+    ${line('— of which taxable QP', $f(m.sqYr1), $f(m.remYr1), $f(m.remYr1))}
+    ${line(`Total after-tax income, ages ${d.is}–${d.ie}`, $f(m.sqNet), $f(m.rothNet), $f(m.etaNet), true)}
+    ${line('Income tax paid on QP withdrawals', $f(m.sqTax), $f(m.remTax), $f(m.remTax))}
+    ${line('Total tax + penalty, all years', $f(m.sqTaxTotal), $f(m.rothTaxTotal), $f(m.etaTaxTotal))}
+    ${roth && d.rothTaxSrc==='outside' ? line(`Outside funds used for Roth tax, grown to age ${d.ie} at the same returns`, dash, $f(m.rothOutsideFV), dash) : ''}
+    ${line(`Net asset value at age ${d.ie}`, '$0', '$0', $f(m.nav))}
+  </tbody></table>`;
+
+  // ── Across the market sequences ──
+  const spread = `<table style="width:100%;border-collapse:collapse"><thead><tr><th style="${hcell};text-align:left">Total after-tax income</th><th style="${hcell}">Status quo</th>${rothHdr}<th style="${hcell}">ETA + remaining QP</th><th style="${hcell}">ETA NAV at ${d.ie}</th></tr></thead><tbody>
+    ${PC.map(p => `<tr style="${p===50?'background:var(--gold-pale);font-weight:600':''}"><td style="${lcell}">${p===25?'25th — conservative':p===50?'50th — median':'75th — favorable'}</td><td style="${cell}">${$f(M[p].sqNet)}</td>${roth?`<td style="${cell}">${$f(M[p].rothNet)}</td>`:''}<td style="${cell}">${$f(M[p].etaNet)}</td><td style="${cell}">${$f(M[p].nav)}</td></tr>`).join('')}
+  </tbody></table>`;
+
+  // ── Funding schedule ──
+  const sched = `<table style="width:100%;border-collapse:collapse"><thead><tr><th style="${hcell};text-align:left">Yr</th><th style="${hcell};text-align:left">Date / age</th><th style="${hcell}">Distribution</th><th style="${hcell}">Fed + state</th><th style="${hcell}">Penalty</th><th style="${hcell}">Tax financed</th></tr></thead><tbody>
+    ${d.fundSchedule.map(r => `<tr><td style="${lcell}">${r.yr}</td><td style="${lcell}">${r.dateStr ? r.dateStr+' · '+r.age.toFixed(1)+(r.delayed?' <span style="color:#2a6e45">(held from '+r.delayedFrom+')</span>':'') : (isNaN(r.age)?'—':'Age '+r.age)}</td><td style="${cell}">${$f(r.dist)}</td><td style="${cell}">${(r.fedPct+r.state).toFixed(2)}%</td><td style="${cell}">${r.pen?'<b style="color:#8b2020">10%</b>':dash}</td><td style="${cell}">${$f(r.tax)}</td></tr>`).join('')}
+    <tr style="font-weight:600;background:var(--gold-pale)"><td style="${lcell}" colspan="2">Total</td><td style="${cell}">${$f(d.fundSchedule.reduce((s,r)=>s+r.dist,0))}</td><td style="${cell}"></td><td style="${cell}"></td><td style="${cell}">${$f(d.fundSchedule.reduce((s,r)=>s+r.tax,0))}</td></tr>
+  </tbody></table>`;
+
+  // ── Remaining QP ledger (median path) ──
+  const remRows = tp[50].rem.rows.filter(r => r.out>0 || (r.age>=d.is && r.age<=d.ie) || r.isRmd).filter(r => r.age <= d.ie);
+  const remTbl = `<table style="width:100%;border-collapse:collapse"><thead><tr><th style="${hcell};text-align:left">Yr</th><th style="${hcell};text-align:left">Age</th><th style="${hcell}">Market return</th><th style="${hcell}">Moved out</th><th style="${hcell}">Withdrawal</th><th style="${hcell}">Tax</th><th style="${hcell}">After tax</th><th style="${hcell}">QP balance</th></tr></thead><tbody>
+    ${remRows.map(r => `<tr><td style="${lcell}">${r.yr}</td><td style="${lcell}">${r.age}</td><td style="${cell}">${(r.ret*100).toFixed(1)}%</td><td style="${cell}">${$f(r.out)}</td><td style="${cell}">${$f(r.gross)}</td><td style="${cell}">${$f(r.tax)}</td><td style="${cell}">${$f(r.net)}</td><td style="${cell}">${$f(r.bal)}</td></tr>`).join('')}
+  </tbody></table>`;
+
+  // ── Year-by-year, all three paths (median path) ──
+  const cola = d.cola/100;
+  const sqR = tp[50].sq.rows, remR = tp[50].rem.rows, roR = roth ? tp[50].roth.rows : [];
+  const ledAges = sqR.filter(r => r.age <= d.ie).map(r => r.age);
+  const g8 = "padding:5px 8px;border-bottom:1px solid var(--border);text-align:right;font-family:'IBM Plex Mono',monospace;font-size:10px";
+  const h8 = "padding:6px 8px;background:var(--navy);color:var(--gold);font-size:8px;letter-spacing:1px;text-transform:uppercase;text-align:right;font-weight:600";
+  const grp = (t, n, bg) => `<th colspan="${n}" style="${h8};text-align:center;background:${bg}">${t}</th>`;
+  const ledger3 = `<table style="width:100%;border-collapse:collapse"><thead>
+    <tr><th colspan="3" style="${h8};text-align:left">Timeline</th>${grp('Status quo — whole plan', 2, '#8b2020')}${roth ? grp('Roth conversion', 4, '#2a4a6e') : ''}${grp('ETA policy', 2, '#2a6e45')}${grp('QP that stays behind', 3, '#152640')}</tr>
+    <tr><th style="${h8};text-align:left">Yr</th><th style="${h8};text-align:left">Age</th><th style="${h8}">Market return</th>
+      <th style="${h8}">After-tax income</th><th style="${h8}">QP balance</th>
+      ${roth ? `<th style="${h8}">Converted</th><th style="${h8}">Tax due</th><th style="${h8}">Roth income</th><th style="${h8}">Roth balance</th>` : ''}
+      <th style="${h8}">Policy income</th><th style="${h8}">Net policy value</th>
+      <th style="${h8}">Moved out</th><th style="${h8}">After-tax income</th><th style="${h8}">QP balance</th></tr></thead><tbody>
+    ${ledAges.map((a,i) => { const s = sqR[i], rm = remR[i], ro = roR[i];
+      const polInc = (a >= d.is && a <= d.ie) ? bandIncome[50]*Math.pow(1+cola, a-d.is) : 0;
+      const nav = (etaPct[a] && etaPct[a][50]) ? etaPct[a][50].csvNet : 0;
+      return `<tr><td style="${g8};text-align:left">${s.yr}</td><td style="${g8};text-align:left">${a}</td><td style="${g8}">${(s.ret*100).toFixed(1)}%</td>
+        <td style="${g8}">${$f(s.net)}</td><td style="${g8}">${$f(s.bal)}</td>
+        ${roth ? `<td style="${g8}">${$f(ro.conv)}</td><td style="${g8}">${$f(ro.taxDue)}</td><td style="${g8}">${$f(ro.wd)}</td><td style="${g8}">${$f(ro.bal)}</td>` : ''}
+        <td style="${g8}">${$f(polInc)}</td><td style="${g8}">${$f(nav)}</td>
+        <td style="${g8}">${$f(rm.out)}</td><td style="${g8}">${$f(rm.net)}</td><td style="${g8}">${$f(rm.bal)}</td></tr>`; }).join('')}
+  </tbody></table>`;
+
+  const shortNote = (tp.shortfallPct > 0.0005)
+    ? `<li>In ${(tp.shortfallPct*100).toFixed(1)}% of the ${N.toLocaleString()} simulated sequences the remaining QP could not fully fund a scheduled distribution, because early market losses left too little in the plan. Those paths carry the shortfall; the policy illustration assumes every premium is paid.</li>` : '';
+  const rothNote = roth ? `<li>Roth: ${d.rothTaxSrc==='haircut'
+      ? 'conversion tax is paid out of the converted dollars, so only the after-tax amount reaches the Roth.'
+      : `conversion tax is paid from outside funds so the full amount reaches the Roth; those outside dollars (${$f(m.rothOutsideTax)} paid, about ${$f(m.rothOutsideFV)} had they instead been invested at the same returns) are not counted in the income shown.`}
+      Conversions carry no 10% penalty, but converted dollars withdrawn within five years of each conversion while under 59½ can be penalized; this model draws Roth income only from age ${d.is}. Roth balances carry no required distributions. Because the model solves each account to be drawn down at age ${d.ie}, it does not show what a Roth or a traditional balance left to heirs would be worth.</li>${d.rothTaxSrc==='haircut' ? `<li>When the conversion-year rate equals the rate paid on later QP withdrawals and the tax comes out of the converted dollars, a Roth conversion produces essentially the same after-tax income as leaving the plan alone (small differences come from required distributions and the return sequence) — the two columns separate only if the rates differ (edit the federal % by year), the tax is paid from outside funds, or the balance passes to heirs.</li>` : ''}` : '';
+
+  return `
+    <div class="pg2-hdr">
+      <div>
+        <div style="font-size:9px;letter-spacing:3px;text-transform:uppercase;color:rgba(201,168,76,.7);margin-bottom:4px">Whole-Plan Comparison · Same Market Sequences On Every Path</div>
+        <div class="title">${d.name} — ${$f(d.totalQp)} Qualified Plan · ${d.annualMode ? `${fundYrs} Annual Distributions Totaling ${$f(d.dist)}` : `Single Distribution of ${$f(d.dist)}`}</div>
+        <div class="sub">${N.toLocaleString()} sequences · ${poolLabel} · Ages ${d.is}–${d.ie} · ${d.cola}% COLA · Fed + state ${(d.fed+d.state).toFixed(2)}%${d.annualMode ? ' (per-year rates shown below)' : ''} · ${dateStr}${adv ? ' · ' + adv : ''}</div>
+      </div>
+    </div>
+    ${cards}
+    ${sec('Median path — what moves, what it costs, what is left')}
+    <div style="padding:0 28px 8px">${detail}</div>
+    ${sec(`Across market sequences — ${$f(d.totalQp)} QP, the same plan on every path`, 'The status-quo and Roth accounts are drawn to $0 at the income end age by construction; the policy keeps its net asset value and its death benefit' + (carrierMeta && carrierMeta.faceAmount ? ' (' + $f(carrierMeta.faceAmount) + ' at issue).' : '.'))}
+    <div style="padding:0 28px 8px">${spread}</div>
+    ${sec('Distribution schedule', 'Each distribution is taxed in the year it is taken; the tax and any penalty are financed by the bank and carried until the loan is refinanced.')}
+    <div style="padding:0 28px 8px">${sched}</div>
+    ${sec('Qualified plan that stays behind — median path', 'Exposed to the same market returns as the whole-plan status quo.')}
+    <div style="padding:0 28px 8px">${remTbl}</div>
+    ${sec(`Year by year — ${roth ? 'status quo, Roth conversion and ETA' : 'status quo and ETA'}, median path`, 'Every path runs on the same market returns. The QP that stays behind is shared by the Roth and ETA paths. Income columns are after tax.')}
+    <div style="padding:0 28px 8px;overflow-x:auto">${ledger3}</div>
+    <div style="padding:6px 28px 10px"><ul style="font-size:10px;color:var(--text);line-height:1.5;margin-left:16px">
+      <li>Every path draws on the same ${N.toLocaleString()} bootstrapped return sequences. The percentile shown is the ETA policy income ranking; the status-quo, remaining-QP and Roth accounts are run on that same path's returns.</li>
+      <li>Taxes use a flat federal rate per year plus the state rate. They do not model brackets, IRMAA, Social Security taxation or other income; set the federal rate for each year in the schedule to reflect the bracket the client expects to be in.</li>
+      ${rothNote}${shortNote}
+      ${d.fundSchedule.some(r=>r.delayed) ? `<li>Held distributions: the premium for ${d.fundSchedule.filter(r=>r.delayed).map(r=>'year '+r.yr).join(', ')} is paid on the 59½ date, late in its policy year, so no penalty applies. The carrier illustration should be run with that late payment; the model books the premium within the same policy year.</li>` : ''}
+      <li>Hypothetical illustration for discussion with the client's tax advisor; not tax advice. Results are not guaranteed.</li>
+    </ul></div>
+    <div class="disc-3col" style="margin-top:auto">
+      <div>The hypothetical models in this summary assume certain crediting methods and charges that are purely hypothetical and do not represent any particular investment or product. Hypothetical methods, charges, values and returns are not guaranteed.</div>
+      <div>EFS Life LLC and its related entities are not providing investment advice. The ETA structure shown is hypothetical. The finance arrangement is offered by EFS Life LLC. Results vary significantly by market sequence.</div>
+      <div>Benefits and values shown are not guaranteed. Assumptions are subject to change. THIS IS A HYPOTHETICAL MODEL. Refer to the full illustration for details, charges, and guarantees. RetainMoreValue.com · EFS Life LLC${adv ? ' · ' + adv : ''} · ${dateStr}</div>
+    </div>`;
+}
+
 
 // ══════════════════════════════════════════════════════════
 // PAGE 1: MEDIAN SIDE-BY-SIDE (greensheet format)
@@ -3099,7 +3827,7 @@ function buildPage1(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
     // year either way; only the age label differs when an alternate
     // insured is in use.
     const rightAge = d.altInsured ? (d.insuredAge + yr - 1) : a;
-    const contrib = (yr === 1) ? $f(d.dist) : '—'; // d.dist = IUL funding (2× tax for NQP, or QP dist)
+    const contrib = d.annualMode ? $f((d.annualSchedule[yr-1]||{}).dist) : ((yr === 1) ? $f(d.dist) : '—'); // d.dist = IUL funding (2× tax for NQP, or QP dist)
     const pdaToAsset = (pdaRow && yr <= d.payYears) ? $f(pdaRow.prem) : '—';
     const pdaBal = (pdaRow && yr <= d.payYears) ? $f(Math.max(0, pdaRow.eoy)) : '—';
     const lenderRate = bankRow.phase === 'bank' ? (bankRow.rate * 100).toFixed(2) + '%' : '—';
@@ -3195,7 +3923,7 @@ function buildPage1(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
       <div>
         <div class="eyebrow">Enhanced Tax Advantage — ETA · Median Market Sequence${d.isNQP ? ' · Liquidity Event' : ''}</div>
         <div class="title">${d.name}</div>
-        <div class="meta-line">Client: ${d.name} &nbsp;|&nbsp; Advisor: ${adv || '—'}${d.altInsured ? ` &nbsp;|&nbsp; <b style="color:var(--gold)">Insured: ${d.insuredName}, Age ${d.insuredAge}${d.insuredRelationship ? ' (' + d.insuredRelationship + ' of ' + d.name + ')' : ''}</b>` : ''} &nbsp;|&nbsp; ${d.isNQP ? 'Tax Liability: ' + $f(d.taxLiability) + ' · IUL Funding: ' + $f(d.dist) : 'Distribution: ' + $f(d.dist)} &nbsp;|&nbsp; ${d.isNQP ? 'Comparator: ' + compRateStr(d) : 'Tax Rate: ' + d.combined.toFixed(2) + '%'} &nbsp;|&nbsp; PDA Rate: ${d.pdaRate.toFixed(2)}% &nbsp;|&nbsp; Asset Loan Rate: ${d.plr.toFixed(2)}%${carrierMeta.targetPremium ? ' &nbsp;|&nbsp; Version ' + Math.round(carrierMeta.targetPremium) : ''}${d.loanOverrideActive && !d.multiYearActive ? ' &nbsp;|&nbsp; Loan: ' + $f(d.financedTax) + ' (' + $f(d.excessLiquidity) + ' excess liquidity @ ' + d.loanLTVPct + '% LTV)' : ''}${d.multiYearActive ? ' &nbsp;|&nbsp; Financing: ' + $f(d.totalDraws) + ' across ' + d.financingSchedule.length + ' yr(s)' + (d.excessLiquidity>0 ? ' (' + $f(d.excessLiquidity) + ' excess liquidity)' : '') : ''}</div>
+        <div class="meta-line">Client: ${d.name} &nbsp;|&nbsp; Advisor: ${adv || '—'}${d.altInsured ? ` &nbsp;|&nbsp; <b style="color:var(--gold)">Insured: ${d.insuredName}, Age ${d.insuredAge}${d.insuredRelationship ? ' (' + d.insuredRelationship + ' of ' + d.name + ')' : ''}</b>` : ''} &nbsp;|&nbsp; ${d.isNQP ? 'Tax Liability: ' + $f(d.taxLiability) + ' · IUL Funding: ' + $f(d.dist) : 'Distribution: ' + $f(d.dist)} &nbsp;|&nbsp; ${d.isNQP ? 'Comparator: ' + compRateStr(d) : 'Tax Rate: ' + d.combined.toFixed(2) + '%'} &nbsp;|&nbsp; ${d.annualMode ? 'Funding: ' + d.annualSchedule.length + ' annual distributions' : 'PDA Rate: ' + d.pdaRate.toFixed(2) + '%'} &nbsp;|&nbsp; Asset Loan Rate: ${d.plr.toFixed(2)}%${carrierMeta.targetPremium ? ' &nbsp;|&nbsp; Version ' + Math.round(carrierMeta.targetPremium) : ''}${d.loanOverrideActive && !d.multiYearActive ? ' &nbsp;|&nbsp; Loan: ' + $f(d.financedTax) + ' (' + $f(d.excessLiquidity) + ' excess liquidity @ ' + d.loanLTVPct + '% LTV)' : ''}${d.multiYearActive ? ' &nbsp;|&nbsp; Financing: ' + $f(d.totalDraws) + ' across ' + d.financingSchedule.length + ' yr(s)' + (d.excessLiquidity>0 ? ' (' + $f(d.excessLiquidity) + ' excess liquidity)' : '') : ''}</div>
         ${d.altInsured ? `<div class="meta-line" style="margin-top:2px;opacity:.85">All distribution timing, tax, and income-schedule figures above and below are based on the account holder (${d.name}, age ${d.age}) — only the life insurance policy itself is on ${d.insuredName}'s life.</div>` : ''}
         ${d.phase2On ? `<div class="meta-line" style="margin-top:2px;opacity:.85">Phase 2: income continues from insured age ${d.p2isIns} to ${d.p2ieIns}, past the account holder's own Income End Age (${d.ie}) — solved independently from Phase 1's actual ending loan position on each simulated path.</div>` : ''}
       </div>
@@ -3231,8 +3959,8 @@ function buildPage1(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
             <tr><th colspan="13" style="background:var(--navy);color:var(--gold);font-size:9px;letter-spacing:2px;text-transform:uppercase;font-weight:600;text-align:left;padding:8px 12px;border-left:3px solid var(--gold);">Enhanced Tax Advantage${d.altInsured ? ` &middot; Insured: ${d.insuredName}, Age ${d.insuredAge}` : ''}</th></tr>
             <tr>
               <th style="border-left:3px solid var(--gold)">Yr</th><th>${d.altInsured ? 'Insured Age' : 'Age'}</th>
-              <th>Contrib → PDA</th>
-              <th>PDA → Asset</th>
+              <th>${d.annualMode ? 'QP Distribution' : 'Contrib → PDA'}</th>
+              <th>${d.annualMode ? 'Premium → Policy' : 'PDA → Asset'}</th>
               <th>PDA Balance</th>
               <th>Lender Rate</th>
               <th>${d.loanOverrideActive ? 'Loan (incl. Excess)' : 'Loan for Tax'}</th>
@@ -3548,6 +4276,9 @@ function buildChart(ageRange,etaPct,qpPct,d,bandIncome){
 // INIT
 // ══════════════════════════════════════════════════════════
 window.addEventListener('DOMContentLoaded',()=>{
+  ['dob','issueAge','fundStartDate','fedRate','stateRate'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.addEventListener('input', () => recalcAll());
+  });
   onStateChange();
   fetchSOFR();
   recalcAll();
