@@ -3283,14 +3283,16 @@ async function generateMC() {
   try {
     pg2 = buildPage2(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
                      totalMedQPNet, dateStr, adv, ver, poolLabel, N,
-                     totalByBand1, totalByBand2);
+                     totalByBand1, totalByBand2,
+                     (threePath && (d.annualMode || d.totalQp > d.dist + 0.5)) ? threePath : null);
   } catch(e) {
     pg2 = `<div style="padding:40px;color:red;font-family:monospace">PAGE 2 ERROR: ${e.message}<br><pre>${e.stack}</pre></div>`;
   }
   try {
     pg3 = buildPage3(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
                      totalMedQPNet, dateStr, adv, poolLabel, N,
-                     totalByBand1, totalByBand2, bandIncome2);
+                     totalByBand1, totalByBand2, bandIncome2,
+                     (threePath && (d.annualMode || d.totalQp > d.dist + 0.5)) ? threePath : null);
   } catch(e) {
     pg3 = `<div style="padding:40px;color:red;font-family:monospace">PAGE 3 ERROR: ${e.message}<br><pre>${e.stack}</pre></div>`;
   }
@@ -3708,7 +3710,7 @@ function buildPage1(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
       <div class="stat-box hl">
         <div class="sb-label">Total ETA Income<br>Tax-Free Drawdowns</div>
         <div class="sb-val">${$f(totalByBand[50])}</div>
-        <div class="sb-sub">Median (50th percentile)</div>
+        <div class="sb-sub">Median (50th percentile)${wp ? ' · + ' + $f(remNetTot) + ' after-tax QP income = ' + $f(totalByBand1[50] + remNetTot) : ''}</div>
       </div>
       <div class="stat-box hl">
         <div class="sb-label">Net Asset Value at ${d.phase2On ? `Insured Age ${d.p2ieIns}` : `Age ${d.ie}`}<br>Net of All Loans</div>
@@ -3899,6 +3901,7 @@ function buildPage1(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
         <div style="font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Total ETA Tax-Free Income<br>Median (50th Percentile)</div>
         <div style="font-family:'Playfair Display',serif;font-size:22px;color:var(--gold);font-weight:600">${$f(totalByBand[50])}</div>
         <div style="font-size:9px;color:var(--muted);margin-top:3px">Ages ${d.is}–${d.ie} · ${d.cola}% COLA · Tax-free asset loans</div>
+        ${wp ? `<div style="font-size:9px;color:var(--green);margin-top:3px;font-weight:600">+ ${$f(remNetTot)} after-tax income from the plan that stays invested = ${$f(totalByBand1[50] + remNetTot)} total</div>` : ''}
         ${d.phase2On ? `<div style="font-size:9px;color:var(--muted);margin-top:3px">${$f(totalByBand1[50])} through Phase 1 (age ${d.ie}) + ${$f(totalByBand2[50])} in Phase 2, insured age ${d.p2isIns}–${d.p2ieIns}</div>` : ''}
       </div>
       <div style="padding:16px 20px;border-right:1px solid var(--border)">
@@ -4005,9 +4008,14 @@ function buildPage1(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
 // ══════════════════════════════════════════════════════════
 function buildPage2(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
                     totalMedQPNet, dateStr, adv, ver, poolLabel, N,
-                    totalByBand1, totalByBand2) {
+                    totalByBand1, totalByBand2, wpAll) {
   const incomeAges = ageRange.filter(a => a >= d.is && a <= d.ie);
-  const incomeAdv = totalByBand1[50] - totalMedQPNet;
+  // Whole-plan mode: leave-it-alone is the entire plan; ETA is the policy plus the QP that stays invested
+  const wp = !!wpAll;
+  const wpNet = (tp, kind) => (kind === 'sq' ? tp.sq.rows : tp.rem.rows).reduce((s,r) => s + r.net, 0);
+  const remNet = {};
+  if (wp) { [25,50,75].forEach(p => { remNet[p] = wpNet(wpAll[p], 'rem'); }); totalMedQPNet = wpNet(wpAll[50], 'sq'); }
+  const incomeAdv = (totalByBand1[50] + (wp ? remNet[50] : 0)) - totalMedQPNet;
   const baseRate = d.fed + d.state;
 
   // Scenario cards
@@ -4017,33 +4025,33 @@ function buildPage2(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
         <div class="sc-name">25th Percentile — Conservative Sequence</div>
         <div class="sc-inc">${$f(bandIncome[25])}<span style="font-size:13px;font-family:'IBM Plex Sans',sans-serif;color:#8a8070;font-weight:400"> / yr</span></div>
         <div class="sc-sub">Tax-free · Age ${d.is} Year 1</div>
-        <div class="sc-total">Total: ${$f(totalByBand[25])}</div>
+        <div class="sc-total">Total: ${$f(totalByBand[25])}${wp ? ' <span style="font-size:10px;font-weight:400;color:#8a8070">+ ' + $f(remNet[25]) + ' QP after tax</span>' : ''}</div>
       </div>
       <div class="sc-band median">
         <div class="sc-name">50th Percentile — Median Base Case</div>
         <div class="sc-inc">${$f(bandIncome[50])}<span style="font-size:13px;font-family:'IBM Plex Sans',sans-serif;color:#8a8070;font-weight:400"> / yr</span></div>
         <div class="sc-sub">Tax-free · Age ${d.is} Year 1</div>
-        <div class="sc-total">Total: ${$f(totalByBand[50])}</div>
+        <div class="sc-total">Total: ${$f(totalByBand[50])}${wp ? ' <span style="font-size:10px;font-weight:400;color:#8a8070">+ ' + $f(remNet[50]) + ' QP after tax</span>' : ''}</div>
       </div>
       <div class="sc-band">
         <div class="sc-name">75th Percentile — Favorable Sequence</div>
         <div class="sc-inc">${$f(bandIncome[75])}<span style="font-size:13px;font-family:'IBM Plex Sans',sans-serif;color:#8a8070;font-weight:400"> / yr</span></div>
         <div class="sc-sub">Tax-free · Age ${d.is} Year 1</div>
-        <div class="sc-total">Total: ${$f(totalByBand[75])}</div>
+        <div class="sc-total">Total: ${$f(totalByBand[75])}${wp ? ' <span style="font-size:10px;font-weight:400;color:#8a8070">+ ' + $f(remNet[75]) + ' QP after tax</span>' : ''}</div>
       </div>
     </div>`;
 
   const summaryRow = `
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;border-bottom:1px solid var(--border)">
       <div style="padding:10px 20px;border-right:1px solid var(--border)">
-        <div style="font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:5px">${d.isNQP ? 'Taxable Account Net Income (Median)' : 'Qualified Plan Net Distributions (Median)'}</div>
+        <div style="font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:5px">${d.isNQP ? 'Taxable Account Net Income (Median)' : (wp ? 'Whole Plan Left Alone — Net Distributions (Median)' : 'Qualified Plan Net Distributions (Median)')}</div>
         <div style="font-family:'Playfair Display',serif;font-size:20px;color:var(--red)">${$f(totalMedQPNet)}</div>
         <div style="font-size:9px;color:var(--muted);margin-top:2px">After ${compRateStr(d)} · Ages ${d.is}–${d.ie}</div>
       </div>
       <div style="padding:10px 20px;border-right:1px solid var(--border)">
-        <div style="font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:5px">ETA Tax-Free Income Advantage${d.phase2On ? ' (Phase 1)' : ''} (Median)</div>
+        <div style="font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:5px">${wp ? 'ETA + Remaining QP Income Advantage' : 'ETA Tax-Free Income Advantage'}${d.phase2On ? ' (Phase 1)' : ''} (Median)</div>
         <div style="font-family:'Playfair Display',serif;font-size:20px;color:var(--green)">+${$f(incomeAdv)}</div>
-        <div style="font-size:9px;color:var(--muted);margin-top:2px">${(totalByBand1[50]/Math.max(totalMedQPNet,1)).toFixed(2)}× more income</div>
+        <div style="font-size:9px;color:var(--muted);margin-top:2px">${((totalByBand1[50] + (wp ? remNet[50] : 0))/Math.max(totalMedQPNet,1)).toFixed(2)}× more income${wp ? ' · after tax, whole plan' : ''}</div>
       </div>
       <div style="padding:10px 20px;border-right:1px solid var(--border)">
         <div style="font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:5px">Net Asset Value at ${d.phase2On ? `Insured Age ${d.p2ieIns}` : `Age ${d.ie}`} (Median)</div>
@@ -4085,7 +4093,7 @@ function buildPage2(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
       </div>
     </div>`;
 
-  const chartSVG = buildChart(ageRange, etaPct, qpPct, d, bandIncome);
+  const chartSVG = buildChart(ageRange, etaPct, qpPct, d, bandIncome, wpAll);
 
   return `
     <div class="pg2-hdr">
@@ -4099,7 +4107,7 @@ function buildPage2(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
     ${summaryRow}
     ${pctExplain}
     <div style="padding:8px 28px 0">
-      <div style="font-family:'Playfair Display',serif;font-size:13px;color:var(--navy);margin-bottom:2px">Cumulative Income — ETA Tax-Free vs. ${d.isNQP ? 'Taxable Account' : 'Qualified Plan'} Taxable (Median)</div>
+      <div style="font-family:'Playfair Display',serif;font-size:13px;color:var(--navy);margin-bottom:2px">${wp ? 'Cumulative After-Tax Income — ETA Plus the Plan That Stays Invested vs. Leaving the Whole Plan Alone (Median)' : 'Cumulative Income — ETA Tax-Free vs. ' + (d.isNQP ? 'Taxable Account' : 'Qualified Plan') + ' Taxable (Median)'}</div>
       <div style="font-size:8.5px;color:var(--muted);margin-bottom:5px">${N.toLocaleString()} bootstrapped S&P 500 sequences (${poolLabel}) · ${d.cap}% cap / ${d.floorRate}% floor · ETA tax-free asset loan income vs. ${d.isNQP ? 'investment account distributions' : 'QP taxable distributions'} at ${compRateStr(d)}${d.isNQP ? '' : ' (after age 59½)'}</div>
       ${chartSVG}
     </div>
@@ -4116,8 +4124,18 @@ function buildPage2(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
 // ══════════════════════════════════════════════════════════
 function buildPage3(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
                     totalMedQPNet, dateStr, adv, poolLabel, N,
-                    totalByBand1, totalByBand2, bandIncome2) {
+                    totalByBand1, totalByBand2, bandIncome2, wpAll) {
   const baseRate = d.fed + d.state;
+  // Whole-plan mode: left side is the whole plan left alone; the QP that stays invested is added on the ETA side (median)
+  const wp = !!wpAll;
+  const sqByAge = {}, remByAge = {};
+  let remNetTot = 0;
+  if (wp) {
+    wpAll[50].sq.rows.forEach(r => { sqByAge[r.age] = r; });
+    wpAll[50].rem.rows.forEach(r => { remByAge[r.age] = r; });
+    totalMedQPNet = wpAll[50].sq.rows.reduce((s,r) => s + r.net, 0);
+    remNetTot = wpAll[50].rem.rows.reduce((s,r) => s + r.net, 0);
+  }
 
   // Display: every income year (both phases) and every forced-RMD year;
   // 5-yr tranches for years with no distribution activity at all.
@@ -4175,7 +4193,8 @@ function buildPage3(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
     const e25 = etaPct[a]?.[25] || {};
     const e50 = etaPct[a]?.[50] || {};
     const e75 = etaPct[a]?.[75] || {};
-    const qp  = qpPct[a]?.[50]  || {};
+    const qp  = wp ? (sqByAge[a] || {}) : (qpPct[a]?.[50]  || {});
+    const remR = wp ? (remByAge[a] || {}) : null;
 
     const rowCls = isPayoff ? 'payoff-yr' : (isIncome||isIncome2) ? 'income-yr' : isRmdOnly ? 'rmd-yr' : '';
     const yrCell  = tranche ? `<td style="font-weight:700;background:rgba(201,168,76,.08)">${yr}</td>` : `<td>${yr}</td>`;
@@ -4183,7 +4202,7 @@ function buildPage3(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
     const ageLabel = insAgeAtA!=null ? `${a} <span style="font-size:8px;color:var(--muted)">(ins. ${insAgeAtA})</span>` : `${a}`;
     const ageCell = tranche ? `<td style="font-weight:700;color:var(--gold);background:rgba(201,168,76,.08)">${ageLabel}</td>` : `<td>${ageLabel}</td>`;
 
-    if (secHdr) rows += `<tr class="sec-hdr"><td colspan="10">${secHdr}</td></tr>`;
+    if (secHdr) rows += `<tr class="sec-hdr"><td colspan="${wp ? 12 : 10}">${secHdr}</td></tr>`;
 
     rows += `<tr class="${rowCls}">
       ${yrCell}${ageCell}
@@ -4195,6 +4214,7 @@ function buildPage3(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
       <td style="border-left:2px solid rgba(13,27,46,.12)">${$f(e50.av)}</td>
       <td>${$f(e50.loanBal)}</td>
       <td>${$f(e50.csvNet)}</td>
+      ${wp ? `<td style="border-left:2px solid rgba(42,110,69,.25)" class="${(remR.net > 0) ? 'green-col' : ''}">${(remR.net > 0) ? $f(remR.net) : '—'}</td><td>${(a <= d.ie || remR.bal > 0) ? $f(remR.bal) : '—'}</td>` : ''}
     </tr>`;
   });
 
@@ -4205,7 +4225,7 @@ function buildPage3(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
     <td style="border-left:2px solid rgba(201,168,76,.25)">${$f(totalByBand[25])}</td>
     <td class="gold-col">${$f(totalByBand[50])}</td>
     <td>${$f(totalByBand[75])}</td>
-    <td style="border-left:2px solid rgba(13,27,46,.12)">—</td><td>—</td><td>—</td>
+    <td style="border-left:2px solid rgba(13,27,46,.12)">—</td><td>—</td><td>—</td>${wp ? `<td class="green-col" style="border-left:2px solid rgba(42,110,69,.25)">${$f(remNetTot)}</td><td>—</td>` : ''}
   </tr>`;
 
   return `
@@ -4221,9 +4241,10 @@ function buildPage3(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
         <thead>
           <tr>
             <th colspan="2" style="text-align:center;background:var(--navy);color:rgba(255,255,255,.7)">Year</th>
-            <th colspan="2" style="text-align:center;background:rgba(100,20,20,.85);color:#fff">${d.isNQP ? 'Taxable Account — After Tax (50th)' : 'Qualified Plan — Taxable (50th)'}</th>
+            <th colspan="2" style="text-align:center;background:rgba(100,20,20,.85);color:#fff">${d.isNQP ? 'Taxable Account — After Tax (50th)' : (wp ? 'Whole Plan Left Alone — Taxable (50th)' : 'Qualified Plan — Taxable (50th)')}</th>
             <th colspan="3" style="text-align:center;background:rgba(140,100,20,.9);color:#fff;border-left:2px solid rgba(201,168,76,.6)">ETA Tax-Free Income</th>
             <th colspan="3" style="text-align:center;background:var(--navy);color:rgba(255,255,255,.7);border-left:2px solid rgba(255,255,255,.15)">ETA Balance Summary (Median)</th>
+            ${wp ? '<th colspan="2" style="text-align:center;background:#2a6e45;color:#fff;border-left:2px solid rgba(42,110,69,.6)">QP That Stays Invested (Median)</th>' : ''}
           </tr>
           <tr>
             <th>Yr</th><th>Age${d.altInsured ? ' (Insured)' : ''}</th>
@@ -4235,6 +4256,7 @@ function buildPage3(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
             <th style="border-left:2px solid rgba(255,255,255,.15)">Asset Value</th>
             <th>Loan Balance</th>
             <th>Net Asset Value</th>
+            ${wp ? '<th style="border-left:2px solid rgba(42,110,69,.4)">QP Income (After Tax)</th><th>QP Balance</th>' : ''}
           </tr>
         </thead>
         <tbody>${rows}</tbody>
@@ -4248,13 +4270,14 @@ function buildPage3(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
     </div>`;
 }
 
-function buildChart(ageRange,etaPct,qpPct,d,bandIncome){
+function buildChart(ageRange,etaPct,qpPct,d,bandIncome,wpAll){
   const W=1060,H=230,PL=88,PR=24,PT=30,PB=30,cW=W-PL-PR,cH=H-PT-PB;
   const ages=ageRange.filter(a=>a>=d.is&&a<=d.ie);
   if(ages.length<2) return '';
   const cola=d.cola/100;
-  function cumInc(pct){let c=0;return ages.map(a=>{c+=(bandIncome[pct]||0)*Math.pow(1+cola,a-d.is);return c;});}
-  function cumQP(){let c=0;return ages.map(a=>{c+=(qpPct[a]?.[50]?.net||0);return c;});}
+  const wpRow = (rows,a) => rows.find(r => r.age===a) || {net:0};
+  function cumInc(pct){let c=0;return ages.map(a=>{c+=(bandIncome[pct]||0)*Math.pow(1+cola,a-d.is) + (wpAll ? wpRow(wpAll[pct].rem.rows,a).net : 0);return c;});}
+  function cumQP(){let c=0;return ages.map(a=>{c+=(wpAll ? wpRow(wpAll[50].sq.rows,a).net : (qpPct[a]?.[50]?.net||0));return c;});}
   const ci25=cumInc(25),ci50=cumInc(50),ci75=cumInc(75),qp50=cumQP();
   const maxVal=Math.max(...ci75,...qp50)*1.08||1;
   const xS=i=>PL+(i/(ages.length-1))*cW;
@@ -4269,11 +4292,11 @@ function buildChart(ageRange,etaPct,qpPct,d,bandIncome){
   <line x1="${PL+10}" y1="${LY+5}" x2="${PL+26}" y2="${LY+5}" stroke="#8a8070" stroke-width="1.5" stroke-dasharray="4,4"/>
   <text x="${PL+31}" y="${LY+9}" fill="rgba(13,27,46,.65)" font-size="10" font-family="IBM Plex Sans,sans-serif">25th (Conservative)</text>
   <line x1="${PL+170}" y1="${LY+5}" x2="${PL+186}" y2="${LY+5}" stroke="#c9a84c" stroke-width="2.5"/>
-  <text x="${PL+191}" y="${LY+9}" fill="rgba(13,27,46,.65)" font-size="10" font-family="IBM Plex Sans,sans-serif">50th Median — ETA</text>
+  <text x="${PL+191}" y="${LY+9}" fill="rgba(13,27,46,.65)" font-size="10" font-family="IBM Plex Sans,sans-serif">50th Median — ETA${wpAll ? ' + remaining QP' : ''}</text>
   <line x1="${PL+330}" y1="${LY+5}" x2="${PL+346}" y2="${LY+5}" stroke="#2a6e45" stroke-width="2" stroke-dasharray="5,3"/>
   <text x="${PL+351}" y="${LY+9}" fill="rgba(13,27,46,.65)" font-size="10" font-family="IBM Plex Sans,sans-serif">75th (Favorable)</text>
   <line x1="${PL+510}" y1="${LY+5}" x2="${PL+526}" y2="${LY+5}" stroke="rgba(139,32,32,.7)" stroke-width="1.5" stroke-dasharray="6,3"/>
-  <text x="${PL+531}" y="${LY+9}" fill="rgba(13,27,46,.65)" font-size="10" font-family="IBM Plex Sans,sans-serif">${d.isNQP ? 'Taxable Acct Net — Median' : 'QP Taxable Net — Median'}</text>
+  <text x="${PL+531}" y="${LY+9}" fill="rgba(13,27,46,.65)" font-size="10" font-family="IBM Plex Sans,sans-serif">${d.isNQP ? 'Taxable Acct Net — Median' : (wpAll ? 'Whole Plan Left Alone — Median' : 'QP Taxable Net — Median')}</text>
   <path d="${pth(ci75)}" fill="none" stroke="#2a6e45" stroke-width="2" stroke-dasharray="6,3" stroke-linejoin="round"/>
   <path d="${pth(ci50)}" fill="none" stroke="#c9a84c" stroke-width="3" stroke-linejoin="round"/>
   <path d="${pth(ci25)}" fill="none" stroke="#8a8070" stroke-width="1.5" stroke-dasharray="4,4" stroke-linejoin="round"/>
