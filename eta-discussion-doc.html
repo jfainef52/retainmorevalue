@@ -855,6 +855,37 @@
 </div>
 
 <!-- ══ PAGE 11: WHY US ══ -->
+<!-- ══ THREE-PATH COMPARISON (shown only when the Roth comparison is selected in the modeler) ══ -->
+<div class="page sidebar-page" id="roth-page" style="display:none">
+  <div class="sidebar">
+    <div class="sidebar-section">Three Ways to Handle the Plan</div>
+    <div class="sidebar-title">Your<br>Options</div>
+    <div class="sidebar-subtitle">LEAVE IT ALONE<br>ROTH CONVERSION<br>ENHANCED TAX ADVANTAGE</div>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-tagline" id="roth-sidebar-desc">Same market sequences on every path — Median</div>
+  </div>
+  <div class="main-content">
+    <div class="outcomes-main">
+      <div class="outcomes-header">
+        <div class="eyebrow">Enhanced Tax Advantage — Three-Path Comparison</div>
+        <h2 id="roth-headline">Leave the Plan Alone vs. Roth Conversion vs. ETA</h2>
+        <p id="roth-meta">—</p>
+      </div>
+      <div class="outcomes-chart">
+        <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:6px;font-weight:600">Cumulative After-Tax Income (50th Percentile)</div>
+        <svg id="roth-chart-svg" viewBox="0 0 1060 380" xmlns="http://www.w3.org/2000/svg" style="width:100%;flex:1"></svg>
+      </div>
+      <div class="outcomes-facts-row">
+        <div class="fact-block"><div class="fact-label">Leave the Plan Alone</div><div class="fact-value" id="roth-f-sq">—</div><div class="fact-sub" id="roth-f-sq-sub">Taxed as withdrawn</div></div>
+        <div class="fact-block"><div class="fact-label">Roth Conversion</div><div class="fact-value" id="roth-f-roth">—</div><div class="fact-sub" id="roth-f-roth-sub">—</div></div>
+        <div class="fact-block"><div class="fact-label">Enhanced Tax Advantage</div><div class="fact-value green" id="roth-f-eta">—</div><div class="fact-sub" id="roth-f-eta-sub">—</div></div>
+        <div class="fact-block"><div class="fact-label">Net Policy Value · Age <span id="roth-f-ie">95</span></div><div class="fact-value" id="roth-f-nav">—</div><div class="fact-sub">Net of all policy loans · passes income-tax-free</div></div>
+      </div>
+      <div id="roth-note" style="font-size:10px;color:var(--muted);line-height:1.55;padding:6px 0 0"></div>
+    </div>
+  </div>
+</div>
+
 <div class="page sidebar-page">
   <div class="sidebar">
     <div class="sidebar-section">Our Firm</div>
@@ -961,6 +992,13 @@
     var raw = localStorage.getItem('eta_mc_data');
     if (!raw) return;
     var r = JSON.parse(raw);
+    // Annual distributions or a plan larger than the amount moved: the fair comparison is the policy
+    // PLUS the qualified plan that stays invested, against leaving the whole plan alone.
+    if (r.wpActive && !r.isNQP && !r.isIQP) {
+      r.etaTotalMed = r.wpEtaTotal50; r.qpTotalMed = r.wpQpTotal50;
+      r.etaTotal25 = r.wpEtaTotal25; r.etaTotal75 = r.wpEtaTotal75;
+      r.cumEta25 = r.wpCumEta25; r.cumEta50 = r.wpCumEta50; r.cumEta75 = r.wpCumEta75; r.cumQp50 = r.wpCumQp50;
+    }
 
     var $f  = function(n) { return '$' + Math.round(n).toLocaleString(); };
     var $m  = function(n) { return n>=1e6 ? '$'+(n/1e6).toFixed(1)+'M' : '$'+Math.round(n/1000)+'K'; };
@@ -1001,7 +1039,7 @@
       ? 'Tax Liability $' + Math.round(r.taxLiability||0).toLocaleString() + ' · IUL Funding $' + Math.round(r.dist).toLocaleString()
       : (isIQP
         ? 'Inherited Balance $' + Math.round(r.dist).toLocaleString() + ' · 10-Yr Window ' + (r.iqpInfo ? (r.iqpInfo.windowStartYear + '–' + r.iqpInfo.windowEndYear) : '')
-        : 'Distribution $' + Math.round(r.dist).toLocaleString());
+        : 'Distribution $' + Math.round(r.dist).toLocaleString() + (r.annualMode ? ' in ' + (r.payYears||'') + ' annual distributions' : ''));
 
     set('doc-inc-start',  r.incStart || 65);
     set('doc-inc-end',    r.incEnd   || 95);
@@ -1018,7 +1056,7 @@
     set('doc-nav95',      $f(r.navAt95Med));
     set('doc-dist-footer', $f(r.dist));
     set('doc-contrib-footer', $f(r.totalEtaContrib));
-    set('doc-contrib-sub', (r.payYears||7) + ' annual contributions of ' + $f(r.annualPrem));
+    set('doc-contrib-sub', (r.annualMode && r.premSchedule && r.premSchedule.length) ? (r.payYears||7) + ' annual premiums · ' + ((r.pdaRetYears||0) > 0 ? $f(r.premSchedule[0]) + ' early, then ' : '') + $f(r.levelPremium) + ' level' : (r.payYears||7) + ' annual contributions of ' + $f(r.annualPrem));
 
     // Excess liquidity breadcrumb — only shown when the advisor sized the
     // Year-1 loan above the tax obligation itself (loan override in modeler)
@@ -1204,11 +1242,83 @@
       setTextI('mc-pct-25-desc', 'In 75% of sequences the outcome exceeded this level. This is the stress-test floor — appropriate for conservative planning. Even at the 25th percentile, the ETA structure\'s 0% floor and tax-free income provide meaningful advantages over reinvested, forced-out QP proceeds.');
     }
 
+    // ── Annual-distribution funding and whole-plan comparison (qualified plan source only) ──
+    if (!isNQP && !isIQP) {
+      var nPay = r.payYears || 7;
+      var stepTitles = document.querySelectorAll('.how-step-title');
+      if (stepTitles[1]) stepTitles[1].textContent = 'Funding Phase (' + nPay + ' Annual ' + (r.annualMode ? 'Distributions' : 'Contributions') + ')';
+      if (r.annualMode) {
+        var heldYrs = (r.fundSchedule || []).filter(function(x){ return x.delayed; });
+        var s1 = document.getElementById('how-step-1-text');
+        var pdaOn = (r.pdaRetYears || 0) > 0;
+        if (s1) s1.textContent = 'Each year for ' + nPay + ' years the qualified plan distributes a portion of the balance, and a bank finances that year\'s tax bill — nothing is paid out of pocket. ' + (pdaOn ? 'In the first ' + r.pdaRetYears + ' year' + (r.pdaRetYears>1?'s':'') + ', ' + r.pdaRetPct + '% of each distribution is held at the bank in a Premium Deposit Account (PDA); it secures the loan while the policy\'s cash value is still small. The rest funds the tax-free index life insurance asset.' : 'The full distribution — before tax — funds the tax-free index life insurance asset.') + (heldYrs.length ? ' Where a distribution would otherwise fall before age 59½, the premium is held until that date so the early-withdrawal penalty does not apply.' : '');
+        var s2 = stepTitles[1] && stepTitles[1].nextElementSibling;
+        if (s2) s2.textContent = (pdaOn ? 'After the first ' + r.pdaRetYears + ' year' + (r.pdaRetYears>1?'s':'') + ', each distribution goes into the PDA and a level premium of ' + $f(r.levelPremium) + ' is paid from it, so the PDA is used up by the end of the funding period. ' : 'Each annual distribution funds that year\'s premium. ') + 'The part of the qualified plan not yet distributed stays invested, and the tax-free asset begins accumulating from the first premium.';
+      }
+      if (r.wpActive) {
+        var oh = document.getElementById('doc-outcomes-headline');
+        if (oh) oh.innerHTML = 'ETA Plus the Plan That Stays Invested vs. Leaving the Plan Alone — Ages <span id="doc-inc-ages">' + (r.incStart||65) + '–' + (r.incEnd||95) + '</span>';
+        var fbs = document.querySelectorAll('.fact-block');
+        if (fbs[1]) {
+          var la = fbs[1].querySelector('.fact-label'); if (la) la.textContent = 'ETA + Plan That Stays · After-Tax Total';
+          var sa = fbs[1].querySelector('.fact-sub'); if (sa) sa.textContent = $f(r.wpPolicyTotal) + ' tax-free from the policy + ' + $f(r.wpRemNet) + ' after tax from the plan that stays invested · Median (50th)';
+        }
+        if (fbs[2]) {
+          var lb = fbs[2].querySelector('.fact-label'); if (lb) lb.textContent = 'Leave the Plan Alone · After-Tax Total';
+          var sb = fbs[2].querySelector('.fact-sub'); if (sb) sb.textContent = '60/40 · ' + (r.baseRate||0).toFixed(2) + '% income tax · the whole ' + $f(r.totalQp) + ' plan stays in the QP';
+        }
+        var qpLeg = document.querySelector('#doc-chart-svg text[x="685"]'); if (qpLeg) qpLeg.textContent = 'Leave the Plan Alone (50th)';
+        var cs = document.getElementById('doc-chart-sublabel'); if (cs) cs.textContent = 'Cumulative After-Tax Income — ETA Plus the Plan That Stays Invested vs. Leaving the Plan Alone (50th Percentile)';
+        var sd = document.getElementById('doc-sidebar-desc'); if (sd) sd.textContent = 'ETA plus remaining plan vs. leaving the plan alone — Median Market Sequence · ' + (r.nSims||10000).toLocaleString() + ' Simulations';
+      }
+    }
+
+
+    // ── Roth comparison page (only when the Roth path was selected in the modeler) ──
+    (function(){
+    if (r.rothOn && r.wholePlan && r.wholePlan[50] && r.rothCum && !isNQP && !isIQP) {
+      var wp = r.wholePlan[50], rc = r.rothCum;
+      var rp = document.getElementById('roth-page'); if (rp) rp.style.display = 'flex';
+      var by = function(id){ return document.getElementById(id); };
+      set('roth-meta', 'Age ' + r.issueAge + ' · ' + $f(r.totalQp || r.dist) + ' qualified plan · ' + (r.annualMode ? (r.payYears||'') + ' annual distributions totaling ' + $f(r.dist) : $f(r.dist) + ' repositioned') + ' · ' + (r.nSims||10000).toLocaleString() + ' simulations');
+      set('roth-sidebar-desc', 'Leave it alone vs. Roth vs. ETA — Median Market Sequence · ' + (r.nSims||10000).toLocaleString() + ' Simulations');
+      set('roth-f-sq', $f(wp.sqNet));
+      set('roth-f-sq-sub', 'Whole plan stays in the QP · ' + (r.baseRate||0).toFixed(2) + '% income tax as withdrawn · ages ' + (r.incStart||65) + '–' + (r.incEnd||95));
+      set('roth-f-roth', $f(wp.rothNet));
+      set('roth-f-roth-sub', (r.rothTaxSrc === 'outside' ? $f(wp.rothOutsideTax) + ' of conversion tax paid from outside funds · ' : $f(wp.rothConvTax) + ' of conversion tax paid from the converted dollars · ') + $f(wp.rothInc) + ' tax-free from the Roth' + (wp.remNet > 0 ? ' + ' + $f(wp.remNet) + ' after tax from the plan that stays' : ''));
+      set('roth-f-eta', $f(wp.etaNet));
+      set('roth-f-eta-sub', $f(wp.policyTotal) + ' tax-free from the policy' + (wp.remNet > 0 ? ' + ' + $f(wp.remNet) + ' after tax from the plan that stays' : '') + ' · tax financed by the bank');
+      set('roth-f-ie', r.incEnd || 95);
+      set('roth-f-nav', $f(r.navAt95Med));
+      var note = by('roth-note');
+      if (note) note.textContent = 'Conversions carry no 10% early-withdrawal penalty. When the tax rate paid at conversion equals the rate paid on later withdrawals and the tax comes out of the converted dollars, a Roth conversion produces essentially the same after-tax income as leaving the plan alone; it separates from that path only when the rates differ, the tax is paid from outside funds, or the balance passes to heirs. Each path is drawn down by the income end age in this model, so what each would be worth to heirs is not shown. Hypothetical illustration, not tax advice.';
+      var svg = by('roth-chart-svg');
+      if (svg && rc.ages && rc.ages.length > 1) {
+        var n = rc.ages.length, PL = 60, PT = 24, cW = 980, cH = 306, BASE = 335;
+        var maxV = Math.max.apply(null, rc.sq.concat(rc.roth, rc.eta)) * 1.06 || 1;
+        var xS = function(i){ return PL + (i/(n-1))*cW; }, yS = function(v){ return PT + cH - (v/maxV)*cH; };
+        var pth = function(a){ return a.map(function(v,i){ return (i===0?'M':'L') + xS(i).toFixed(1) + ',' + yS(v).toFixed(1); }).join(' '); };
+        var $mm = function(v){ return v >= 1e6 ? '$' + (v/1e6).toFixed(1) + 'M' : '$' + Math.round(v/1000) + 'K'; };
+        var out = '';
+        [0,.25,.5,.75,1].forEach(function(f){ var y = yS(maxV*f); out += '<line x1="60" y1="' + y.toFixed(1) + '" x2="1050" y2="' + y.toFixed(1) + '" stroke="#e2ddd6" stroke-width=".5"/><text x="54" y="' + (y+4).toFixed(1) + '" font-size="12" fill="#8a8070" text-anchor="end" font-family="IBM Plex Mono,monospace">' + $mm(maxV*f) + '</text>'; });
+        out += '<path d="' + pth(rc.sq) + '" fill="none" stroke="rgba(100,140,200,.9)" stroke-width="2.5"/>';
+        out += '<path d="' + pth(rc.roth) + '" fill="none" stroke="#8a8070" stroke-width="2.5" stroke-dasharray="6,4"/>';
+        out += '<path d="' + pth(rc.eta) + '" fill="none" stroke="#c9a84c" stroke-width="3"/>';
+        var step = Math.max(1, Math.round(n/10));
+        rc.ages.forEach(function(a,i){ if (i % step === 0 || i === n-1) out += '<text x="' + xS(i).toFixed(1) + '" y="358" font-size="12" fill="#8a8070" text-anchor="middle" font-family="IBM Plex Mono,monospace">' + a + '</text>'; });
+        out += '<line x1="65" y1="16" x2="85" y2="14" stroke="rgba(100,140,200,.9)" stroke-width="2.5"/><text x="90" y="19" font-size="13" fill="#6b7c8d" font-family="IBM Plex Sans,sans-serif">Leave the plan alone</text>';
+        out += '<line x1="300" y1="16" x2="320" y2="14" stroke="#8a8070" stroke-width="2.5" stroke-dasharray="6,4"/><text x="325" y="19" font-size="13" fill="#6b7c8d" font-family="IBM Plex Sans,sans-serif">Roth conversion' + (wp.remNet > 0 ? ' + plan that stays' : '') + '</text>';
+        out += '<line x1="620" y1="16" x2="640" y2="14" stroke="#c9a84c" stroke-width="3"/><text x="645" y="19" font-size="13" fill="#6b7c8d" font-family="IBM Plex Sans,sans-serif">ETA' + (wp.remNet > 0 ? ' + plan that stays' : '') + '</text>';
+        svg.innerHTML = out;
+      }
+    }
+    })();
+
     // Advantage
     var adv_amt = (r.etaTotalMed||0) - (r.qpTotalMed||0);
     set('doc-advantage', (adv_amt>=0?'+':'')+$f(adv_amt));
     var ratio = r.qpTotalMed > 0 ? (r.etaTotalMed/r.qpTotalMed).toFixed(2) : '—';
-    set('doc-ratio', ratio + '× more income · Tax-free vs. taxable');
+    set('doc-ratio', ratio + (r.wpActive && !isNQP && !isIQP ? '× more after-tax income · whole plan' : '× more income · Tax-free vs. taxable'));
 
     // Phase 2 — an optional second income window past this plan's own
     // horizon, keyed to the insured's age. Only present in eta_mc_data
