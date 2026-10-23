@@ -3275,7 +3275,8 @@ async function generateMC() {
   try {
     pg1 = buildPage1(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
                      totalMedQPNet, totalMedQPGross, dateStr, adv, ver, poolLabel, N, carrierMeta,
-                     totalByBand1, totalByBand2, bandIncome2, bandStartLoan2);
+                     totalByBand1, totalByBand2, bandIncome2, bandStartLoan2,
+                     (threePath && (d.annualMode || d.totalQp > d.dist + 0.5)) ? threePath[50] : null);
   } catch(e) {
     pg1 = `<div style="padding:40px;color:red;font-family:monospace">PAGE 1 ERROR: ${e.message}<br><pre>${e.stack}</pre></div>`;
   }
@@ -3643,8 +3644,21 @@ function buildPage4(ageRange, etaPct, d, bandIncome, totalByBand1, tp, dateStr, 
 // ══════════════════════════════════════════════════════════
 function buildPage1(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
                     totalMedQPNet, totalMedQPGross, dateStr, adv, ver, poolLabel, N, carrierMeta,
-                    totalByBand1, totalByBand2, bandIncome2, bandStartLoan2) {
+                    totalByBand1, totalByBand2, bandIncome2, bandStartLoan2, wpTp) {
   const cola = d.cola/100;
+  // Whole-plan mode: the left (status-quo) side is the ENTIRE qualified plan, and the ETA side carries the
+  // qualified plan that stays invested after the distributions leave. Both use the income start / end ages
+  // already set for the status quo and the ETA.
+  const wp = !!wpTp;
+  const sqByAge = {}, remByAge = {};
+  let remNetTot = 0;
+  if (wp) {
+    wpTp.sq.rows.forEach(r => { sqByAge[r.age] = r; });
+    wpTp.rem.rows.forEach(r => { remByAge[r.age] = r; });
+    totalMedQPNet   = wpTp.sq.rows.reduce((s,r) => s + r.net, 0);
+    totalMedQPGross = wpTp.sq.rows.reduce((s,r) => s + r.gross, 0);
+    remNetTot       = wpTp.rem.rows.reduce((s,r) => s + r.net, 0);
+  }
   const incomeAges = ageRange.filter(a => a >= d.is && a <= d.ie);
   const totalTaxPaid = totalMedQPGross - totalMedQPNet;
   // Inherited QP: the "Taxes Paid" stat should reflect the ordinary income
@@ -3655,14 +3669,14 @@ function buildPage1(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
   const iqpForcedGross = iqpWindowAges.reduce((s,a)=>s+(qpPct[a]?.[50]?.gross||0),0);
   const iqpForcedNet = iqpWindowAges.reduce((s,a)=>s+(qpPct[a]?.[50]?.net||0),0);
   const iqpForcedTax = iqpForcedGross - iqpForcedNet;
-  const incomeAdv = totalByBand1[50] - totalMedQPNet;
+  const incomeAdv = (totalByBand1[50] + remNetTot) - totalMedQPNet;
   const finalHorizonAge = d.phase2On ? Math.max(d.ie, d.p2ie) : d.ie;
   const endCSV = etaPct[finalHorizonAge]?.[50]?.csvNet || 0;
 
   // STAT STRIP
   const compLabel = d.isNQP ? 'Taxable Account' : (d.isIQP ? 'Inherited Qualified Plan' : 'Qualified Plan');
   const compSeedLabel = d.isNQP ? 'Tax Liability Financed' : (d.isIQP ? 'Inherited Balance' : 'Account Initial Balance');
-  const compSeedVal = d.isNQP ? d.taxLiability : d.dist;
+  const compSeedVal = d.isNQP ? d.taxLiability : (wp ? d.totalQp : d.dist);
   const compNetLabel = d.isNQP ? `Total Net Income\nTaxable Account (After Tax)` : (d.isIQP ? `Total Retirement Income\nReinvested QP Proceeds (After Tax)` : `Total Net Distributions\nQualified Plan (After Tax)`);
   const compTaxLabel = d.isNQP ? `Tax Obligation Financed\nLiquidity Event` : (d.isIQP ? `Ordinary Income Tax\nOn the Mandatory Distribution` : `Taxes Paid — Qualified Plan\nOrdinary Income Tax`);
   const compTaxSub = d.isNQP
@@ -3797,16 +3811,17 @@ function buildPage1(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
     const rowCls = isPayoff ? 'payoff-yr' : (isIncome||isIncome2) ? 'income-yr' : isRmdOnly ? 'rmd-yr' : isFund ? 'fund-yr' : 'post-yr';
 
     if (secHdr && showLeft) leftRows += `<tr class="sec-hdr"><td colspan="8">${secHdr}</td></tr>`;
-    if (secHdrRight) rightRows += `<tr class="sec-hdr"><td colspan="13">${secHdrRight}</td></tr>`;
+    if (secHdrRight) rightRows += `<tr class="sec-hdr"><td colspan="${wp ? 15 : 13}">${secHdrRight}</td></tr>`;
 
     // LEFT: Comparator — qpPct[a][50].bal = EOY balance after withdrawals
     // BOY = previous year's EOY (we compute from the ageRange sequence)
     const prevAge = a - 1;
     const prevQP = qpPct[prevAge]?.[50];
-    const qpBOY = prevQP ? prevQP.bal : (d.isNQP ? d.taxLiability : d.dist); // first year BOY = seed amount
-    const qpEOY = qp.bal || 0;
-    const qpGross = qp.gross || 0;
-    const qpNet   = qp.net  || 0;
+    const sqRow = wp ? (sqByAge[a] || {}) : null;
+    const qpBOY = wp ? (sqByAge[prevAge] ? sqByAge[prevAge].bal : d.totalQp) : (prevQP ? prevQP.bal : (d.isNQP ? d.taxLiability : d.dist)); // first year BOY = seed amount
+    const qpEOY = wp ? (sqRow.bal || 0) : (qp.bal || 0);
+    const qpGross = wp ? (sqRow.gross || 0) : (qp.gross || 0);
+    const qpNet   = wp ? (sqRow.net  || 0) : (qp.net  || 0);
     // Tax paid = gross - net (simQP already applied age-aware rate)
     const qpTax = qpGross - qpNet;
     // QP growth = EOY + gross withdrawal - BOY (reverse-engineer the return)
@@ -3850,6 +3865,7 @@ function buildPage1(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
       <td class="${(isIncome||isIncome2) ? 'inc-val' : ''}">${taxFreeInc}</td>
       <td>${$f(e50.av)}</td>
       <td>${$f(e50.csvNet)}</td>
+      ${wp ? `<td class="${(remByAge[a] && remByAge[a].net > 0) ? 'inc-val' : ''}">${(remByAge[a] && remByAge[a].net > 0) ? $f(remByAge[a].net) : '—'}</td><td>${(a <= d.ie || (remByAge[a] && remByAge[a].bal > 0)) ? $f((remByAge[a] || {}).bal) : '—'}</td>` : ''}
     </tr>`;
   });
 
@@ -3873,7 +3889,7 @@ function buildPage1(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
   const rightFoot = `<tr>
     <td colspan="10" style="text-align:left">TOTALS — Tax-Free Income (Median)</td>
     <td style="color:#c9a84c">${$f(totalByBand[50])}</td>
-    <td>—</td><td>—</td>
+    <td>—</td><td>—</td>${wp ? `<td style="color:#2a6e45">${$f(remNetTot)}</td><td>—</td>` : ''}
   </tr>`;
 
   // SUMMARY CARDS — fill space above disclosure
@@ -3923,7 +3939,7 @@ function buildPage1(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
       <div>
         <div class="eyebrow">Enhanced Tax Advantage — ETA · Median Market Sequence${d.isNQP ? ' · Liquidity Event' : ''}</div>
         <div class="title">${d.name}</div>
-        <div class="meta-line">Client: ${d.name} &nbsp;|&nbsp; Advisor: ${adv || '—'}${d.altInsured ? ` &nbsp;|&nbsp; <b style="color:var(--gold)">Insured: ${d.insuredName}, Age ${d.insuredAge}${d.insuredRelationship ? ' (' + d.insuredRelationship + ' of ' + d.name + ')' : ''}</b>` : ''} &nbsp;|&nbsp; ${d.isNQP ? 'Tax Liability: ' + $f(d.taxLiability) + ' · IUL Funding: ' + $f(d.dist) : 'Distribution: ' + $f(d.dist)} &nbsp;|&nbsp; ${d.isNQP ? 'Comparator: ' + compRateStr(d) : 'Tax Rate: ' + d.combined.toFixed(2) + '%'} &nbsp;|&nbsp; ${d.annualMode ? 'Funding: ' + d.annualSchedule.length + ' annual distributions' : 'PDA Rate: ' + d.pdaRate.toFixed(2) + '%'} &nbsp;|&nbsp; Asset Loan Rate: ${d.plr.toFixed(2)}%${carrierMeta.targetPremium ? ' &nbsp;|&nbsp; Version ' + Math.round(carrierMeta.targetPremium) : ''}${d.loanOverrideActive && !d.multiYearActive ? ' &nbsp;|&nbsp; Loan: ' + $f(d.financedTax) + ' (' + $f(d.excessLiquidity) + ' excess liquidity @ ' + d.loanLTVPct + '% LTV)' : ''}${d.multiYearActive ? ' &nbsp;|&nbsp; Financing: ' + $f(d.totalDraws) + ' across ' + d.financingSchedule.length + ' yr(s)' + (d.excessLiquidity>0 ? ' (' + $f(d.excessLiquidity) + ' excess liquidity)' : '') : ''}</div>
+        <div class="meta-line">Client: ${d.name} &nbsp;|&nbsp; Advisor: ${adv || '—'}${d.altInsured ? ` &nbsp;|&nbsp; <b style="color:var(--gold)">Insured: ${d.insuredName}, Age ${d.insuredAge}${d.insuredRelationship ? ' (' + d.insuredRelationship + ' of ' + d.name + ')' : ''}</b>` : ''} &nbsp;|&nbsp; ${d.isNQP ? 'Tax Liability: ' + $f(d.taxLiability) + ' · IUL Funding: ' + $f(d.dist) : 'Distribution: ' + $f(d.dist) + (wp ? ' of ' + $f(d.totalQp) + ' plan' : '')} &nbsp;|&nbsp; ${d.isNQP ? 'Comparator: ' + compRateStr(d) : 'Tax Rate: ' + d.combined.toFixed(2) + '%'} &nbsp;|&nbsp; ${d.annualMode ? 'Funding: ' + d.annualSchedule.length + ' annual distributions' : 'PDA Rate: ' + d.pdaRate.toFixed(2) + '%'} &nbsp;|&nbsp; Asset Loan Rate: ${d.plr.toFixed(2)}%${carrierMeta.targetPremium ? ' &nbsp;|&nbsp; Version ' + Math.round(carrierMeta.targetPremium) : ''}${d.loanOverrideActive && !d.multiYearActive ? ' &nbsp;|&nbsp; Loan: ' + $f(d.financedTax) + ' (' + $f(d.excessLiquidity) + ' excess liquidity @ ' + d.loanLTVPct + '% LTV)' : ''}${d.multiYearActive ? ' &nbsp;|&nbsp; Financing: ' + $f(d.totalDraws) + ' across ' + d.financingSchedule.length + ' yr(s)' + (d.excessLiquidity>0 ? ' (' + $f(d.excessLiquidity) + ' excess liquidity)' : '') : ''}</div>
         ${d.altInsured ? `<div class="meta-line" style="margin-top:2px;opacity:.85">All distribution timing, tax, and income-schedule figures above and below are based on the account holder (${d.name}, age ${d.age}) — only the life insurance policy itself is on ${d.insuredName}'s life.</div>` : ''}
         ${d.phase2On ? `<div class="meta-line" style="margin-top:2px;opacity:.85">Phase 2: income continues from insured age ${d.p2isIns} to ${d.p2ieIns}, past the account holder's own Income End Age (${d.ie}) — solved independently from Phase 1's actual ending loan position on each simulated path.</div>` : ''}
       </div>
@@ -3954,9 +3970,9 @@ function buildPage1(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
         </table>
       </div>
       <div class="right-panel-wrap">
-        <table class="dual">
+        <table class="dual"${wp ? ' style="font-size:8.6px"' : ''}>
           <thead>
-            <tr><th colspan="13" style="background:var(--navy);color:var(--gold);font-size:9px;letter-spacing:2px;text-transform:uppercase;font-weight:600;text-align:left;padding:8px 12px;border-left:3px solid var(--gold);">Enhanced Tax Advantage${d.altInsured ? ` &middot; Insured: ${d.insuredName}, Age ${d.insuredAge}` : ''}</th></tr>
+            <tr><th colspan="${wp ? 15 : 13}" style="background:var(--navy);color:var(--gold);font-size:9px;letter-spacing:2px;text-transform:uppercase;font-weight:600;text-align:left;padding:8px 12px;border-left:3px solid var(--gold);">Enhanced Tax Advantage${d.altInsured ? ` &middot; Insured: ${d.insuredName}, Age ${d.insuredAge}` : ''}</th></tr>
             <tr>
               <th style="border-left:3px solid var(--gold)">Yr</th><th>${d.altInsured ? 'Insured Age' : 'Age'}</th>
               <th>${d.annualMode ? 'QP Distribution' : 'Contrib → PDA'}</th>
@@ -3970,6 +3986,7 @@ function buildPage1(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
               <th>Tax-Free Income</th>
               <th>Asset Value</th>
               <th>Net Asset Value</th>
+              ${wp ? '<th>QP Income (After Tax)</th><th>QP Balance (Stays Invested)</th>' : ''}
             </tr>
           </thead>
           <tbody>${rightRows}</tbody>
