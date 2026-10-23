@@ -166,7 +166,7 @@ tbody tr.inc-start td{border-top:2px solid var(--gold)}
         head.map(function(h,i){ return '<th'+(i<2?'':'')+'>'+h+'</th>'; }).join('')+'</tr></thead><tbody>'+
         upTo(rows).map(function(x){ return '<tr>'+cells(x)+'</tr>'; }).join('')+'</tbody></table></div></div>';
     }
-    var out = '';
+    var out = '<div class="foot-note" style="margin:0 0 14px;padding:10px 14px;background:#f7f0e0;border:1px solid #ddd8ce;border-radius:4px"><b>Basis note.</b> The Qualified Plan columns in the first table above follow only the dollars that are distributed to fund the policy, the same comparison shown on Pages 2 and 3 of the modeler. The tables below are the <b>whole plan</b> on the same return sequence: leaving it alone, the part that stays invested after the distributions, and (when selected) the Roth account. Those are the figures behind Page 1 and Page 4.</div>';
     out += tbl(labels[p]+' \u2014 Status Quo (Whole Qualified Plan, Untouched)',
       'The entire plan stays put on this same return sequence; taxable income is solved to draw it to $0 at the income end age. Year-end balance after withdrawals.',
       ['Yr','Age','Market Return','Gross Withdrawal','Tax','After Tax','QP Balance'], t.sq,
