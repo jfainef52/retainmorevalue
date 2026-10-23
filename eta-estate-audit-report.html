@@ -158,7 +158,21 @@ tbody tr.rmd-start td{border-top:2px solid var(--gold)}
     document.getElementById('band-content').innerHTML = buildBandSection(p);
   };
 
-  body.innerHTML = meta + buildPolicySection() + tabsHtml + '<div id="band-content"></div>';
+
+  // Funding schedule — present only when the modeler ran annual distributions
+  function buildFunding(){
+    if (!r.annualMode || !r.fundSchedule || !r.fundSchedule.length) return '';
+    var tot = r.fundSchedule.reduce(function(a,x){ return {d:a.d+x.dist, t:a.t+x.tax}; }, {d:0,t:0});
+    var rowsH = r.fundSchedule.map(function(x){
+      return '<tr><td>'+x.yr+'</td><td>'+(x.dateStr||'\u2014')+(x.delayed?' <b>(held from '+x.delayedFrom+')</b>':'')+
+        '</td><td>'+$f(x.dist)+'</td><td>'+(x.fedPct+x.state).toFixed(2)+'%</td><td>'+(x.pen?'10%':'\u2014')+'</td><td>'+$f(x.tax)+'</td><td>'+$f(x.toPda)+'</td><td>'+$f(x.prem)+'</td><td>'+$f(x.eoy)+'</td></tr>';
+    }).join('');
+    return '<div class="section"><h2>Annual Distribution Schedule</h2><div class="sub">Each distribution is taxed in its own year; tax and any penalty are financed by the bank that year. In the retention years part of each distribution is held at the bank in the premium deposit account (collateral for the loan); afterward the whole distribution goes into the PDA and a level premium is drawn from it. A held distribution is taken, and its premium paid, on the account holder\u2019s 59\u00bd date. The \u201cDistribution Out\u201d column in the ETA path below is the distribution column here.</div>'+
+      '<div class="wrap-x"><table class="ledger" style="min-width:700px"><thead><tr class="cols"><th>Yr</th><th>Date</th><th>Distribution</th><th>Fed + State</th><th>Penalty</th><th>Tax Financed</th><th>Into PDA</th><th>Premium to Policy</th><th>EOY PDA</th></tr></thead><tbody>'+rowsH+
+      '<tr style="font-weight:600"><td colspan="2">Total</td><td>'+$f(tot.d)+'</td><td></td><td></td><td>'+$f(tot.t)+'</td><td></td><td>'+$f(r.fundSchedule.reduce(function(s,x){return s+x.prem;},0))+'</td><td></td></tr></tbody></table></div></div>';
+  }
+
+  body.innerHTML = meta + buildFunding() + buildPolicySection() + tabsHtml + '<div id="band-content"></div>';
   showBand('p50');
 })();
 </script>
