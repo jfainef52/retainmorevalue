@@ -3810,7 +3810,7 @@ function buildPage1(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
     const bankRow = d.bankRows[yr - 1] || {};
     const pdaRow = d.pdaRows ? d.pdaRows[yr - 1] : null;
 
-    const rowCls = isPayoff ? 'payoff-yr' : (isIncome||isIncome2) ? 'income-yr' : isRmdOnly ? 'rmd-yr' : isFund ? 'fund-yr' : 'post-yr';
+    const rowCls = (isPayoff ? 'payoff-yr ' : '') + ((isIncome||isIncome2) ? 'income-yr' : isRmdOnly ? 'rmd-yr' : isFund ? 'fund-yr' : 'post-yr');
 
     if (secHdr && showLeft) leftRows += `<tr class="sec-hdr"><td colspan="8">${secHdr}</td></tr>`;
     if (secHdrRight) rightRows += `<tr class="sec-hdr"><td colspan="${wp ? 15 : 13}">${secHdrRight}</td></tr>`;
@@ -4196,7 +4196,7 @@ function buildPage3(ageRange, etaPct, qpPct, d, bandIncome, totalByBand,
     const qp  = wp ? (sqByAge[a] || {}) : (qpPct[a]?.[50]  || {});
     const remR = wp ? (remByAge[a] || {}) : null;
 
-    const rowCls = isPayoff ? 'payoff-yr' : (isIncome||isIncome2) ? 'income-yr' : isRmdOnly ? 'rmd-yr' : '';
+    const rowCls = (isPayoff ? 'payoff-yr ' : '') + ((isIncome||isIncome2) ? 'income-yr' : isRmdOnly ? 'rmd-yr' : '');
     const yrCell  = tranche ? `<td style="font-weight:700;background:rgba(201,168,76,.08)">${yr}</td>` : `<td>${yr}</td>`;
     const insAgeAtA = d.altInsured ? (d.insuredAge + yr - 1) : null;
     const ageLabel = insAgeAtA!=null ? `${a} <span style="font-size:8px;color:var(--muted)">(ins. ${insAgeAtA})</span>` : `${a}`;
