@@ -338,7 +338,7 @@
         <div class="sit-card">
           <div class="sit-icon">&#128181;</div>
           <div class="sit-title">Then Taxed Again as Income</div>
-          <div class="sit-text">Whatever remains is ordinary income to whoever inherits it, at their rates, not yours. There is no step-up in basis. Under current law the entire balance must come out within ten years.</div>
+          <div class="sit-text" id="sit-ird-text">Whatever remains is ordinary income to whoever inherits it, at their rates, not yours. There is no step-up in basis. Under current law the entire balance must come out within ten years.</div>
         </div>
         <div class="sit-card">
           <div class="sit-icon">&#9200;</div>
@@ -799,7 +799,16 @@
     set('cost-est',  $f(wf.estateTax));
     set('cost-cg',   $f(wf.capGainsTax));
     set('cost-ird',  $f(wf.inheritedIraTax));
-    if (r.beneficiaryAge) { var irdNote = document.getElementById('cost-ird-note'); if (irdNote) irdNote.style.display = 'block'; }
+    if (r.benPayout === 'lump') {
+      var lumpPct = ((r.lumpRate!=null ? r.lumpRate : r.benRate)*100).toFixed(0);
+      var irdNote = document.getElementById('cost-ird-note');
+      if (irdNote) {
+        irdNote.style.display = 'block';
+        irdNote.innerHTML = 'This view assumes your heir takes the whole inherited plan at once. The entire balance becomes ordinary income in a single tax year \u2014 stacked on top of everything else they earn that year, which pushes most of it into the top bracket (modeled here at ' + lumpPct + '%).';
+      }
+      var sitIrd = document.getElementById('sit-ird-text');
+      if (sitIrd) sitIrd.textContent = 'Whatever remains is ordinary income to whoever inherits it, at their rates, not yours. There is no step-up in basis. If the plan is cashed out at once, the entire balance is taxed in a single year.';
+    } else if (r.beneficiaryAge) { var irdNote = document.getElementById('cost-ird-note'); if (irdNote) irdNote.style.display = 'block'; }
 
     // Bar widths proportional to the largest layer, so the reader sees at a
     // glance which layers actually drive the total rather than reading six
