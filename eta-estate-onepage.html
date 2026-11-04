@@ -290,7 +290,7 @@ h1{font-family:'Playfair Display',serif;font-weight:600;font-size:21.42px;color:
     var dnFinal3 = dnTotal0_3*Math.pow(1+REINVEST_RATE, yearsPost3);
     var yrsLbl3 = yearsPost3>0 ? (yearsPost3 + ' years after they inherit') : 'once they inherit';
     set('doc-out5-val', '+' + $M(etaFinal3 - dnFinal3));
-    setHTML('doc-out5-lbl', 'More to your family ' + yrsLbl3 + ' &mdash; the trust asset keeps compounding tax-free where the inherited plan is taxed along the way');
+    setHTML('doc-out5-lbl', 'More to your family ' + yrsLbl3 + ' &mdash; the trust asset keeps compounding tax-free where the inherited plan ' + (r.benPayout==='lump' ? 'was taxed in a single year' : 'is taxed along the way'));
 
   } catch(e) { console.warn('Estate one-page summary data load failed:', e); }
 })();
