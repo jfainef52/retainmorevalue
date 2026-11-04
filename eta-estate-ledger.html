@@ -293,7 +293,7 @@ tr.tot td{border-top:2px solid var(--navy);border-bottom:none;font-weight:700;ba
              '<th class="supp">If Death That Year<br>(Est. + Cap Gains Tax)</th></tr>';
   var ETA_HDR='<tr><th>Yr</th><th>'+(S.altInsured?'Insured Age':'Age(s)')+'</th><th>'+(NQ?'Proceeds':'Plan')+' &rarr;<br>'+(S.annualMode?'Distribution':'Deposit')+'</th><th>'+(S.annualMode?'Premium':'Deposit')+' &rarr;<br>Policy</th>'+
               '<th>PDA<br>Balance</th><th>PDA + Net<br>Surrender</th>'+
-              '<th>Loan<br>Draw</th><th>Bank Loan<br>Balance</th><th>Bank<br>Interest</th><th>Net Death<br>Benefit</th>'+(NQ?'':'<th>Remaining<br>QP</th>')+
+              '<th>Loan<br>Draw</th><th>Bank Loan<br>Balance</th><th>Bank<br>Rate</th><th>Bank<br>Interest</th><th>Net Death<br>Benefit</th>'+(NQ?'':'<th>Remaining<br>QP</th>')+
               '<th class="supp">Non-Qualified<br>Estate</th>'+
               '<th class="supp">If Death That Year<br>(Est. + Cap Gains Tax)</th></tr>';
 
@@ -539,11 +539,11 @@ function stateEstateTax(stateCode, grossEstate, filing){
       var ageDisplay = (S.altInsured && S.insuredAge) ? (S.insuredAge + yr - 1) : ageLabel(r.a, yr);
       var rmdVal = (r.rmd!=null) ? r.rmd : (er ? er.rmd : 0);
       if(!phased && rmdVal>0){
-        h+='<tr class="phase"><td colspan="'+(NQ?12:13)+'">Required Distribution Phase &mdash; begins age '+rmdStart+(L.dualQp?' <em style="font-weight:400">(older spouse\u2019s RMD timeline, combined household QP)</em>':'')+'</td></tr>';
+        h+='<tr class="phase"><td colspan="'+(NQ?13:14)+'">Required Distribution Phase &mdash; begins age '+rmdStart+(L.dualQp?' <em style="font-weight:400">(older spouse\u2019s RMD timeline, combined household QP)</em>':'')+'</td></tr>';
         phased=true;
       }
       if(!lapsed && c && c.db<=0){
-        h+='<tr class="phase" style="background:#fdecec;color:#8b2020"><td colspan="'+(NQ?12:13)+'"><b>Policy lapses this year</b> \u2014 death benefit runs to $0 in the carrier\u2019s own illustration; remaining rows below show $0 death benefit for that reason.</td></tr>';
+        h+='<tr class="phase" style="background:#fdecec;color:#8b2020"><td colspan="'+(NQ?13:14)+'"><b>Policy lapses this year</b> \u2014 death benefit runs to $0 in the carrier\u2019s own illustration; remaining rows below show $0 death benefit for that reason.</td></tr>';
         lapsed=true;
       }
       var rowCls = (yr===payoffYr) ? 'payoff' : '';
@@ -560,8 +560,8 @@ function stateEstateTax(stateCode, grossEstate, filing){
       // balance carried IN to the payoff year, i.e. the end of the prior year.
       // No bank interest accrues in the payoff year itself, since the debt is
       // retired before that year's growth would apply.
-      var loanCell, intCell, drawCell;
-      if(yr<payoffYr){ loanCell=bk?$f(bk.end):'\u2014'; drawCell=(bk&&bk.draw>0)?$f(bk.draw):'\u2014'; intCell=bk?$f(bk.int):'\u2014'; }
+      var loanCell, intCell, drawCell, rateCell='\u2014';
+      if(yr<payoffYr){ loanCell=bk?$f(bk.end):'\u2014'; drawCell=(bk&&bk.draw>0)?$f(bk.draw):'\u2014'; intCell=bk?$f(bk.int):'\u2014'; rateCell=(bk&&bk.rt!=null)?Number(bk.rt).toFixed(2)+'%':'\u2014'; }
       else if(yr===payoffYr){ loanCell='Retired \u2014 '+(bk?$f(bk.beg):'\u2014'); drawCell='\u2014'; intCell='\u2014'; }
       else { loanCell='\u2014'; drawCell='\u2014'; intCell='\u2014'; }
       var gifts = cumGiftByYr[yr]||0;
@@ -573,7 +573,7 @@ function stateEstateTax(stateCode, grossEstate, filing){
       h+='<tr class="'+rowCls+(isDense?'':' tranche')+'"><td>'+yrNum(r.a)+'</td><td>'+ageDisplay+'</td><td>'+
          planToDeposit+'</td><td>'+depositToPolicy+'</td><td>'+pdaBal+'</td><td>'+
          $f(pdaPlusSv)+'</td><td>'+
-         drawCell+'</td><td>'+loanCell+'</td><td>'+intCell+'</td><td>'+(c?$f(c.db):'\u2014')+'</td><td>'+(NQ?'':(er?$f(er.qp):'\u2014')+'</td><td>')+nonQual+
+         drawCell+'</td><td>'+loanCell+'</td><td>'+rateCell+'</td><td>'+intCell+'</td><td>'+(c?$f(c.db):'\u2014')+'</td><td>'+(NQ?'':(er?$f(er.qp):'\u2014')+'</td><td>')+nonQual+
          '</td><td>'+netIfDeath+'</td></tr>';
     });
     return h;
@@ -614,7 +614,7 @@ function stateEstateTax(stateCode, grossEstate, filing){
       ? 'Net death benefit at insured age '+(S.insuredAge+(lastRow.a-S.age))+' (account holder age '+lastRow.a+')'
       : 'Net death benefit at age '+S.horizonAge;
     set('p1-eta', ETA_HDR+etaBody(eShownLocal,denseYears)+
-      '<tr class="tot"><td colspan="9">'+dbLabel+'</td><td>'+
+      '<tr class="tot"><td colspan="10">'+dbLabel+'</td><td>'+
       $f(lastCar?lastCar.db:S.netDB)+'</td>'+(NQ?'':'<td>&mdash;</td>')+'<td>&mdash;</td><td>&mdash;</td></tr>');
   }
 
@@ -625,6 +625,7 @@ function stateEstateTax(stateCode, grossEstate, filing){
   // two extra rows of headroom, so that's the starting point now; the
   // shrink-on-overflow safety net stays in case a longer name, a lapse
   // warning, or other extra content pushes a specific case past even that.
+  (function(){ var duo=document.querySelector('#sheet1 .duo'); if(duo){ var left=NQ?7:9, right=NQ?13:14; duo.style.gridTemplateColumns=left+'fr '+(right*0.846).toFixed(1)+'fr'; } })();
   var denseYears = 30;
   renderPage1Tables(denseYears);
   var sheet1 = document.getElementById('sheet1');
@@ -862,7 +863,7 @@ function stateEstateTax(stateCode, grossEstate, filing){
     (REINVEST_RATE<0.06?'A conservative reinvestment rate; a higher assumption would widen the advantage shown here, since it compounds on the trust\u2019s larger base for longer.':'')+
     ' Hypothetical illustration \u2014 not a guarantee of future results. Not tax or legal advice.');
 
-  set('p1-foot', NQ ? ('Take-no-action figures reflect the median (50th percentile) of 10,000 bootstrapped simulations using paired S&amp;P 500 and 10-year Treasury calendar years, 1975&ndash;2024. Half of outcomes finish better and half worse. The client pays the event tax ('+$f(S.taxLiability)+') from the proceeds and invests the '+$f(S.investedDifference||0)+' difference (policy funding of '+$f(S.fundedAmount||0)+' less the tax) in a taxable account at a '+(S.nqpBasisPct!=null?S.nqpBasisPct:40)+'% cost basis; growth is net of the management fee and a 1.5% annual realized-gain drag. Rows are shown in full for the first '+denseYears+' years (and while the bank loan is outstanding) \u2014 navy rows beyond that are condensed to every 5th year. The bank loan is refinanced into a participating policy loan at payoff and continues silently within the illustrated death benefit; the policy loan balance itself is not shown. Policy values are taken from the carrier illustration as prepared and are not guaranteed. <b>&ldquo;If Death That Year&rdquo; is shown only through the account holder\u2019s own horizon, age '+S.horizonAge+'</b> \u2014 rows beyond that exist to show how the trust asset itself keeps growing across the insured\u2019s longer lifetime, not to model a second, later death of the account holder.') : 'Qualified plan figures reflect the median (50th percentile) of 10,000 bootstrapped simulations using paired S&amp;P 500 and 10-year Treasury calendar years, 1975&ndash;2024. Half of outcomes finish better and half worse. Required minimum distributions follow the 2022 Uniform Lifetime Table beginning at the age required by year of birth, are stacked on taxable Social Security, and are reinvested after tax. Rows are shown in full for the first '+denseYears+' years (and while the bank loan is outstanding, and through the first decade of required distributions, regardless of that cutoff) \u2014 navy rows beyond that are condensed to every 5th year. The bank loan is refinanced into a participating policy loan at payoff and continues silently within the illustrated death benefit; the policy loan balance itself is not shown. Policy values are taken from the carrier illustration as prepared and are not guaranteed. <b>&ldquo;If Death That Year&rdquo; is shown only through the account holder\u2019s own horizon, age '+S.horizonAge+'</b> \u2014 rows beyond that exist to show how the trust asset itself keeps growing across the insured\u2019s longer lifetime, not to model a second, later death of the account holder; the tax figure isn\u2019t carried past that point so a longer life never appears as a cost to the family.');
+  set('p1-foot', NQ ? ('Take-no-action figures reflect the median (50th percentile) of 10,000 bootstrapped simulations using paired S&amp;P 500 and 10-year Treasury calendar years, 1975&ndash;2024. Half of outcomes finish better and half worse. The client pays the event tax ('+$f(S.taxLiability)+') from the proceeds and invests the '+$f(S.investedDifference||0)+' difference (policy funding of '+$f(S.fundedAmount||0)+' less the tax) in a taxable account at a '+(S.nqpBasisPct!=null?S.nqpBasisPct:40)+'% cost basis; growth is net of the management fee and a 1.5% annual realized-gain drag. Rows are shown in full for the first '+denseYears+' years (and while the bank loan is outstanding) \u2014 navy rows beyond that are condensed to every 5th year. Bank Rate is the bank\u2019s all-in floating rate (SOFR plus spread) for that year under the rate environment set in the modeler. The bank loan is refinanced into a participating policy loan at payoff and continues silently within the illustrated death benefit; the policy loan balance itself is not shown. Policy values are taken from the carrier illustration as prepared and are not guaranteed. <b>&ldquo;If Death That Year&rdquo; is shown only through the account holder\u2019s own horizon, age '+S.horizonAge+'</b> \u2014 rows beyond that exist to show how the trust asset itself keeps growing across the insured\u2019s longer lifetime, not to model a second, later death of the account holder.') : 'Qualified plan figures reflect the median (50th percentile) of 10,000 bootstrapped simulations using paired S&amp;P 500 and 10-year Treasury calendar years, 1975&ndash;2024. Half of outcomes finish better and half worse. Required minimum distributions follow the 2022 Uniform Lifetime Table beginning at the age required by year of birth, are stacked on taxable Social Security, and are reinvested after tax. Rows are shown in full for the first '+denseYears+' years (and while the bank loan is outstanding, and through the first decade of required distributions, regardless of that cutoff) \u2014 navy rows beyond that are condensed to every 5th year. Bank Rate is the bank\u2019s all-in floating rate (SOFR plus spread) for that year under the rate environment set in the modeler. The bank loan is refinanced into a participating policy loan at payoff and continues silently within the illustrated death benefit; the policy loan balance itself is not shown. Policy values are taken from the carrier illustration as prepared and are not guaranteed. <b>&ldquo;If Death That Year&rdquo; is shown only through the account holder\u2019s own horizon, age '+S.horizonAge+'</b> \u2014 rows beyond that exist to show how the trust asset itself keeps growing across the insured\u2019s longer lifetime, not to model a second, later death of the account holder; the tax figure isn\u2019t carried past that point so a longer life never appears as a cost to the family.');
   set('p2-foot','The chart applies the same 40%-above-exemption estate tax calculation used for the final result at every age along the timeline, using the stored median-path balances for each year \u2014 it is not a separate projection. <b>Conservative methodology.</b> Required distributions are taxed as though they were the client\u2019s only ordinary income; the distribution funding the structure is taxed at the highest marginal bracket. Any distortion understates the advantage shown. Hypothetical model \u2014 not a guarantee of future results or tax outcomes. Federal estate tax exemption reflects current law under the One Big Beautiful Bill Act ($15M individual / $30M married, effective for deaths on or after January 1, 2026, indexed) and is subject to legislative change. Death benefit is excluded from the gross estate only where the policy is owned by a properly structured irrevocable trust with an independent trustee and no obligation to satisfy estate liabilities; a policy transferred into trust rather than issued to it is subject to the three-year lookback under IRC 2035. The IRC 691(c) deduction is not modeled. Not tax or legal advice \u2014 consult qualified tax counsel and an estate planning attorney. Not valid without a complete carrier illustration. RetainMoreValue.com \u00b7 EFS Life LLC');
   (function(){
     var f=document.getElementById('p1-foot'); if(!f) return;
