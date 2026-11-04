@@ -79,6 +79,7 @@ body{font-family:'IBM Plex Sans',sans-serif;background:var(--off);color:var(--te
 .src-btn:first-child{border-right:1px solid var(--border)}
 .nqp-note{background:rgba(201,168,76,.07);border:1px solid rgba(201,168,76,.25);border-radius:4px;padding:10px 14px;font-size:11px;color:var(--text);line-height:1.6;margin-bottom:14px}
 .nqp-note strong{color:var(--navy)}
+.src-btn:not(:last-child){border-right:1px solid var(--border)}
 .computed-derived{background:#e8f0e8;color:var(--green);font-weight:600}
 .rate-display{background:var(--navy);border-radius:4px;padding:12px 16px;margin-top:10px;display:flex;justify-content:space-between;align-items:center}
 .rate-display .rl{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,.4)}
@@ -498,13 +499,38 @@ table.sc-ldg tfoot td.gold-col { color:var(--gold); }
         <div class="hint" id="stateNote"></div>
 
         <div class="sep"></div>
-        <div class="stag">Qualified Plan Distribution</div>
+        <div class="stag" id="distSectionLabel">Source of Funds</div>
+        <div class="src-toggle">
+          <button class="src-btn active" id="srcBtnQP" onclick="setSourceMode('qp')">Qualified Plan (QP)<br><span style="font-size:9px;opacity:.7;font-weight:400">IRA &middot; 401(k) &middot; TSP &middot; 403(b)</span></button>
+          <button class="src-btn" id="srcBtnNQP" onclick="setSourceMode('nqp')">Liquidity Event (Non-QP)<br><span style="font-size:9px;opacity:.7;font-weight:400">Business sale &middot; Deferred comp &middot; Inheritance</span></button>
+          <button class="src-btn" id="srcBtnIQP" onclick="setSourceMode('iqp')">Inherited Qualified Plan<br><span style="font-size:9px;opacity:.7;font-weight:400">Beneficiary &middot; SECURE Act 10-Year Rule</span></button>
+        </div>
+        <div id="nqp-explainer" class="nqp-note" style="display:none">
+          <strong>How this works:</strong> Enter the client&rsquo;s tax liability from the liquidity event as a one-time lump sum. ETA finances 100% of that tax &mdash; the client commits <strong>2&times; the tax amount</strong> to the policy
+          (e.g. $500K tax &rarr; $1M into the policy over the premium pay period). There is no qualified plan, no RMD and no early-withdrawal penalty. In the estate comparison, the take-no-action path is the tax amount invested in a taxable account instead &mdash; the same convention the ETA income modeler uses.
+        </div>
+        <div id="iqp-explainer" class="nqp-note" style="display:none">
+          <strong>How this works:</strong> A non-spouse beneficiary who inherits a qualified plan must fully distribute &mdash; and pay ordinary income tax on &mdash; the entire balance within 10 years of the owner&rsquo;s death. If the decedent had already reached their own required beginning date, annual RMDs are also owed in years 1&ndash;9
+          (Table I, reduce-by-one). Enter the decedent&rsquo;s dates below; the remaining window is computed automatically. The account holder fields above then describe the <strong>beneficiary</strong>. No 10% early-withdrawal penalty ever applies to an inherited plan.
+          Always confirm the RMD determination with the client&rsquo;s CPA or the plan custodian.
+        </div>
+        <div id="iqp-decedent-panel" style="display:none">
+          <div class="fg fr">
+            <div class="field"><label class="fl">Decedent Date of Birth</label><input type="date" id="decedentDob" oninput="updateIQPWindow()"/></div>
+            <div class="field"><label class="fl">Decedent Date of Death</label><input type="date" id="decedentDod" oninput="updateIQPWindow()"/></div>
+          </div>
+          <div id="iqpWindowSummary" class="nqp-note" style="display:none"></div>
+          <div class="chk-row" id="iqpLumpDeferRow" style="display:none">
+            <input type="checkbox" id="iqpLumpDeferChk" checked onchange="recalcAll()"/>
+            <label for="iqpLumpDeferChk">No annual RMD is required &mdash; let the balance compound and take it as one distribution in the final window year (uncheck to spread it evenly over the remaining years)</label>
+          </div>
+        </div>
 
         <div class="fg">
           <label class="fl" id="distLabel">QP Distribution Amount</label>
           <div class="field"><input type="text" id="distribution" placeholder="ex. $2,000,000" oninput="formatCurrency(this);recalcAll()"/></div>
         </div>
-        <div class="fg fr">
+        <div class="fg fr" id="fundModeRow">
           <div class="field"><label class="fl">How the QP dollars move</label>
             <select id="fundMode" onchange="onFundModeChange()">
               <option value="lump">One lump-sum distribution (PDA)</option>
@@ -513,7 +539,7 @@ table.sc-ldg tfoot td.gold-col { color:var(--gold); }
           </div>
           <div class="field"></div>
         </div>
-        <div class="hint">Annual: each year's distribution is taxed that year, the tax is financed, and the full distribution is that year's premium &mdash; no PDA. The number of distributions is Pay Years below. The QP that has not yet been distributed stays invested on the same market returns.</div>
+        <div class="hint" id="fundModeHint">Annual: each year's distribution is taxed that year, the tax is financed, and the full distribution is that year's premium &mdash; no PDA. The number of distributions is Pay Years below. The QP that has not yet been distributed stays invested on the same market returns.</div>
         <div id="annualPanel" style="display:none">
           <div class="chk-row">
             <input type="checkbox" id="annDelayChk" onchange="recalcAll()"/>
@@ -707,7 +733,7 @@ table.sc-ldg tfoot td.gold-col { color:var(--gold); }
       <div class="card-hdr"><div class="step">Step 3</div><h2>Estate Assumptions</h2></div>
       <div class="card-body">
         <div class="fg fr">
-          <div class="field"><label class="fl" id="qpBalLabel">QP Balance</label><input type="text" id="qpBalance" placeholder="ex. $2,000,000" oninput="formatCurrency(this)"/></div>
+          <div class="field" id="qpBalField"><label class="fl" id="qpBalLabel">QP Balance</label><input type="text" id="qpBalance" placeholder="ex. $2,000,000" oninput="formatCurrency(this)"/></div>
           <div class="field"><label class="fl">Other Net Worth</label><input type="text" id="otherNW" placeholder="ex. $26,000,000" oninput="formatCurrency(this)"/></div>
         </div>
         <div class="fg fr3">
@@ -720,26 +746,14 @@ table.sc-ldg tfoot td.gold-col { color:var(--gold); }
           <div class="field"><label class="fl">Beneficiary Rate %</label><input type="number" id="benRate" value="35" step="0.1"/></div>
           <div class="field"><label class="fl">Exemption Index %</label><input type="number" id="exIdx" value="2.5" step="0.1"/></div>
         </div>
-        <div class="fg fr">
-          <div class="field"><label class="fl">Inherited QP Tax Treatment</label>
-            <select id="benPayout" onchange="onBenPayoutChange()">
-              <option value="tenyear">SECURE Act 10-year window (annual RMDs)</option>
-              <option value="lump">Lump-sum tax liability (heir cashes out in one year)</option>
-            </select>
-          </div>
-          <div class="field" id="lumpRateField" style="display:none"><label class="fl">Lump-Sum Tax Rate %</label><input type="number" id="lumpRate" value="40" step="0.1" min="0" max="100"/></div>
-        </div>
-        <div class="hint" id="lumpHint" style="display:none;margin-bottom:10px">Lump-sum mode: the heir takes the entire inherited qualified plan in a single tax year, so the whole balance is taxed at the Lump-Sum Tax Rate (federal + state) in one year.
-          No continued tax-deferred growth, and no annual RMD schedule &mdash; Beneficiary Rate, Beneficiary Current Age and Post-Death Growth below are not used. Because the full balance stacks into one year it usually lands in the top bracket, so set this rate at or above the Beneficiary Rate.
-          Only the balance at death is taxed; the 10-year view also taxes growth earned during the window, so on identical inputs the lump-sum total can come out lower in dollars even at a higher rate.</div>
-        <div class="fg fr3" id="benWindowRow">
+        <div class="fg fr3">
           <div class="field"><label class="fl">Beneficiary Current Age</label><input type="number" id="beneficiaryCurrentAge" placeholder="e.g. 42" min="0" max="90"/></div>
           <div class="field"><label class="fl">Post-Death Account Growth %</label><input type="number" id="postDeathGrowth" value="5.00" step="0.25"/></div>
           <div class="field"></div>
         </div>
         <div class="hint">Non-spouse beneficiary, SECURE Act 10-year rule. Enter the beneficiary's age today &mdash; their age at inheritance is derived automatically from the account holder's current age and the Horizon Age below,
           so this field doesn't need updating every time the horizon changes. The account owner is always well past the required beginning date at the modeled horizon, so the final IRS regulations (effective 2025) require the
-          beneficiary to take annual life-expectancy RMDs in years 1&ndash;9 (IRS Table I, reduce-by-one method) and empty the account by year 10 &mdash; not a single lump distribution (unless the lump-sum option above is selected). The Beneficiary Rate above is applied to each
+          beneficiary to take annual life-expectancy RMDs in years 1&ndash;9 (IRS Table I, reduce-by-one method) and empty the account by year 10 &mdash; not a single lump distribution. The Beneficiary Rate above is applied to each
           year's forced distribution, stacked on whatever else the beneficiary earns that year; a beneficiary in peak earning years should generally use a top-bracket rate here, not their everyday rate.</div>
         <div class="fg fr">
           <div class="field"><label class="fl">Social Security (today's $)</label><input type="text" id="ssAnnual" value="$62,172" oninput="formatCurrency(this)"/></div>
@@ -990,13 +1004,6 @@ function formatCurrency(el) {
   const raw = el.value.replace(/[$,]/g,'');
   const n = parseFloat(raw);
   if (!isNaN(n)&&raw!=='') el.value='$'+Math.round(n).toLocaleString();
-}
-function onBenPayoutChange(){
-  const lump = document.getElementById('benPayout').value === 'lump';
-  document.getElementById('lumpRateField').style.display = lump ? '' : 'none';
-  document.getElementById('lumpHint').style.display = lump ? '' : 'none';
-  const row = document.getElementById('benWindowRow');
-  if (row) row.style.opacity = lump ? '.4' : '';
 }
 function parseNum(id) { return parseFloat((document.getElementById(id).value||'').replace(/[$,]/g,''))||0; }
 const $f = n=>(!n||isNaN(n)||Math.abs(n)<0.5)?'—':'$'+Math.round(n).toLocaleString();
@@ -1529,7 +1536,7 @@ function runQPPath(cfg, paired, rng){
          fedRate,stateRate,nonQpGrossRate,nonQpStart,nonQpBasis,
          annualDist=0,distYears=0,distSchedule=null,
          useBrackets=false,filing='married',bracketIdx=0.025,
-         ssAnnual=0,ssStartAge=70,includeIrmaa=true,medicarePeople=2}=cfg;
+         ssAnnual=0,ssStartAge=70,includeIrmaa=true,medicarePeople=2,iqp=null}=cfg;
   const bondAlloc=1-equityAlloc, incRate=fedRate+stateRate;
   const DRAG=0.015;                       // annual realized-gain/dividend drag — actively managed assumption
   let qp=qpBalance, side=nonQpStart, basis=nonQpBasis;
@@ -1541,7 +1548,8 @@ function runQPPath(cfg, paired, rng){
     if(distSchedule){ const x=distSchedule[age-currentAge]||0; if(x>0) qp=Math.max(0, qp-x); }
     else if(distYears && (age-currentAge)<distYears) qp=Math.max(0, qp-annualDist);
     let rmd=0;
-    if(age>=Math.floor(rmdAge)){const d=ultDivisor(age); if(d) rmd=Math.min(qp,qp/d);}
+    if(iqp){ rmd=iqpForced(qp, age-currentAge, iqp); }
+    else if(age>=Math.floor(rmdAge)){const d=ultDivisor(age); if(d) rmd=Math.min(qp,qp/d);}
     qp-=rmd;
     // DELIBERATELY CONSERVATIVE: the required distribution is taxed as though
     // it were the client's ONLY ordinary income. It therefore fills the lowest
@@ -1600,7 +1608,7 @@ function rebuildQPLedger(cfg, paired, seed, simIndex){
   const {qpBalance,currentAge,horizonAge,rmdAge,equityAlloc,mgmtFee,fedRate,stateRate,
          nonQpGrossRate,nonQpStart,nonQpBasis,annualDist=0,distYears=0,distSchedule=null,
          useBrackets=false,filing='married',bracketIdx=0.025,
-         ssAnnual=0,ssStartAge=70,includeIrmaa=true,medicarePeople=2}=cfg;
+         ssAnnual=0,ssStartAge=70,includeIrmaa=true,medicarePeople=2,iqp=null}=cfg;
   const rng=makeRng(subSeed(seed,simIndex));
   const bondAlloc=1-equityAlloc, incRate=fedRate+stateRate, DRAG=0.015;
   let qp=qpBalance, side=nonQpStart, basis=nonQpBasis, cumTax=0;
@@ -1610,7 +1618,8 @@ function rebuildQPLedger(cfg, paired, seed, simIndex){
     if(distSchedule){ const x=distSchedule[age-currentAge]||0; dist=Math.min(qp,x); qp-=dist; }
     else if(distYears && (age-currentAge)<distYears){ dist=Math.min(qp,annualDist); qp-=dist; }
     let rmd=0;
-    if(age>=Math.floor(rmdAge)){ const d=ultDivisor(age); if(d) rmd=Math.min(qp,qp/d); }
+    if(iqp){ rmd=iqpForced(qp, age-currentAge, iqp); }
+    else if(age>=Math.floor(rmdAge)){ const d=ultDivisor(age); if(d) rmd=Math.min(qp,qp/d); }
     qp-=rmd;
     const yf=age-currentAge;
     const ssGross   = (ssAnnual>0 && age>=ssStartAge) ? ssAnnual*Math.pow(1+bracketIdx,yf) : 0;
@@ -1707,21 +1716,15 @@ function estateTaxStack(i){
   // Non-spouse beneficiary's actual SECURE Act 10-year distribution window —
   // not a flat balance × rate approximation — when a beneficiary age has
   // been supplied. Falls back to the flat estimate otherwise.
-  // Lump-sum option: the heir cashes out the whole inherited plan in one tax
-  // year, so the entire balance is taxed at the lump-sum rate — no continued
-  // tax-deferred growth, no annual RMD schedule.
-  const lump = i.benPayout === 'lump';
-  const lumpRate = (i.lumpRate != null && !isNaN(i.lumpRate)) ? i.lumpRate : i.beneficiaryRate;
-  const benLump = lump ? {balance: i.qpBalance, rate: lumpRate, totalTax: i.qpBalance * lumpRate} : null;
-  const benSim = (!lump && i.beneficiaryAge)
+  const benSim = i.beneficiaryAge
     ? beneficiaryTenYearDistribution(i.qpBalance, i.beneficiaryAge, i.postDeathGrowth||0, i.beneficiaryRate)
     : null;
-  const inheritedIraTax = lump ? benLump.totalTax : (benSim ? benSim.totalTax : i.qpBalance * i.beneficiaryRate);
+  const inheritedIraTax = benSim ? benSim.totalTax : i.qpBalance * i.beneficiaryRate;
   // An ILIT-owned death benefit is outside the gross estate for TAX purposes,
   // but the heirs still receive it. Add it back after tax, never before.
   const ilitProceeds = i.dbInIlit ? (i.deathBenefit||0) : 0;
   return {grossExemption, applicable, grossEstate, taxableEstate, federalEstateTax,
-          stateTax, stateTaxApproximate, embeddedGain, capGainsTax, inheritedIraTax, ilitProceeds, benSim, benLump,
+          stateTax, stateTaxApproximate, embeddedGain, capGainsTax, inheritedIraTax, ilitProceeds, benSim,
           netToHeirs: grossEstate - federalEstateTax - stateTax - capGainsTax
                       - inheritedIraTax + ilitProceeds};
 }
@@ -2025,6 +2028,7 @@ async function parseIllustration(file, scenario = 'illustrated') {
 let policyType = 'single';
 let _illFile = null, _illustration = null, _scenario = 'illustrated';
 let _preIllus = null;
+let _sourceMode = 'qp'; // 'qp' | 'nqp' | 'iqp' -- same three sources as eta-modeler.html
 
 const fmt$ = n => '$' + Math.round(n).toLocaleString('en-US');
 const fmtM = n => '$' + (n/1e6).toFixed(2) + 'M';
@@ -2086,6 +2090,7 @@ function toggleDualQp(){
     : 'Determines the exact RMD starting age (73 for those born 1951&ndash;1959, 75 for 1960 or later, per SECURE 2.0) &mdash; age alone is ambiguous by up to a year depending on whether the birthday has occurred yet this calendar year, which is enough to land on the wrong side of that cutoff. Applies whether or not the insured is a different person from the account holder. Falls back to an age-based estimate if left blank.';
   document.getElementById('distLabel').textContent = on ? 'Combined QP Distribution (Both Spouses)' : 'QP Distribution Amount';
   document.getElementById('qpBalLabel').textContent = on ? 'Combined QP Balance (Both Spouses)' : 'QP Balance';
+  applyDistLabel();
   recalcAll();
 }
 
@@ -2108,7 +2113,7 @@ function distributionTax(){
   const age  = getAccountHolderAge();
   const preAmt  = Math.min(parseNum('preAmount'), dist);
   const postAmt = Math.max(0, dist - preAmt);
-  const under   = age < 59.5;
+  const under   = age < 59.5 && _sourceMode === 'qp';
   const penalty = under ? preAmt*0.10 : 0;
   const wait    = under ? Math.max(1, Math.ceil(59.5-age)) : 0;
 
@@ -2252,7 +2257,98 @@ let _annualOv = {}; // {yr: {dist, fed, pen}} — only values the advisor change
 
 function fundIsAnnual() {
   const el = document.getElementById('fundMode');
-  return !!el && el.value === 'annual';
+  return _sourceMode === 'qp' && !!el && el.value === 'annual';
+}
+
+/* ── Source of funds: Qualified Plan / Liquidity Event (Non-QP) / Inherited QP ──
+   Mirrors eta-modeler.html. NQP: the entered amount is the TAX LIABILITY, financed
+   100% by the bank, and the policy is funded with 2x that amount. IQP: the entered
+   amount is the inherited balance, forced out over the SECURE Act 10-year window. */
+function iqpRmdStartAge(by){ return by >= 1960 ? 75 : 73; }
+function resolveInheritedQPWindow(dobStr, dodStr){
+  if (!dobStr || !dodStr) return null;
+  const dDob = new Date(dobStr), dDod = new Date(dodStr);
+  if (isNaN(dDob) || isNaN(dDod) || dDod <= dDob) return null;
+  const decedentBirthYear = dDob.getFullYear(), yearOfDeath = dDod.getFullYear();
+  const hadBday = (dDod.getMonth() > dDob.getMonth()) || (dDod.getMonth() === dDob.getMonth() && dDod.getDate() >= dDob.getDate());
+  const ageAtDeath = yearOfDeath - decedentBirthYear - (hadBday ? 0 : 1);
+  const decedentRmdAge = iqpRmdStartAge(decedentBirthYear);
+  const reachedRBD = yearOfDeath >= decedentBirthYear + decedentRmdAge;
+  const windowStartYear = yearOfDeath + 1, windowEndYear = yearOfDeath + 10;
+  const currentYear = new Date().getFullYear();
+  const yearsElapsed = Math.max(0, Math.min(10, currentYear - windowStartYear));
+  const yearsRemaining = Math.max(1, windowEndYear - Math.max(currentYear, windowStartYear) + 1);
+  return {decedentBirthYear, yearOfDeath, ageAtDeath, decedentRmdAge, reachedRBD, windowStartYear, windowEndYear, currentYear, yearsElapsed, yearsRemaining};
+}
+// Engine config for the inherited-plan forced distribution; null when not IQP or dates missing.
+function iqpConfig(){
+  if (_sourceMode !== 'iqp') return null;
+  const w = resolveInheritedQPWindow(document.getElementById('decedentDob').value, document.getElementById('decedentDod').value);
+  if (!w) return null;
+  const dobVal = document.getElementById('accountHolderDOB').value;
+  const age = getAccountHolderAge();
+  const beneBirthYear = dobVal ? new Date(dobVal+'T00:00:00').getFullYear() : (new Date().getFullYear() - age);
+  const factor0 = singleLifeFactor(w.windowStartYear - beneBirthYear) - w.yearsElapsed;
+  const lumpChk = document.getElementById('iqpLumpDeferChk');
+  return {N: w.yearsRemaining, reachedRBD: w.reachedRBD, factor0, lumpDefer: !!(lumpChk && lumpChk.checked),
+          yearOfDeath: w.yearOfDeath, windowEndYear: w.windowEndYear, yearsElapsed: w.yearsElapsed, ageAtDeath: w.ageAtDeath};
+}
+// Forced distribution for year k (0 = this year) of the remaining window.
+function iqpForced(qp, k, iqp){
+  if (qp <= 0) return 0;
+  if (k >= iqp.N - 1) return qp;                                   // final window year: account must be emptied
+  if (iqp.reachedRBD) return Math.min(qp, qp / Math.max(1, iqp.factor0 - k)); // Table I, reduce-by-one
+  return iqp.lumpDefer ? 0 : qp / (iqp.N - k);
+}
+let _dobPrev = null;
+function applyDistLabel(){
+  const dual = document.getElementById('dualQpChk').checked;
+  const dl = document.getElementById('distLabel'), inp = document.getElementById('distribution');
+  const qbl = document.getElementById('qpBalLabel');
+  if (_sourceMode === 'nqp') { dl.textContent = 'Tax Liability Amount (Liquidity Event)'; inp.placeholder = 'ex. $500,000'; }
+  else if (_sourceMode === 'iqp') { dl.textContent = 'Inherited QP Balance to Reposition'; inp.placeholder = 'ex. $1,000,000'; }
+  else {
+    dl.textContent = fundIsAnnual() ? 'Total QP Amount to Distribute (spread over the Pay Years)' : (dual ? 'Combined QP Distribution (Both Spouses)' : 'QP Distribution Amount');
+    inp.placeholder = 'ex. $2,000,000';
+  }
+  qbl.textContent = _sourceMode === 'iqp' ? 'Inherited QP Balance (total)' : (dual ? 'Combined QP Balance (Both Spouses)' : 'QP Balance');
+}
+function setSourceMode(mode){
+  const wasIqp = _sourceMode === 'iqp';
+  _sourceMode = mode;
+  const nqp = mode === 'nqp', iqp = mode === 'iqp', qp = mode === 'qp';
+  document.getElementById('srcBtnQP').classList.toggle('active', qp);
+  document.getElementById('srcBtnNQP').classList.toggle('active', nqp);
+  document.getElementById('srcBtnIQP').classList.toggle('active', iqp);
+  const show = (id, on, disp='') => { const el = document.getElementById(id); if (el) el.style.display = on ? disp : 'none'; };
+  show('nqp-explainer', nqp, 'block'); show('iqp-explainer', iqp, 'block'); show('iqp-decedent-panel', iqp, 'block');
+  // Funding method, early-withdrawal split and penalty are Qualified Plan concepts only.
+  if (!qp) { document.getElementById('fundMode').value = 'lump'; document.getElementById('preAmount').value = ''; document.getElementById('penaltyChk').checked = false; }
+  show('fundModeRow', qp, ''); show('fundModeHint', qp, ''); show('annualPanel', false);
+  show('qpBalField', !nqp, '');                    // no qualified plan in a liquidity-event case
+  // Beneficiary DOB relabel for IQP (restore whatever was there before when leaving it)
+  const dl = document.getElementById('dobLabel'), dh = document.getElementById('dobHint');
+  if (iqp && !wasIqp) {
+    _dobPrev = {l: dl.textContent, h: dh.innerHTML};
+    dl.textContent = 'Beneficiary Date of Birth';
+    dh.innerHTML = 'The beneficiary is the account holder for every age, tax and estate calculation below. Drives the exact Single Life Expectancy factor (Table I) for the inherited-plan RMDs. Falls back to the Insured Age if left blank.';
+  } else if (!iqp && wasIqp && _dobPrev) { dl.textContent = _dobPrev.l; dh.innerHTML = _dobPrev.h; }
+  applyDistLabel();
+  if (iqp) updateIQPWindow();
+  onFundModeChange();
+}
+function updateIQPWindow(){
+  if (_sourceMode !== 'iqp') return;
+  const w = resolveInheritedQPWindow(document.getElementById('decedentDob').value, document.getElementById('decedentDod').value);
+  const box = document.getElementById('iqpWindowSummary'), row = document.getElementById('iqpLumpDeferRow');
+  if (!w) { box.style.display = 'none'; row.style.display = 'none'; recalcAll(); return; }
+  box.innerHTML = `<strong>Mandatory window:</strong> decedent died in ${w.yearOfDeath} at age ${w.ageAtDeath}; the account must be empty by 12/31/${w.windowEndYear}. ` +
+    `${w.yearsElapsed} of 10 years have elapsed, so <strong>${w.yearsRemaining} tax year${w.yearsRemaining===1?'':'s'} remain</strong>. ` +
+    (w.reachedRBD ? `The decedent had reached their required beginning date (age ${w.decedentRmdAge}), so annual RMDs are owed each year of the window (Table I, reduce-by-one).`
+                  : `The decedent had not reached their required beginning date, so there is no annual minimum &mdash; only full payout by the end of the window.`);
+  box.style.display = 'block';
+  row.style.display = w.reachedRBD ? 'none' : '';
+  recalcAll();
 }
 // Conservative default, same as the lump-sum path: top bracket unless a flat rate is entered
 function defaultFedPct() { return useBrackets() ? 37 : (parseFloat(document.getElementById('fedRate').value)||0); }
@@ -2382,31 +2478,39 @@ function onFundModeChange() {
   const annual = fundIsAnnual();
   const show = (id, on, disp='') => { const el = document.getElementById(id); if (el) el.style.display = on ? disp : 'none'; };
   show('annualPanel', annual, 'block');
-  show('preAmountWrap', !annual, '');
-  show('preAmountHint', !annual, '');
+  show('preAmountWrap', !annual && _sourceMode === 'qp', '');
+  show('preAmountHint', !annual && _sourceMode === 'qp', '');
   show('pdaRateField', true, '');   // PDA rate and fee apply in both funding methods
   show('pdaFeeField', true, '');
   const lo = document.getElementById('loanOverrideChk');
   if (lo) { if (annual) { lo.checked = false; } lo.disabled = annual; }
   const dl = document.getElementById('distLabel');
-  if (dl) dl.textContent = annual ? 'Total QP Amount to Distribute (spread over the Pay Years)' : 'QP Distribution Amount';
+  applyDistLabel();
   recalcAll();
   rebuildPayoffDropdown();
 }
 
 /* ── Phase 1: PDA + premium schedule + bank ledger ───────────────────────── */
 function recalcAll(){
+  if (_sourceMode !== 'qp') document.getElementById('penaltyChk').checked = false;
   const annual = fundIsAnnual();
   const annualRows = annual ? getAnnualSchedule() : null;
-  const dist   = annual ? annualRows.reduce((s,r)=>s+r.dist,0) : parseNum('distribution');
+  const isNQP = _sourceMode === 'nqp', isIQP = _sourceMode === 'iqp';
+  const enteredAmt = parseNum('distribution');
+  const taxLiab = isNQP ? enteredAmt : 0;
+  // NQP: the entered figure is the tax liability; the policy is funded with 2x it.
+  const dist   = annual ? annualRows.reduce((s,r)=>s+r.dist,0) : (isNQP ? enteredAmt*2 : enteredAmt);
   const fed    = parseFloat(document.getElementById('fedRate').value)||0;
   const st     = parseFloat(document.getElementById('stateRate').value)||0;
   const annualTax = annual ? annualRows.reduce((s,r)=>s+r.tax,0) : 0;
-  const dt = annual ? {effective: dist>0 ? 100*annualTax/dist : 0, marginal:0, penalty:0, wait:0, walkedRate:0} : distributionTax();
+  const dt = annual ? {effective: dist>0 ? 100*annualTax/dist : 0, marginal:0, penalty:0, wait:0, walkedRate:0}
+    : (isNQP ? {effective: dist>0 ? 100*taxLiab/dist : 0, marginal:null, penalty:0, wait:0, walkedRate:0} : distributionTax());
   const combined = dt.effective;
-  document.getElementById('combinedRateDisplay').value = combined.toFixed(2) + '%';
+  document.getElementById('combinedRateDisplay').value = isNQP ? 'Tax liability entered directly' : combined.toFixed(2) + '%';
   const preA = parseNum('preAmount');
-  document.getElementById('bracketNote').innerHTML = annual
+  document.getElementById('bracketNote').innerHTML = isNQP
+    ? '<b>Liquidity event</b> &mdash; the tax liability above is financed as entered; the policy is funded with twice that amount (' + fmt$(dist) + '). Bracket mode below only affects the Phase 2 projection.'
+    : annual
     ? 'Annual distributions &mdash; each year is taxed at the federal and state rate in the schedule above; the rate shown here is the blended rate on the total, penalty included.'
     : useBrackets()
     ? `Top bracket <b>${(dt.marginal*100).toFixed(0)}%</b> applied to every dollar, plus state \u2014 <b>${combined.toFixed(2)}%</b>. ` +
@@ -2452,7 +2556,9 @@ function recalcAll(){
     `<div class="pda-row"><span class="pda-key">Net into PDA</span><span class="pda-val">${fmt$(pda.pdaNet)}</span></div>
      <div class="pda-row"><span class="pda-key">Annual premium &times; ${payYears}</span><span class="pda-val">${fmt$(pda.annualPrem)}</span></div>
      <div class="pda-row"><span class="pda-key">Total premium into policy</span><span class="pda-val">${fmt$(pda.totalPrem)}</span></div>
-     <div class="pda-row"><span class="pda-key">Financed tax obligation</span><span class="pda-val">${fmt$(dist*combined/100)}</span></div>`;
+     <div class="pda-row"><span class="pda-key">Financed tax obligation</span><span class="pda-val">${fmt$(dist*combined/100)}</span></div>` +
+    (isNQP ? `<div class="pda-row"><span class="pda-key">Liquidity event: policy funding = 2&times; tax liability</span><span class="pda-val g">${fmt$(dist)}</span></div>` : '') +
+    (isIQP ? `<div class="pda-row"><span class="pda-key">Inherited QP &mdash; no 10% penalty applies</span><span class="pda-val">${fmt$(dist)}</span></div>` : '');
 
   let h = '<tr><th>Yr</th><th>Begin</th><th>Interest</th><th>Tax on Int</th><th>Premium</th><th>End</th></tr>';
   pda.rows.forEach(r => {
@@ -2529,7 +2635,7 @@ function recalcAll(){
   });
   document.getElementById('bankTbl').innerHTML = b;
 
-  _preIllus = {annualMode: annual, annualRows, distSchedule: annual ? annualRows.map(r => r.dist) : null,
+  _preIllus = {sourceMode: _sourceMode, taxLiability: taxLiab, iqp: isIQP ? iqpConfig() : null, annualMode: annual, annualRows, distSchedule: annual ? annualRows.map(r => r.dist) : null,
                dist, combined, pda, bankLoan: bl, required, payoffYear, issueAge,
                multiYearActive: multiYearActive && !multiYearError, financingSchedule, totalDraws: bl.totalDraws};
 }
@@ -2593,7 +2699,12 @@ async function loadIllustration(){
 function runEstate(){
   if(!_illustration){ showErr('Upload a carrier illustration first.'); return; }
 
-  const qp       = parseNum('qpBalance');
+  const isNQP = _sourceMode === 'nqp', isIQP = _sourceMode === 'iqp';
+  const taxLiab = (isNQP && _preIllus) ? (_preIllus.taxLiability||0) : 0;
+  const iqpCfg  = isIQP ? iqpConfig() : null;
+  if (isIQP && !iqpCfg) { showErr('Inherited QP: enter the decedent\u2019s date of birth and date of death in Phase 1 so the 10-year window can be computed.'); return; }
+  // Liquidity event: no qualified plan exists. Inherited QP: falls back to the Phase 1 balance if left blank.
+  const qp       = isNQP ? 0 : (isIQP ? (parseNum('qpBalance') || (_preIllus ? _preIllus.dist : 0)) : parseNum('qpBalance'));
   const otherNW  = parseNum('otherNW');
   const eqAlloc  = (parseFloat(document.getElementById('eqAlloc').value)||60)/100;
   const mgmtFee  = (parseFloat(document.getElementById('mgmtFee').value)||0)/100;
@@ -2603,8 +2714,6 @@ function runEstate(){
   const exIdx    = (parseFloat(document.getElementById('exIdx').value)||0)/100;
   const beneficiaryCurrentAge = parseInt(document.getElementById('beneficiaryCurrentAge').value)||0;
   const postDeathGrowth = (parseFloat(document.getElementById('postDeathGrowth').value)||0)/100;
-  const benPayout = document.getElementById('benPayout').value;
-  const lumpRate  = (parseFloat(document.getElementById('lumpRate').value)||0)/100;
   const horizon  = parseInt(document.getElementById('horizonAge').value)||91;
   const sims     = parseInt(document.getElementById('sims').value)||10000;
   const filing   = document.getElementById('filingStatus').value;
@@ -2636,7 +2745,8 @@ function runEstate(){
 
   const cfg = {qpBalance:qp, currentAge:startAge, horizonAge:horizon, rmdAge,
     equityAlloc:eqAlloc, mgmtFee, fedRate:fed, stateRate:st, nonQpGrossRate:nonQp,
-    nonQpStart:otherNW, nonQpBasis:otherNW, capGainsRate:cgRate,
+    // Liquidity event: the take-no-action path invests the tax amount in a taxable account (ETA income-modeler convention)
+    nonQpStart:otherNW+taxLiab, nonQpBasis:otherNW+taxLiab, capGainsRate:cgRate, iqp:iqpCfg,
     beneficiaryRate:benRate, otherNetWorth:0, filing, exemptIdx:exIdx,
     useBrackets: useBrackets(),
     ssAnnual: parseNum('ssAnnual'),
@@ -2651,6 +2761,8 @@ function runEstate(){
   const dist = _preIllus ? _preIllus.dist : 0;
   // ETA side: either one lump in year 1, or the annual schedule from Phase 1
   const etaDistCfg = (_preIllus && _preIllus.annualMode) ? {distSchedule: _preIllus.distSchedule} : {annualDist: dist, distYears: 1};
+  // ETA side never holds the take-no-action taxable account; the policy is the asset.
+  const etaCfg = Object.assign({}, cfg, {nonQpStart:otherNW, nonQpBasis:otherNW});
   const payYears = parseInt(document.getElementById('payYears').value)||7;
   // The QP distribution is a single lump sum in year 1 (same assumption
   // calcPDA/_preIllus already use for the financed-tax and PDA calc, and the
@@ -2661,7 +2773,7 @@ function runEstate(){
   // throw off its own phantom RMDs / "Non-Qualified Estate" reinvestment —
   // that money's actual fate is already tracked by the PDA + policy columns.
   const mcEta = runQPMonteCarlo(
-    Object.assign({}, cfg, etaDistCfg),
+    Object.assign({}, etaCfg, etaDistCfg),
     paired, sims, 20260801);
 
   // ETA side: carrier ledger, deterministic. Net DB is already net of loan.
@@ -2677,14 +2789,14 @@ function runEstate(){
     qpBalance: mc[pct].qpFinal, sideBalance: mc[pct].sideFinal, sideBasis: mc[pct].basisFinal,
     otherNetWorth:0, capGainsRate:cgRate, beneficiaryRate:benRate, filing, stateCode,
     exemptIdx:exIdx, yearsFwd, deathBenefit:0, dbInIlit:false, cumulativeGifts:0,
-    beneficiaryAge, postDeathGrowth, benPayout, lumpRate});
+    beneficiaryAge, postDeathGrowth});
 
   const etaStack = pct => estateTaxStack({
     qpBalance: mcEta[pct].qpFinal, sideBalance: mcEta[pct].sideFinal,
     sideBasis: mcEta[pct].basisFinal, otherNetWorth:0, capGainsRate:cgRate,
     beneficiaryRate:benRate, filing, stateCode, exemptIdx:exIdx, yearsFwd,
     deathBenefit:netDB, dbInIlit:inIlit, cumulativeGifts:gifts,
-    beneficiaryAge, postDeathGrowth, benPayout, lumpRate});
+    beneficiaryAge, postDeathGrowth});
 
   // Waterfall is derived from the SAME median path and the SAME stack used in
   // the comparison, so the cost page and the outcome page cannot disagree.
@@ -2703,6 +2815,14 @@ function runEstate(){
     </div>`;
 
   const dn = stack('p50'), eta = etaStack('p50');
+  if (isNQP) {
+    h += `<div class="flag ok" style="margin-top:0"><b>Liquidity event \u2014 lump-sum tax liability.</b> Tax liability of ${fmt$(taxLiab)} financed by the bank; ${fmt$(_preIllus.dist)} (2\u00d7) committed to the policy.
+      Take no action is modeled as ${fmt$(taxLiab)} invested in a taxable account, as in the ETA income modeler. No qualified plan, RMDs or inherited-plan tax apply.</div>`;
+  } else if (isIQP) {
+    h += `<div class="flag ok" style="margin-top:0"><b>Inherited qualified plan.</b> ${fmt$(qp)} forced out over the remaining SECURE Act window
+      (${iqpCfg.N} tax year${iqpCfg.N===1?'':'s'}, ending ${iqpCfg.windowEndYear}${iqpCfg.reachedRBD?', annual RMDs required':iqpCfg.lumpDefer?', taken in the final year':', spread evenly'}).
+      The account holder here is the beneficiary; no 10% penalty applies.</div>`;
+  }
   h += `<div class="stag">Median outcome \u2014 net to heirs at age ${horizon}</div>
     <table class="dtbl">
     <tr><th>&nbsp;</th><th>Take no action</th><th>ETA path</th></tr>
@@ -2710,7 +2830,7 @@ function runEstate(){
     <tr><td>Federal estate tax</td><td>${fmtM(dn.federalEstateTax)}</td><td>${fmtM(eta.federalEstateTax)}</td></tr>
     <tr><td>${STATE_ESTATE_TAX[stateCode]?STATE_ESTATE_TAX[stateCode].label:stateCode} estate tax</td><td>${fmtM(dn.stateTax)}</td><td>${fmtM(eta.stateTax)}</td></tr>
     <tr><td>Capital gains at death</td><td>${fmtM(dn.capGainsTax)}</td><td>${fmtM(eta.capGainsTax)}</td></tr>
-    <tr><td>IRD income tax to heirs${benPayout==='lump'?' (lump sum)':''}</td><td>${fmtM(dn.inheritedIraTax)}</td><td>${fmtM(eta.inheritedIraTax)}</td></tr>
+    <tr><td>IRD income tax to heirs</td><td>${fmtM(dn.inheritedIraTax)}</td><td>${fmtM(eta.inheritedIraTax)}</td></tr>
     <tr><td>Death benefit outside estate</td><td>&mdash;</td><td>${fmtM(eta.ilitProceeds)}</td></tr>
     <tr class="emph"><td>Net to heirs</td><td>${fmtM(dn.netToHeirs)}</td><td>${fmtM(eta.netToHeirs)}</td></tr>
     <tr class="emph"><td>Advantage</td><td colspan="2">${fmtM(eta.netToHeirs-dn.netToHeirs)}</td></tr>
@@ -2727,18 +2847,18 @@ function runEstate(){
   h += `<div class="stag" style="margin-top:22px">Lifetime tax &mdash; taking no action</div>
     <table class="dtbl">
     <tr><th>Layer</th><th>Amount</th></tr>
-    <tr><td>Income tax on RMDs</td><td>${fmtM(wf.taxRMD)}</td></tr>
+    ${isNQP ? '' : `<tr><td>${isIQP ? 'Income tax on forced 10-year-window distributions' : 'Income tax on RMDs'}</td><td>${fmtM(wf.taxRMD)}</td></tr>`}
     <tr><td>Capital gains drag on reinvested RMDs</td><td>${fmtM(wf.taxDrag)}</td></tr>
     <tr><td>Estate tax</td><td>${fmtM(wf.estateTax)}</td></tr>
     <tr><td>Capital gains at death</td><td>${fmtM(wf.capGainsTax)}</td></tr>
-    <tr><td>Inherited IRA income tax to heirs</td><td>${fmtM(wf.inheritedIraTax)}</td></tr>
+    ${isNQP ? '' : `<tr><td>Inherited IRA income tax to heirs</td><td>${fmtM(wf.inheritedIraTax)}</td></tr>`}
     <tr class="emph"><td>Total tax</td><td>${fmtM(wf.total)}</td></tr>
     </table>
     <div class="hint">Gross estate ${fmtM(wf.grossEstate)} against a projected exemption of ${fmtM(s50.grossExemption)}
     (${filing==='married'?'$30M married':'$15M single'} indexed ${(exIdx*100).toFixed(1)}% for ${yearsFwd} years).
     Gifts to the trust of ${fmt$(gifts)} reduce the exemption available at death dollar for dollar.</div>`;
 
-  if (s50.benSim) {
+  if (s50.benSim && !isNQP && mc.p50.qpFinal > 1) {
     const bs = s50.benSim;
     h += `<div class="stag" style="margin-top:22px">Non-spouse beneficiary &mdash; SECURE Act 10-year distribution window</div>
       <div class="hint" style="margin-bottom:10px">Qualified plan balance of ${fmtM(mc.p50.qpFinal)} at the account holder's death, age ${horizon}, inherited by a
@@ -2753,27 +2873,6 @@ function runEstate(){
       the difference is continued growth on the undistributed balance during the window. Most of that balance lands in years the beneficiary is likely still working,
       stacking on top of their own income; if the beneficiary's peak-earning bracket runs above ${(benRate*100).toFixed(0)}%, raise the Beneficiary Rate above to match.
       The ETA path avoids this window entirely &mdash; life insurance death benefit passes as a single income-tax-free payment, not a forced 10-year distribution.</div>`;
-  }
-
-  if (benPayout === 'lump') {
-    const dnBal = mc.p50.qpFinal, etaBal = mcEta.p50.qpFinal;
-    const dnLump = dn.benLump.totalTax, etaLump = eta.benLump.totalTax;
-    // Reference only: what the same balance costs under the 10-year window.
-    const ten = (bal) => beneficiaryAge ? beneficiaryTenYearDistribution(bal, beneficiaryAge, postDeathGrowth, benRate).totalTax : null;
-    const dnTen = ten(dnBal), etaTen = ten(etaBal);
-    h += `<div class="stag" style="margin-top:22px">Inherited qualified plan &mdash; lump-sum tax liability</div>
-      <div class="hint" style="margin-bottom:10px">The beneficiary takes the entire inherited plan in a single tax year at the account holder's death, age ${horizon}.
-      The whole balance is taxed at ${(lumpRate*100).toFixed(1)}% (federal + state) with no continued deferral.</div>
-      <table class="dtbl">
-      <tr><th>&nbsp;</th><th>Take no action</th><th>ETA path</th></tr>
-      <tr><td>Qualified plan balance at death</td><td>${fmt$(dnBal)}</td><td>${fmt$(etaBal)}</td></tr>
-      <tr><td>Lump-sum rate</td><td>${(lumpRate*100).toFixed(1)}%</td><td>${(lumpRate*100).toFixed(1)}%</td></tr>
-      <tr class="emph"><td>Income tax due in one year</td><td>${fmt$(dnLump)}</td><td>${fmt$(etaLump)}</td></tr>
-      <tr><td>Kept by heirs after income tax</td><td>${fmt$(dnBal-dnLump)}</td><td>${fmt$(etaBal-etaLump)}</td></tr>
-      ${dnTen!==null ? `<tr><td>For reference: total tax under the 10-year window (${(benRate*100).toFixed(1)}%)</td><td>${fmt$(dnTen)}</td><td>${fmt$(etaTen)}</td></tr>` : ''}
-      </table>
-      <div class="hint">${dnTen!==null ? `The 10-year figure also taxes growth earned during the window, so the two totals are not a like-for-like dollar comparison. ` : ''}Estate tax, if any, is computed on the balance before this income tax, as in the 10-year view.
-      The ETA path avoids this liability on the death benefit &mdash; life insurance passes income-tax-free.</div>`;
   }
 
   h += `<div class="stag" style="margin-top:22px">IRR on net death benefit</div>
@@ -2809,7 +2908,7 @@ function runEstate(){
     }).join('')}
     </table>`;
 
-  h += `<div class="flag ok" style="margin-top:16px"><b>Conservative methodology \u2014 skewed toward taking no action.</b>
+  if (!isNQP) h += `<div class="flag ok" style="margin-top:16px"><b>Conservative methodology \u2014 skewed toward taking no action.</b>
     Required distributions on the status-quo path are taxed as though they were the client\u2019s only ordinary income,
     so they fill the lowest available brackets and produce the smallest possible tax on that path. The qualified plan
     distribution funding the ETA structure is taxed at the highest marginal bracket. Both assumptions run against
@@ -2846,6 +2945,9 @@ function runEstate(){
     insuredRelationship: altInsured ? (document.getElementById('insuredRelationship').value.trim()||'') : '',
     carrier: _illustration.carrier, scenario: _illustration.activeScenario,
     qpBalance: qp, totalPremium: _illustration.totalPremium,
+    sourceMode: _sourceMode, taxLiability: taxLiab,
+    iqp: iqpCfg ? {N:iqpCfg.N, reachedRBD:iqpCfg.reachedRBD, lumpDefer:iqpCfg.lumpDefer, windowEndYear:iqpCfg.windowEndYear, yearOfDeath:iqpCfg.yearOfDeath, ageAtDeath:iqpCfg.ageAtDeath} : null,
+    fundedAmount: _preIllus ? _preIllus.dist : 0,
     annualMode: _preIllus ? !!_preIllus.annualMode : false,
     fundSchedule: (_preIllus && _preIllus.annualRows) ? _preIllus.annualRows.map(r=>({yr:r.yr, dist:r.dist, fedPct:r.fedPct, state:r.state, pen:r.pen, tax:r.tax, dateStr:r.dateStr||'', delayed:!!r.delayed, delayedFrom:r.delayedFrom||'', toPda:((_preIllus.pda.rows||[])[r.yr-1]||{}).toPda||0, prem:((_preIllus.pda.rows||[])[r.yr-1]||{}).prem||0, eoy:((_preIllus.pda.rows||[])[r.yr-1]||{}).eoy||0})) : [],
     financedTax: _preIllus ? (_preIllus.multiYearActive ? _preIllus.totalDraws : _preIllus.dist * _preIllus.combined/100) : 0,
@@ -2854,8 +2956,7 @@ function runEstate(){
     totalDraws: _preIllus ? (_preIllus.totalDraws||0) : 0,
     netDB, ilit: inIlit,
     qpAtDeath, qpEstateTax: qpAtDeath*0.40, qpIncomeTax: dn.inheritedIraTax,
-    beneficiaryAge, beneficiaryCurrentAge, postDeathGrowth, benPayout, lumpRate, benLump: s50.benLump ? {balance:s50.benLump.balance, rate:s50.benLump.rate, totalTax:s50.benLump.totalTax} : null,
-    benTenYear: s50.benSim ? {totalDist:s50.benSim.totalDist, totalTax:s50.benSim.totalTax, flatTax:s50.benSim.flatTax} : null,
+    beneficiaryAge, beneficiaryCurrentAge, postDeathGrowth, benTenYear: s50.benSim ? {totalDist:s50.benSim.totalDist, totalTax:s50.benSim.totalTax, flatTax:s50.benSim.flatTax} : null,
     filing, cgRate, benRate, exIdx,
     stateCode, stateEstateTaxLabel: STATE_ESTATE_TAX[stateCode]?STATE_ESTATE_TAX[stateCode].label:stateCode,
     stateTaxApproximate: dn.stateTaxApproximate,
@@ -2903,7 +3004,7 @@ function runEstate(){
               .map(r=>({a:r.age, hy:r.year, ret:+(r.ret).toFixed(4), rmd:Math.round(r.rmd),
                         tax:Math.round(r.tax), drag:Math.round(r.drag), qp:Math.round(r.qp),
                         side:Math.round(r.side), basis:Math.round(r.basis), cum:Math.round(r.cumTax)})),
-    etaQpRows: rebuildQPLedger(Object.assign({},cfg,etaDistCfg),
+    etaQpRows: rebuildQPLedger(Object.assign({},etaCfg,etaDistCfg),
                  paired, mcEta.seed, mcEta.p50.simIndex)
               .map(r=>({a:r.age, d:Math.round(r.dist), rmd:Math.round(r.rmd),
                         tax:Math.round(r.tax), qp:Math.round(r.qp), side:Math.round(r.side),
@@ -2941,7 +3042,7 @@ function runEstate(){
     auditBands[k] = {
       income: mc[k].qpFinal + mc[k].sideFinal,
       doNothingRows: rebuildQPLedger(cfg, paired, mc.seed, mc[k].simIndex).map(thinQP),
-      etaRows: rebuildQPLedger(Object.assign({},cfg,etaDistCfg),
+      etaRows: rebuildQPLedger(Object.assign({},etaCfg,etaDistCfg),
                  paired, mcEta.seed, mcEta[k].simIndex).map(thinQP)
     };
   });
@@ -2951,7 +3052,7 @@ function runEstate(){
     clientName: document.getElementById('clientName').value || '',
     advisor: document.getElementById('advisorName').value || '',
     date: new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}),
-    age: startAge, horizonAge: horizon, sims, mgmtFee, benPayout, lumpRate,
+    age: startAge, horizonAge: horizon, sims, mgmtFee, sourceMode: _sourceMode, taxLiability: taxLiab,
     carrier: _illustration.carrier, policyType: _illustration.policyType,
     carrierRows: _illustration.rows.filter(r=>r.year<=Math.max(45,horizon-startAge+1))
       .map(r=>({y:r.year, a:r.age, a2:r.age2, p:Math.round(r.premium),
