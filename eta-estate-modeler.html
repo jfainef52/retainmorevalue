@@ -720,14 +720,26 @@ table.sc-ldg tfoot td.gold-col { color:var(--gold); }
           <div class="field"><label class="fl">Beneficiary Rate %</label><input type="number" id="benRate" value="35" step="0.1"/></div>
           <div class="field"><label class="fl">Exemption Index %</label><input type="number" id="exIdx" value="2.5" step="0.1"/></div>
         </div>
-        <div class="fg fr3">
+        <div class="fg fr">
+          <div class="field"><label class="fl">Inherited QP Tax Treatment</label>
+            <select id="benPayout" onchange="onBenPayoutChange()">
+              <option value="tenyear">SECURE Act 10-year window (annual RMDs)</option>
+              <option value="lump">Lump-sum tax liability (heir cashes out in one year)</option>
+            </select>
+          </div>
+          <div class="field" id="lumpRateField" style="display:none"><label class="fl">Lump-Sum Tax Rate %</label><input type="number" id="lumpRate" value="40" step="0.1" min="0" max="100"/></div>
+        </div>
+        <div class="hint" id="lumpHint" style="display:none;margin-bottom:10px">Lump-sum mode: the heir takes the entire inherited qualified plan in a single tax year, so the whole balance is taxed at the Lump-Sum Tax Rate (federal + state) in one year.
+          No continued tax-deferred growth, and no annual RMD schedule &mdash; Beneficiary Rate, Beneficiary Current Age and Post-Death Growth below are not used. Because the full balance stacks into one year it usually lands in the top bracket, so set this rate at or above the Beneficiary Rate.
+          Only the balance at death is taxed; the 10-year view also taxes growth earned during the window, so on identical inputs the lump-sum total can come out lower in dollars even at a higher rate.</div>
+        <div class="fg fr3" id="benWindowRow">
           <div class="field"><label class="fl">Beneficiary Current Age</label><input type="number" id="beneficiaryCurrentAge" placeholder="e.g. 42" min="0" max="90"/></div>
           <div class="field"><label class="fl">Post-Death Account Growth %</label><input type="number" id="postDeathGrowth" value="5.00" step="0.25"/></div>
           <div class="field"></div>
         </div>
         <div class="hint">Non-spouse beneficiary, SECURE Act 10-year rule. Enter the beneficiary's age today &mdash; their age at inheritance is derived automatically from the account holder's current age and the Horizon Age below,
           so this field doesn't need updating every time the horizon changes. The account owner is always well past the required beginning date at the modeled horizon, so the final IRS regulations (effective 2025) require the
-          beneficiary to take annual life-expectancy RMDs in years 1&ndash;9 (IRS Table I, reduce-by-one method) and empty the account by year 10 &mdash; not a single lump distribution. The Beneficiary Rate above is applied to each
+          beneficiary to take annual life-expectancy RMDs in years 1&ndash;9 (IRS Table I, reduce-by-one method) and empty the account by year 10 &mdash; not a single lump distribution (unless the lump-sum option above is selected). The Beneficiary Rate above is applied to each
           year's forced distribution, stacked on whatever else the beneficiary earns that year; a beneficiary in peak earning years should generally use a top-bracket rate here, not their everyday rate.</div>
         <div class="fg fr">
           <div class="field"><label class="fl">Social Security (today's $)</label><input type="text" id="ssAnnual" value="$62,172" oninput="formatCurrency(this)"/></div>
@@ -978,6 +990,13 @@ function formatCurrency(el) {
   const raw = el.value.replace(/[$,]/g,'');
   const n = parseFloat(raw);
   if (!isNaN(n)&&raw!=='') el.value='$'+Math.round(n).toLocaleString();
+}
+function onBenPayoutChange(){
+  const lump = document.getElementById('benPayout').value === 'lump';
+  document.getElementById('lumpRateField').style.display = lump ? '' : 'none';
+  document.getElementById('lumpHint').style.display = lump ? '' : 'none';
+  const row = document.getElementById('benWindowRow');
+  if (row) row.style.opacity = lump ? '.4' : '';
 }
 function parseNum(id) { return parseFloat((document.getElementById(id).value||'').replace(/[$,]/g,''))||0; }
 const $f = n=>(!n||isNaN(n)||Math.abs(n)<0.5)?'—':'$'+Math.round(n).toLocaleString();
@@ -1688,15 +1707,21 @@ function estateTaxStack(i){
   // Non-spouse beneficiary's actual SECURE Act 10-year distribution window —
   // not a flat balance × rate approximation — when a beneficiary age has
   // been supplied. Falls back to the flat estimate otherwise.
-  const benSim = i.beneficiaryAge
+  // Lump-sum option: the heir cashes out the whole inherited plan in one tax
+  // year, so the entire balance is taxed at the lump-sum rate — no continued
+  // tax-deferred growth, no annual RMD schedule.
+  const lump = i.benPayout === 'lump';
+  const lumpRate = (i.lumpRate != null && !isNaN(i.lumpRate)) ? i.lumpRate : i.beneficiaryRate;
+  const benLump = lump ? {balance: i.qpBalance, rate: lumpRate, totalTax: i.qpBalance * lumpRate} : null;
+  const benSim = (!lump && i.beneficiaryAge)
     ? beneficiaryTenYearDistribution(i.qpBalance, i.beneficiaryAge, i.postDeathGrowth||0, i.beneficiaryRate)
     : null;
-  const inheritedIraTax = benSim ? benSim.totalTax : i.qpBalance * i.beneficiaryRate;
+  const inheritedIraTax = lump ? benLump.totalTax : (benSim ? benSim.totalTax : i.qpBalance * i.beneficiaryRate);
   // An ILIT-owned death benefit is outside the gross estate for TAX purposes,
   // but the heirs still receive it. Add it back after tax, never before.
   const ilitProceeds = i.dbInIlit ? (i.deathBenefit||0) : 0;
   return {grossExemption, applicable, grossEstate, taxableEstate, federalEstateTax,
-          stateTax, stateTaxApproximate, embeddedGain, capGainsTax, inheritedIraTax, ilitProceeds, benSim,
+          stateTax, stateTaxApproximate, embeddedGain, capGainsTax, inheritedIraTax, ilitProceeds, benSim, benLump,
           netToHeirs: grossEstate - federalEstateTax - stateTax - capGainsTax
                       - inheritedIraTax + ilitProceeds};
 }
@@ -2578,6 +2603,8 @@ function runEstate(){
   const exIdx    = (parseFloat(document.getElementById('exIdx').value)||0)/100;
   const beneficiaryCurrentAge = parseInt(document.getElementById('beneficiaryCurrentAge').value)||0;
   const postDeathGrowth = (parseFloat(document.getElementById('postDeathGrowth').value)||0)/100;
+  const benPayout = document.getElementById('benPayout').value;
+  const lumpRate  = (parseFloat(document.getElementById('lumpRate').value)||0)/100;
   const horizon  = parseInt(document.getElementById('horizonAge').value)||91;
   const sims     = parseInt(document.getElementById('sims').value)||10000;
   const filing   = document.getElementById('filingStatus').value;
@@ -2650,14 +2677,14 @@ function runEstate(){
     qpBalance: mc[pct].qpFinal, sideBalance: mc[pct].sideFinal, sideBasis: mc[pct].basisFinal,
     otherNetWorth:0, capGainsRate:cgRate, beneficiaryRate:benRate, filing, stateCode,
     exemptIdx:exIdx, yearsFwd, deathBenefit:0, dbInIlit:false, cumulativeGifts:0,
-    beneficiaryAge, postDeathGrowth});
+    beneficiaryAge, postDeathGrowth, benPayout, lumpRate});
 
   const etaStack = pct => estateTaxStack({
     qpBalance: mcEta[pct].qpFinal, sideBalance: mcEta[pct].sideFinal,
     sideBasis: mcEta[pct].basisFinal, otherNetWorth:0, capGainsRate:cgRate,
     beneficiaryRate:benRate, filing, stateCode, exemptIdx:exIdx, yearsFwd,
     deathBenefit:netDB, dbInIlit:inIlit, cumulativeGifts:gifts,
-    beneficiaryAge, postDeathGrowth});
+    beneficiaryAge, postDeathGrowth, benPayout, lumpRate});
 
   // Waterfall is derived from the SAME median path and the SAME stack used in
   // the comparison, so the cost page and the outcome page cannot disagree.
@@ -2683,7 +2710,7 @@ function runEstate(){
     <tr><td>Federal estate tax</td><td>${fmtM(dn.federalEstateTax)}</td><td>${fmtM(eta.federalEstateTax)}</td></tr>
     <tr><td>${STATE_ESTATE_TAX[stateCode]?STATE_ESTATE_TAX[stateCode].label:stateCode} estate tax</td><td>${fmtM(dn.stateTax)}</td><td>${fmtM(eta.stateTax)}</td></tr>
     <tr><td>Capital gains at death</td><td>${fmtM(dn.capGainsTax)}</td><td>${fmtM(eta.capGainsTax)}</td></tr>
-    <tr><td>IRD income tax to heirs</td><td>${fmtM(dn.inheritedIraTax)}</td><td>${fmtM(eta.inheritedIraTax)}</td></tr>
+    <tr><td>IRD income tax to heirs${benPayout==='lump'?' (lump sum)':''}</td><td>${fmtM(dn.inheritedIraTax)}</td><td>${fmtM(eta.inheritedIraTax)}</td></tr>
     <tr><td>Death benefit outside estate</td><td>&mdash;</td><td>${fmtM(eta.ilitProceeds)}</td></tr>
     <tr class="emph"><td>Net to heirs</td><td>${fmtM(dn.netToHeirs)}</td><td>${fmtM(eta.netToHeirs)}</td></tr>
     <tr class="emph"><td>Advantage</td><td colspan="2">${fmtM(eta.netToHeirs-dn.netToHeirs)}</td></tr>
@@ -2726,6 +2753,27 @@ function runEstate(){
       the difference is continued growth on the undistributed balance during the window. Most of that balance lands in years the beneficiary is likely still working,
       stacking on top of their own income; if the beneficiary's peak-earning bracket runs above ${(benRate*100).toFixed(0)}%, raise the Beneficiary Rate above to match.
       The ETA path avoids this window entirely &mdash; life insurance death benefit passes as a single income-tax-free payment, not a forced 10-year distribution.</div>`;
+  }
+
+  if (benPayout === 'lump') {
+    const dnBal = mc.p50.qpFinal, etaBal = mcEta.p50.qpFinal;
+    const dnLump = dn.benLump.totalTax, etaLump = eta.benLump.totalTax;
+    // Reference only: what the same balance costs under the 10-year window.
+    const ten = (bal) => beneficiaryAge ? beneficiaryTenYearDistribution(bal, beneficiaryAge, postDeathGrowth, benRate).totalTax : null;
+    const dnTen = ten(dnBal), etaTen = ten(etaBal);
+    h += `<div class="stag" style="margin-top:22px">Inherited qualified plan &mdash; lump-sum tax liability</div>
+      <div class="hint" style="margin-bottom:10px">The beneficiary takes the entire inherited plan in a single tax year at the account holder's death, age ${horizon}.
+      The whole balance is taxed at ${(lumpRate*100).toFixed(1)}% (federal + state) with no continued deferral.</div>
+      <table class="dtbl">
+      <tr><th>&nbsp;</th><th>Take no action</th><th>ETA path</th></tr>
+      <tr><td>Qualified plan balance at death</td><td>${fmt$(dnBal)}</td><td>${fmt$(etaBal)}</td></tr>
+      <tr><td>Lump-sum rate</td><td>${(lumpRate*100).toFixed(1)}%</td><td>${(lumpRate*100).toFixed(1)}%</td></tr>
+      <tr class="emph"><td>Income tax due in one year</td><td>${fmt$(dnLump)}</td><td>${fmt$(etaLump)}</td></tr>
+      <tr><td>Kept by heirs after income tax</td><td>${fmt$(dnBal-dnLump)}</td><td>${fmt$(etaBal-etaLump)}</td></tr>
+      ${dnTen!==null ? `<tr><td>For reference: total tax under the 10-year window (${(benRate*100).toFixed(1)}%)</td><td>${fmt$(dnTen)}</td><td>${fmt$(etaTen)}</td></tr>` : ''}
+      </table>
+      <div class="hint">${dnTen!==null ? `The 10-year figure also taxes growth earned during the window, so the two totals are not a like-for-like dollar comparison. ` : ''}Estate tax, if any, is computed on the balance before this income tax, as in the 10-year view.
+      The ETA path avoids this liability on the death benefit &mdash; life insurance passes income-tax-free.</div>`;
   }
 
   h += `<div class="stag" style="margin-top:22px">IRR on net death benefit</div>
@@ -2806,7 +2854,8 @@ function runEstate(){
     totalDraws: _preIllus ? (_preIllus.totalDraws||0) : 0,
     netDB, ilit: inIlit,
     qpAtDeath, qpEstateTax: qpAtDeath*0.40, qpIncomeTax: dn.inheritedIraTax,
-    beneficiaryAge, beneficiaryCurrentAge, postDeathGrowth, benTenYear: s50.benSim ? {totalDist:s50.benSim.totalDist, totalTax:s50.benSim.totalTax, flatTax:s50.benSim.flatTax} : null,
+    beneficiaryAge, beneficiaryCurrentAge, postDeathGrowth, benPayout, lumpRate, benLump: s50.benLump ? {balance:s50.benLump.balance, rate:s50.benLump.rate, totalTax:s50.benLump.totalTax} : null,
+    benTenYear: s50.benSim ? {totalDist:s50.benSim.totalDist, totalTax:s50.benSim.totalTax, flatTax:s50.benSim.flatTax} : null,
     filing, cgRate, benRate, exIdx,
     stateCode, stateEstateTaxLabel: STATE_ESTATE_TAX[stateCode]?STATE_ESTATE_TAX[stateCode].label:stateCode,
     stateTaxApproximate: dn.stateTaxApproximate,
@@ -2902,7 +2951,7 @@ function runEstate(){
     clientName: document.getElementById('clientName').value || '',
     advisor: document.getElementById('advisorName').value || '',
     date: new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}),
-    age: startAge, horizonAge: horizon, sims, mgmtFee,
+    age: startAge, horizonAge: horizon, sims, mgmtFee, benPayout, lumpRate,
     carrier: _illustration.carrier, policyType: _illustration.policyType,
     carrierRows: _illustration.rows.filter(r=>r.year<=Math.max(45,horizon-startAge+1))
       .map(r=>({y:r.year, a:r.age, a2:r.age2, p:Math.round(r.premium),
