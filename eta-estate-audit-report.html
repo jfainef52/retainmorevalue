@@ -74,6 +74,7 @@ tbody tr.rmd-start td{border-top:2px solid var(--gold)}
     ' &nbsp;|&nbsp; <b>Horizon:</b> Age '+(r.horizonAge||'\u2014')+
     ' &nbsp;|&nbsp; <b>Carrier:</b> '+(r.carrier==='PL'?'Pacific Life':'National Life Group')+' \u00b7 '+(r.policyType||'')+
     ' &nbsp;|&nbsp; <b>Simulations:</b> '+(r.sims||0).toLocaleString()+
+    ' &nbsp;|&nbsp; <b>Inherited QP tax:</b> '+(r.benPayout==='lump' ? 'Lump sum @ '+((r.lumpRate||0)*100).toFixed(1)+'%' : 'SECURE 10-year window')+
     ' &nbsp;|&nbsp; '+(r.date||'')+'</div>';
 
   // The life insurance policy is a single deterministic carrier illustration —
@@ -136,7 +137,8 @@ tbody tr.rmd-start td{border-top:2px solid var(--gold)}
       '<div class="sub">One specific seeded simulation out of '+(r.sims||0).toLocaleString()+
       ' \u2014 the one whose combined qualified-plan + side-account balance at the horizon landed at this percentile. '+
       'Historical year and return are the actual bootstrapped draw for that simulation, reproducible from its seed. '+
-      'A '+((r.mgmtFee||0)*100).toFixed(2)+'% management fee applies to both balances every year; Net Return is what actually compounds the balance \u2014 QP Balance = prior \u00d7 (1 + Net Return), minus any distribution or RMD.</div>'+
+      (r.benPayout==='lump' ? 'The ledger below ends at the account holder\u2019s death; the inherited-plan tax (lump sum, one year) is applied after it and is not a ledger column. ' : '')+
+        'A '+((r.mgmtFee||0)*100).toFixed(2)+'% management fee applies to both balances every year; Net Return is what actually compounds the balance \u2014 QP Balance = prior \u00d7 (1 + Net Return), minus any distribution or RMD.</div>'+
       '<div class="wrap-x"><table class="ledger"><thead>'+
       '<tr class="cols"><th>Age</th><th>Hist. Yr</th><th>Gross Return</th><th>Net Return</th><th>Required Distribution</th><th>Tax Paid</th><th>IRMAA</th><th>Cap Gains Drag</th><th>QP Balance</th><th>Side Account</th><th>Side Basis</th><th>Cumulative Tax</th></tr>'+
       '</thead><tbody>'+qpTable(b.doNothingRows,'dn')+'</tbody></table></div>'+
