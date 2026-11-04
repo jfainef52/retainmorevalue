@@ -338,7 +338,7 @@
         <div class="sit-card">
           <div class="sit-icon">&#128181;</div>
           <div class="sit-title">Then Taxed Again as Income</div>
-          <div class="sit-text" id="sit-ird-text">Whatever remains is ordinary income to whoever inherits it, at their rates, not yours. There is no step-up in basis. Under current law the entire balance must come out within ten years.</div>
+          <div class="sit-text">Whatever remains is ordinary income to whoever inherits it, at their rates, not yours. There is no step-up in basis. Under current law the entire balance must come out within ten years.</div>
         </div>
         <div class="sit-card">
           <div class="sit-icon">&#9200;</div>
@@ -779,6 +779,33 @@
     var set = function(id,v){ var e=document.getElementById(id); if(e) e.textContent=v; };
     var setHTML = function(id,v){ var e=document.getElementById(id); if(e) e.innerHTML=v; };
 
+    // Source of funds: a liquidity event has no qualified plan; an inherited plan is forced out in 10 years.
+    var hideRow = function(id){ var e=document.getElementById(id); var p=e&&e.closest('.cost-bar-row'); if(p) p.style.display='none'; };
+    var stepFix = function(title, newTitle, newText){
+      document.querySelectorAll('.mc-step-title').forEach(function(t){
+        if(t.textContent.indexOf(title)>-1){ t.textContent=newTitle; var x=t.parentNode.querySelector('.mc-step-text'); if(x) x.innerHTML=newText; }
+      });
+    };
+    if (r.sourceMode === 'nqp') {
+      var eb=document.querySelector('.cover-eyebrow'); if(eb) eb.innerHTML='Confidential &nbsp;&middot;&nbsp; Estate &amp; Liquidity Event Review';
+      var sh=document.querySelector('.situation-headline'); if(sh) sh.innerHTML='A liquidity event creates a large, one-time tax bill. Paid from your own assets, it comes straight out of what your family eventually receives.';
+      var sc=document.querySelectorAll('.sit-card');
+      [['The Proceeds Stay in Your Estate','Whatever you keep after the event is included in your gross estate at death. Above the federal exemption, that exposure is taxed at 40% &mdash; and the bill is due in cash within nine months.'],
+       ['The Tax Is Due Now','The income tax on the event comes due in the year it happens, and every dollar paid out of pocket stops compounding for your family.'],
+       ['Growth Is Taxed Along the Way','Dollars invested in a taxable account are taxed on dividends and realized gains each year, and again on the embedded gain at death.']
+      ].forEach(function(t,i){ if(sc[i]){ var ti=sc[i].querySelector('.sit-title'), tx=sc[i].querySelector('.sit-text'); if(ti) ti.innerHTML=t[0]; if(tx) tx.innerHTML=t[1]; } });
+      hideRow('cost-rmd'); hideRow('cost-irmaa'); hideRow('cost-ird');
+      var cb=document.getElementById('cost-callout'); if(cb) cb.style.display='none';
+      setHTML('how-header','Your liquidity-event proceeds fund a life insurance asset held outside your estate, and the tax on the event is financed rather than paid from your assets.');
+      setHTML('mc-header','A probability distribution built from fifty years of real market history &mdash; applied to the taxable account.');
+      stepFix('Required Distributions','Taxable Account Reinvested','Each scenario invests the tax amount in a taxable account on the same historical market sequence, taxing dividends and realized gains each year &mdash; the same convention used in the ETA income analysis.');
+      var ha=document.querySelector('.how-advantage-text'); if(ha) ha.innerHTML='The take-no-action path is modeled as the tax liability invested in a taxable account for the full horizon, on the same historical market sequences as the alternative. Results are hypothetical and are not a guarantee of future results.';
+      setHTML('why-cta-headline','Ready to see what the <em>Enhanced Tax Advantage</em> can do for your liquidity event?');
+    } else if (r.sourceMode === 'iqp') {
+      stepFix('Required Distributions','Forced Distributions Applied','Each scenario applies the SECURE Act 10-year rules to the inherited plan &mdash; annual required distributions when the decedent had reached their required beginning date, and the full balance out by the end of the window &mdash; stacks them on top of taxable Social Security, and reinvests what is left in a taxable account.');
+    }
+    if (!(r.qpAtDeath > 0)) { hideRow('cost-ird'); var cb2=document.getElementById('cost-callout'); if(cb2) cb2.style.display='none'; }
+
     // Use a plain "&" and setHTML (not textContent) — the entity would
     // otherwise render literally as "&amp;" instead of decoding.
     var names = r.clientName || '\u2014';
@@ -799,16 +826,7 @@
     set('cost-est',  $f(wf.estateTax));
     set('cost-cg',   $f(wf.capGainsTax));
     set('cost-ird',  $f(wf.inheritedIraTax));
-    if (r.benPayout === 'lump') {
-      var lumpPct = ((r.lumpRate!=null ? r.lumpRate : r.benRate)*100).toFixed(0);
-      var irdNote = document.getElementById('cost-ird-note');
-      if (irdNote) {
-        irdNote.style.display = 'block';
-        irdNote.innerHTML = 'This view assumes your heir takes the whole inherited plan at once. The entire balance becomes ordinary income in a single tax year \u2014 stacked on top of everything else they earn that year, which pushes most of it into the top bracket (modeled here at ' + lumpPct + '%).';
-      }
-      var sitIrd = document.getElementById('sit-ird-text');
-      if (sitIrd) sitIrd.textContent = 'Whatever remains is ordinary income to whoever inherits it, at their rates, not yours. There is no step-up in basis. If the plan is cashed out at once, the entire balance is taxed in a single year.';
-    } else if (r.beneficiaryAge) { var irdNote = document.getElementById('cost-ird-note'); if (irdNote) irdNote.style.display = 'block'; }
+    if (r.beneficiaryAge && r.sourceMode!=='nqp' && (r.qpAtDeath||0)>0) { var irdNote = document.getElementById('cost-ird-note'); if (irdNote) irdNote.style.display = 'block'; }
 
     // Bar widths proportional to the largest layer, so the reader sees at a
     // glance which layers actually drive the total rather than reading six
