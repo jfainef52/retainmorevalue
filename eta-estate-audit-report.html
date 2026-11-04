@@ -73,8 +73,8 @@ tbody tr.rmd-start td{border-top:2px solid var(--gold)}
     ' &nbsp;|&nbsp; <b>Account Holder Age:</b> '+(r.age||'\u2014')+
     ' &nbsp;|&nbsp; <b>Horizon:</b> Age '+(r.horizonAge||'\u2014')+
     ' &nbsp;|&nbsp; <b>Carrier:</b> '+(r.carrier==='PL'?'Pacific Life':'National Life Group')+' \u00b7 '+(r.policyType||'')+
+    ' &nbsp;|&nbsp; <b>Source of funds:</b> '+(r.sourceMode==='nqp' ? 'Liquidity event ('+$f(r.taxLiability)+' tax liability)' : (r.sourceMode==='iqp' ? 'Inherited QP (10-year window)' : 'Qualified plan'))+
     ' &nbsp;|&nbsp; <b>Simulations:</b> '+(r.sims||0).toLocaleString()+
-    ' &nbsp;|&nbsp; <b>Inherited QP tax:</b> '+(r.benPayout==='lump' ? 'Lump sum @ '+((r.lumpRate||0)*100).toFixed(1)+'%' : 'SECURE 10-year window')+
     ' &nbsp;|&nbsp; '+(r.date||'')+'</div>';
 
   // The life insurance policy is a single deterministic carrier illustration —
@@ -137,8 +137,7 @@ tbody tr.rmd-start td{border-top:2px solid var(--gold)}
       '<div class="sub">One specific seeded simulation out of '+(r.sims||0).toLocaleString()+
       ' \u2014 the one whose combined qualified-plan + side-account balance at the horizon landed at this percentile. '+
       'Historical year and return are the actual bootstrapped draw for that simulation, reproducible from its seed. '+
-      (r.benPayout==='lump' ? 'The ledger below ends at the account holder\u2019s death; the inherited-plan tax (lump sum, one year) is applied after it and is not a ledger column. ' : '')+
-        'A '+((r.mgmtFee||0)*100).toFixed(2)+'% management fee applies to both balances every year; Net Return is what actually compounds the balance \u2014 QP Balance = prior \u00d7 (1 + Net Return), minus any distribution or RMD.</div>'+
+      'A '+((r.mgmtFee||0)*100).toFixed(2)+'% management fee applies to both balances every year; Net Return is what actually compounds the balance \u2014 QP Balance = prior \u00d7 (1 + Net Return), minus any distribution or RMD.</div>'+
       '<div class="wrap-x"><table class="ledger"><thead>'+
       '<tr class="cols"><th>Age</th><th>Hist. Yr</th><th>Gross Return</th><th>Net Return</th><th>Required Distribution</th><th>Tax Paid</th><th>IRMAA</th><th>Cap Gains Drag</th><th>QP Balance</th><th>Side Account</th><th>Side Basis</th><th>Cumulative Tax</th></tr>'+
       '</thead><tbody>'+qpTable(b.doNothingRows,'dn')+'</tbody></table></div>'+
@@ -174,7 +173,10 @@ tbody tr.rmd-start td{border-top:2px solid var(--gold)}
       '<tr style="font-weight:600"><td colspan="2">Total</td><td>'+$f(tot.d)+'</td><td></td><td></td><td>'+$f(tot.t)+'</td><td></td><td>'+$f(r.fundSchedule.reduce(function(s,x){return s+x.prem;},0))+'</td><td></td></tr></tbody></table></div></div>';
   }
 
-  body.innerHTML = meta + buildFunding() + buildPolicySection() + tabsHtml + '<div id="band-content"></div>';
+  var srcNote = r.sourceMode==='nqp'
+    ? '<div class="foot-note" style="margin:-8px 0 16px">Liquidity-event case: there is no qualified plan. The Take No Action strand is the tax liability invested in a taxable account, so QP Balance and Required Distribution are zero and the account appears under Side Account.</div>'
+    : (r.sourceMode==='iqp' ? '<div class="foot-note" style="margin:-8px 0 16px">Inherited-plan case: the Required Distribution column is the SECURE Act 10-year-window distribution, not a Uniform Lifetime Table RMD.</div>' : '');
+  body.innerHTML = meta + srcNote + buildFunding() + buildPolicySection() + tabsHtml + '<div id="band-content"></div>';
   showBand('p50');
 })();
 </script>
