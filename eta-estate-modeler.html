@@ -507,8 +507,13 @@ table.sc-ldg tfoot td.gold-col { color:var(--gold); }
         </div>
         <div id="nqp-explainer" class="nqp-note" style="display:none">
           <strong>How this works:</strong> Enter the client&rsquo;s tax liability from the liquidity event as a one-time lump sum. ETA finances 100% of that tax &mdash; the client commits <strong>2&times; the tax amount</strong> to the policy
-          (e.g. $500K tax &rarr; $1M into the policy over the premium pay period). There is no qualified plan, no RMD and no early-withdrawal penalty. In the estate comparison, the take-no-action path is the tax amount invested in a taxable account instead &mdash; the same convention the ETA income modeler uses.
+          (e.g. $500K tax &rarr; $1M into the policy over the premium pay period). There is no qualified plan, no RMD and no early-withdrawal penalty. In the estate comparison, <strong>take no action</strong> means the client pays the tax out of the proceeds and invests the difference (policy funding less the tax) in a taxable account &mdash; the same convention the ETA income modeler uses.
         </div>
+        <div class="fg fr" id="nqp-compare-row" style="display:none">
+          <div class="field"><label class="fl">Take No Action &mdash; Difference Invested</label><input type="text" id="nqpInvestDisplay" readonly class="computed-derived" placeholder="&mdash;"/></div>
+          <div class="field"><label class="fl">Cost Basis of Invested Account (%)</label><input type="number" id="nqpBasisPct" value="40" step="5" min="0" max="100" oninput="recalcAll()"/></div>
+        </div>
+        <div class="hint" id="nqp-compare-hint" style="display:none;margin:-6px 0 12px">Without ETA the client pays the tax liability from the proceeds and keeps the rest of the money that would have funded the policy. Policy funding less tax paid is the difference, invested in a taxable account for the whole horizon. Cost basis is the share of that account that is original principal (default 40%, as in the ETA income modeler); the remainder is gain, taxed at the capital-gains rate at death.</div>
         <div id="iqp-explainer" class="nqp-note" style="display:none">
           <strong>How this works:</strong> A non-spouse beneficiary who inherits a qualified plan must fully distribute &mdash; and pay ordinary income tax on &mdash; the entire balance within 10 years of the owner&rsquo;s death. If the decedent had already reached their own required beginning date, annual RMDs are also owed in years 1&ndash;9
           (Table I, reduce-by-one). Enter the decedent&rsquo;s dates below; the remaining window is computed automatically. The account holder fields above then describe the <strong>beneficiary</strong>. No 10% early-withdrawal penalty ever applies to an inherited plan.
@@ -2321,6 +2326,7 @@ function setSourceMode(mode){
   document.getElementById('srcBtnNQP').classList.toggle('active', nqp);
   document.getElementById('srcBtnIQP').classList.toggle('active', iqp);
   const show = (id, on, disp='') => { const el = document.getElementById(id); if (el) el.style.display = on ? disp : 'none'; };
+  show('nqp-compare-row', nqp, ''); show('nqp-compare-hint', nqp, '');
   show('nqp-explainer', nqp, 'block'); show('iqp-explainer', iqp, 'block'); show('iqp-decedent-panel', iqp, 'block');
   // Funding method, early-withdrawal split and penalty are Qualified Plan concepts only.
   if (!qp) { document.getElementById('fundMode').value = 'lump'; document.getElementById('preAmount').value = ''; document.getElementById('penaltyChk').checked = false; }
@@ -2526,6 +2532,12 @@ function recalcAll(){
     document.getElementById('penaltyChk').checked ? '' : 'none';
 
   const issueAgeVal = parseInt(document.getElementById('issueAge').value)||0;
+  if (isNQP) {
+    document.getElementById('nqpInvestDisplay').value = dist > 0 ? fmt$(Math.max(0, dist - taxLiab)) : '';
+    document.getElementById('nqp-compare-hint').innerHTML = dist > 0
+      ? `Without ETA the client pays the <b>${fmt$(taxLiab)}</b> tax from the proceeds and invests the <b>${fmt$(Math.max(0, dist - taxLiab))}</b> difference (${fmt$(dist)} policy funding less the tax) in a taxable account for the whole horizon. Cost basis is the share of that account that is original principal (default 40%, as in the ETA income modeler); the remainder is gain, taxed at the capital-gains rate at death.`
+      : 'Without ETA the client pays the tax liability from the proceeds and invests the difference (policy funding less the tax) in a taxable account.';
+  }
   if(!dist || !issueAgeVal){
     document.getElementById('reqLoan').innerHTML = '&mdash;';
     document.getElementById('reqLoanSub').textContent =
@@ -2635,7 +2647,7 @@ function recalcAll(){
   });
   document.getElementById('bankTbl').innerHTML = b;
 
-  _preIllus = {sourceMode: _sourceMode, taxLiability: taxLiab, iqp: isIQP ? iqpConfig() : null, annualMode: annual, annualRows, distSchedule: annual ? annualRows.map(r => r.dist) : null,
+  _preIllus = {sourceMode: _sourceMode, taxLiability: taxLiab, investedDifference: isNQP ? Math.max(0, dist - taxLiab) : 0, nqpBasisPct: isNQP ? (parseFloat(document.getElementById('nqpBasisPct').value)||0) : 100, iqp: isIQP ? iqpConfig() : null, annualMode: annual, annualRows, distSchedule: annual ? annualRows.map(r => r.dist) : null,
                dist, combined, pda, bankLoan: bl, required, payoffYear, issueAge,
                multiYearActive: multiYearActive && !multiYearError, financingSchedule, totalDraws: bl.totalDraws};
 }
@@ -2702,6 +2714,9 @@ function runEstate(){
   const isNQP = _sourceMode === 'nqp', isIQP = _sourceMode === 'iqp';
   const taxLiab = (isNQP && _preIllus) ? (_preIllus.taxLiability||0) : 0;
   const iqpCfg  = isIQP ? iqpConfig() : null;
+  // Liquidity event, take-no-action side: the client pays the tax and invests the difference (funding less tax), as in the ETA income modeler.
+  const invDiff = (isNQP && _preIllus) ? (_preIllus.investedDifference||0) : 0;
+  const nqpBasisFrac = (isNQP && _preIllus) ? Math.max(0, Math.min(1, (_preIllus.nqpBasisPct||0)/100)) : 1;
   if (isIQP && !iqpCfg) { showErr('Inherited QP: enter the decedent\u2019s date of birth and date of death in Phase 1 so the 10-year window can be computed.'); return; }
   // Liquidity event: no qualified plan exists. Inherited QP: falls back to the Phase 1 balance if left blank.
   const qp       = isNQP ? 0 : (isIQP ? (parseNum('qpBalance') || (_preIllus ? _preIllus.dist : 0)) : parseNum('qpBalance'));
@@ -2745,8 +2760,8 @@ function runEstate(){
 
   const cfg = {qpBalance:qp, currentAge:startAge, horizonAge:horizon, rmdAge,
     equityAlloc:eqAlloc, mgmtFee, fedRate:fed, stateRate:st, nonQpGrossRate:nonQp,
-    // Liquidity event: the take-no-action path invests the tax amount in a taxable account (ETA income-modeler convention)
-    nonQpStart:otherNW+taxLiab, nonQpBasis:otherNW+taxLiab, capGainsRate:cgRate, iqp:iqpCfg,
+    // Liquidity event: the take-no-action path pays the tax and invests the difference in a taxable account (ETA income-modeler convention)
+    nonQpStart:otherNW+invDiff, nonQpBasis:otherNW+invDiff*nqpBasisFrac, capGainsRate:cgRate, iqp:iqpCfg,
     beneficiaryRate:benRate, otherNetWorth:0, filing, exemptIdx:exIdx,
     useBrackets: useBrackets(),
     ssAnnual: parseNum('ssAnnual'),
@@ -2817,7 +2832,7 @@ function runEstate(){
   const dn = stack('p50'), eta = etaStack('p50');
   if (isNQP) {
     h += `<div class="flag ok" style="margin-top:0"><b>Liquidity event \u2014 lump-sum tax liability.</b> Tax liability of ${fmt$(taxLiab)} financed by the bank; ${fmt$(_preIllus.dist)} (2\u00d7) committed to the policy.
-      Take no action is modeled as ${fmt$(taxLiab)} invested in a taxable account, as in the ETA income modeler. No qualified plan, RMDs or inherited-plan tax apply.</div>`;
+      Take no action: the client pays the ${fmt$(taxLiab)} tax from the proceeds and invests the ${fmt$(invDiff)} difference in a taxable account (${(nqpBasisFrac*100).toFixed(0)}% cost basis), as in the ETA income modeler. No qualified plan, RMDs or inherited-plan tax apply.</div>`;
   } else if (isIQP) {
     h += `<div class="flag ok" style="margin-top:0"><b>Inherited qualified plan.</b> ${fmt$(qp)} forced out over the remaining SECURE Act window
       (${iqpCfg.N} tax year${iqpCfg.N===1?'':'s'}, ending ${iqpCfg.windowEndYear}${iqpCfg.reachedRBD?', annual RMDs required':iqpCfg.lumpDefer?', taken in the final year':', spread evenly'}).
@@ -2945,7 +2960,7 @@ function runEstate(){
     insuredRelationship: altInsured ? (document.getElementById('insuredRelationship').value.trim()||'') : '',
     carrier: _illustration.carrier, scenario: _illustration.activeScenario,
     qpBalance: qp, totalPremium: _illustration.totalPremium,
-    sourceMode: _sourceMode, taxLiability: taxLiab,
+    sourceMode: _sourceMode, taxLiability: taxLiab, investedDifference: invDiff, nqpBasisPct: Math.round(nqpBasisFrac*100),
     iqp: iqpCfg ? {N:iqpCfg.N, reachedRBD:iqpCfg.reachedRBD, lumpDefer:iqpCfg.lumpDefer, windowEndYear:iqpCfg.windowEndYear, yearOfDeath:iqpCfg.yearOfDeath, ageAtDeath:iqpCfg.ageAtDeath} : null,
     fundedAmount: _preIllus ? _preIllus.dist : 0,
     annualMode: _preIllus ? !!_preIllus.annualMode : false,
@@ -2996,7 +3011,7 @@ function runEstate(){
     // the SAME net rate (gross minus mgmt fee minus the 1.5% active-mgmt
     // drag) used everywhere else in this ledger for the "Non-Qualified
     // Estate" side account, instead of a disconnected hardcoded guess.
-    nonQpGrossRate: nonQp, mgmtFee: mgmtFee,
+    nonQpGrossRate: nonQp, mgmtFee: mgmtFee, sideStart: otherNW + invDiff,
     carrierRows:_illustration.rows.filter(r=>r.year<=carrierYrCap).map(thin),
     // cfg already carries useBrackets/filing/bracketIdx/ssAnnual/ssStartAge/
     // includeIrmaa/medicarePeople from the block above — no need to restate them.
@@ -3052,7 +3067,7 @@ function runEstate(){
     clientName: document.getElementById('clientName').value || '',
     advisor: document.getElementById('advisorName').value || '',
     date: new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}),
-    age: startAge, horizonAge: horizon, sims, mgmtFee, sourceMode: _sourceMode, taxLiability: taxLiab,
+    age: startAge, horizonAge: horizon, sims, mgmtFee, sourceMode: _sourceMode, taxLiability: taxLiab, investedDifference: invDiff,
     carrier: _illustration.carrier, policyType: _illustration.policyType,
     carrierRows: _illustration.rows.filter(r=>r.year<=Math.max(45,horizon-startAge+1))
       .map(r=>({y:r.year, a:r.age, a2:r.age2, p:Math.round(r.premium),
