@@ -250,14 +250,14 @@ h1{font-family:'Playfair Display',serif;font-weight:600;font-size:21.42px;color:
     if (r.sourceMode === 'nqp') {
       setHTML('doc-intro',
         'A liquidity event creates a one-time tax liability of ' + $f(r.taxLiability) + '. Paid from your own assets, it comes out of what your family eventually receives. ' +
-        'Financing that tax and committing ' + $f(r.fundedAmount) + ' to a life insurance policy held outside your estate changes both the income-tax and the estate-tax picture.');
+        'Without a plan, you pay that tax and invest the remaining ' + $f(r.investedDifference||0) + '. Financing the tax and committing ' + $f(r.fundedAmount) + ' to a life insurance policy held outside your estate changes both the income-tax and the estate-tax picture.');
       var b1=document.getElementById('doc-box1-val'); if(b1){ var gl=b1.parentNode.querySelector('.gl'), gs=b1.parentNode.querySelector('.gs');
         if(gl) gl.textContent='Total Tax on the Event Proceeds and What They Earn';
         if(gs) gs.textContent='Tax on growth in the taxable account, then estate tax and capital gains tax at death'; }
       document.querySelectorAll('.dbox').forEach(function(b){ var v=b.querySelector('.dv'); if(v && v.textContent.trim()==='No RMDs') b.style.display='none'; });
       var ir=document.getElementById('a-ird'); if(ir && ir.parentNode) ir.parentNode.style.display='none';
       var dd=document.getElementById('doc-disc');
-      if(dd) dd.innerHTML = 'The take-no-action path is modeled as the tax liability invested in a taxable account on the same historical market sequences as the alternative. ' +
+      if(dd) dd.innerHTML = 'The take-no-action path is modeled as paying the tax liability and investing the difference in a taxable account on the same historical market sequences as the alternative. ' +
         'All figures are hypothetical illustrations based on current assumptions and are not a guarantee of future results or tax outcomes. ' +
         'Projections reflect the median (50th percentile) of 10,000 bootstrapped S&amp;P 500 and 10-year Treasury simulations (1975&ndash;2024). Death benefit figures are taken from the carrier illustration as prepared and are not guaranteed. ' +
         'Federal estate tax exemption reflects current law and is subject to future legislative change. Death benefit is excluded from the gross estate only where the policy is owned by a properly structured irrevocable trust. ' +
