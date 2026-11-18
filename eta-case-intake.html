@@ -314,7 +314,7 @@ const SCREEN_DEFS = [
   { id: "qp", phase: "source", title: "The qualified plan", cond: isQP, questions: [
     { id: "qp_type", type: "select", label: "Type of account", options: QP_TYPES },
     { id: "qp_balance", type: "currency", label: "Total balance in the plan" },
-    { id: "qp_amount", type: "currency", label: "Amount to reposition (distribute)", why: "The dollars that would leave the plan and be taxed. This can be less than the full balance." },
+    { id: "qp_amount", type: "currency", label: "Amount to reallocate efficiently", why: "The part of the plan you would like to put to work in a more tax-efficient way. These dollars would come out of the plan and be taxed. Our solution mitigates the impact of that tax. It can be less than the full balance." },
     { id: "qp_rmd_now", type: "single", label: "Is the account holder already taking RMDs?", options: YN },
   ]},
   { id: "qp_move", phase: "source", title: "How the dollars would move", cond: isQP, questions: [
@@ -453,7 +453,7 @@ function buildSummary(screens, answers) {
     const t = dv.tax;
     items.push({ label: "Tax filing status used", value: t.filing_status === "joint" ? "Married filing jointly" : "Single" });
     items.push({ label: "Federal bracket today", value: pct(t.federal_bracket_today) });
-    items.push({ label: "Estimated federal rate on the dollars repositioned", value: pct(t.federal_rate_estimated) + " (" + t.income_type + ")" });
+    items.push({ label: "Estimated federal rate on the dollars reallocated", value: pct(t.federal_rate_estimated) + " (" + t.income_type + ")" });
     items.push({ label: "Estimated state rate", value: pct(t.state_rate_estimated) });
     items.push({ label: "Rates confirmed by the person filling this out", value: t.confirmed === "yes" ? "Yes" : t.confirmed === "entered own rates" ? "No, entered their own" : "Not confirmed" });
     items.push({ label: "Federal rate used", value: pct(t.federal_rate_used) });
@@ -604,7 +604,7 @@ function FieldRow({ q, value, other, onChange, onOther, answers }) {
 function WelcomeScreen({ onStart, hasSaved, onResume, onClear }) {
   const gather = [
     { h: "The account holder", items: ["Date of birth and state of residence", "Marital status"] },
-    { h: "The dollars", items: ["Plan type and balance, and how much would be repositioned", "For a liquidity event: expected closing date, proceeds, and estimated gain", "For an inherited plan: the original owner's birth and death dates"] },
+    { h: "The dollars", items: ["Plan type and balance, and how much you would like to reallocate", "For a liquidity event: expected closing date, proceeds, and estimated gain", "For an inherited plan: the original owner's birth and death dates"] },
     { h: "The insured", items: ["If someone other than the account holder: name, date of birth, and relationship", "A rough health class (preferred, standard, tobacco)"] },
     { h: "Goals and timing", items: ["When income should start and end", "Rough net worth and income, if the case will be bank-financed", "When you need the numbers back"] },
   ];
