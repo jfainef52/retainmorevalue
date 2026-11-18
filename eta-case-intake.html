@@ -207,7 +207,7 @@ function taxEstimate(a) {
   const assumed = !(a.filing_status === "joint" || a.filing_status === "single");
   const src = a.source_of_funds; const gains = src === "nqp" || src === "liq";
   let D = 0;
-  if (src === "qp") D = num(a.qp_amount) / (a.qp_schedule === "years" && num(a.qp_years) > 0 ? num(a.qp_years) : 1);
+  if (src === "qp") D = num(a.qp_amount);
   else if (src === "iqp") D = a.iqp_defer === "yes" ? num(a.iqp_balance) : num(a.iqp_balance) / 10;
   else if (src === "nqp") D = num(a.nqp_amount) * (1 - Math.min(100, num(a.nqp_basis_pct)) / 100);
   else if (src === "liq") D = num(a.liq_gain);
@@ -316,13 +316,6 @@ const SCREEN_DEFS = [
     { id: "qp_balance", type: "currency", label: "Total balance in the plan" },
     { id: "qp_amount", type: "currency", label: "Amount to reallocate efficiently", why: "The part of the plan you would like to put to work in a more tax-efficient way. These dollars would come out of the plan and be taxed. Our solution mitigates the impact of that tax. It can be less than the full balance." },
     { id: "qp_rmd_now", type: "single", label: "Is the account holder already taking RMDs?", options: YN },
-  ]},
-  { id: "qp_move", phase: "source", title: "How the dollars would move", cond: isQP, questions: [
-    { id: "qp_schedule", type: "single", label: "Distribution schedule", options: [{ id: "lump", label: "One lump sum" }, { id: "years", label: "Spread over several years" }, { id: "unsure", label: "Not sure yet" }] },
-    { id: "qp_years", type: "number", label: "Over how many years?", cond: a => a.qp_schedule === "years" },
-    { id: "qp_start", type: "date", label: "Target first distribution / policy start date" },
-    { id: "pda_open", type: "single", label: "Open to the bank holding back part of each distribution in a PDA?", options: YNU },
-    { id: "roth_compare", type: "single", label: "Show a Roth conversion comparison alongside?", options: YN },
   ]},
   { id: "nqp", phase: "source", title: "The taxable account", cond: isNQP, questions: [
     { id: "nqp_balance", type: "currency", label: "Total value of the account" },
