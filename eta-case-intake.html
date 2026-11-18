@@ -252,8 +252,8 @@ function derivedFacts(a) {
 }
 
 const SECTION_LABELS = {
-  identify: "Getting started", advisor: "About you", case: "The case", goals: "Goals", source: "Source of the dollars", taxes: "Taxes",
-  insured: "The insured", income: "Income plan", funding: "Funding and financing", estate: "Estate and legacy", delivery: "Deliverables",
+  identify: "Getting started", advisor: "About you", case: "The case", goals: "Goals", source: "Source of the dollars", taxes: "Taxes and finances",
+  insured: "The insured", income: "Income plan", estate: "Estate and legacy", delivery: "Timing and notes",
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -336,8 +336,9 @@ const SCREEN_DEFS = [
     { id: "decedent_dod", type: "date", label: "Original owner's date of death" },
     { id: "iqp_defer", type: "single", label: "Would you prefer to defer the whole distribution to the last year of the window?", options: YNU },
   ]},
-  { id: "taxes", phase: "taxes", title: "Taxes", questions: [
+  { id: "taxes", phase: "taxes", title: "Taxes and finances", questions: [
     { id: "taxable_income", type: "currency", label: "Estimated annual taxable income", placeholder: "For example: 150,000", why: "Taxable income is what's left after deductions. It is the last number on page 1 of the tax return before the tax is figured (line 15 of Form 1040). A rough number is fine. We use it, with the state and the amount being repositioned, to estimate the tax rate. Leave out the dollars this strategy would move." },
+    { id: "net_worth", type: "currency", label: "Approximate net worth (excluding primary residence)", why: "Lenders look at this to decide how the loan is structured." },
     { id: "filing_status", type: "single", label: "Tax filing status", options: [{ id: "single", label: "Single" }, { id: "joint", label: "Married filing jointly" }] },
     { id: "state_move", type: "text", label: "Any plan to move to another state?", placeholder: "For example: Florida in two years" },
   ]},
@@ -371,10 +372,6 @@ const SCREEN_DEFS = [
     { id: "phase2", type: "single", label: "Continue income into a second phase on the insured's own age?", options: YNU, cond: altInsured, why: "A second phase keeps tax-free income going for the insured after the account holder's income window ends." },
     { id: "phase2_start", type: "number", label: "Phase 2 start age (insured)", cond: a => altInsured(a) && a.phase2 === "yes" },
     { id: "phase2_end", type: "number", label: "Phase 2 end age (insured)", cond: a => altInsured(a) && a.phase2 === "yes" },
-  ]},
-  { id: "lender", phase: "funding", title: "Net worth and income", questions: [
-    { id: "net_worth", type: "currency", label: "Approximate net worth (excluding primary residence)", why: "Lenders look at this to decide how the loan is structured." },
-    { id: "annual_income", type: "currency", label: "Approximate annual income" },
   ]},
   { id: "estate", phase: "estate", title: "Estate and legacy", questions: [
     { id: "estate_size", type: "currency", label: "Approximate total estate value (all assets)" },
@@ -599,7 +596,7 @@ function WelcomeScreen({ onStart, hasSaved, onResume, onClear }) {
     { h: "The account holder", items: ["Date of birth and state of residence", "Marital status"] },
     { h: "The dollars", items: ["Plan type and balance, and how much you would like to reallocate", "For a liquidity event: expected closing date, proceeds, and estimated gain", "For an inherited plan: the original owner's birth and death dates"] },
     { h: "The insured", items: ["If someone other than the account holder: name, date of birth, and relationship", "A rough health class (preferred, standard, tobacco)"] },
-    { h: "Goals and timing", items: ["When income should start and end", "Rough net worth and income, if the case will be bank-financed", "When you need the numbers back"] },
+    { h: "Goals and timing", items: ["When income should start and end", "Estimated taxable income and rough net worth", "When you need the numbers back"] },
   ];
   return (
     <div style={{ minHeight: "100dvh", background: NAVY, display: "flex", flexDirection: "column", justifyContent: "center", padding: "40px 24px", position: "relative" }}>
