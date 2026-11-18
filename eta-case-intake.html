@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ETA Case Intake — RetainMoreValue</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400&family=Barlow:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  @media print {
+    .no-print { display: none !important; }
+    #root, #root * { background: #fff !important; color: #111 !important; border-color: #bbb !important; }
+    body { background: #fff !important; color: #111 !important; }
+  }
+</style>
+</head>
+<body style="margin:0;background:#0E1824;font-family:'Barlow',system-ui,sans-serif;">
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.27.6/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+
+<script type="text/babel" data-cfasync="false">
+const { useState, useEffect, useRef } = React;
+
+// ─────────────────────────────────────────────────────────────
+// Connections. Answers are saved to the RetainMoreValue Supabase project through
+// the submit-eta-intake function; the office is emailed through the same EmailJS
+// service the Application Intake uses.
+// ─────────────────────────────────────────────────────────────
+const SUBMIT_API = "https://fcuveztmmefgntoekqze.supabase.co/functions/v1/submit-eta-intake";
+const SB_PUBLISHABLE = "sb_publishable_TACe4ULWiMWdz8NhkF1gNA_0PSjITAz";
+const EMAILJS_SERVICE_ID = "IPP Support";
+const EMAILJS_TEMPLATE = "template_qxximsu";
+const EMAILJS_PUBLIC_KEY = "XyWTKKWFoeYOhfFbV";
+const NOTIFY_EMAIL = "support@integratedplanningpartners.com";
+const URL_PARAMS = (() => { try { return new URLSearchParams(window.location.search); } catch (e) { return new URLSearchParams(""); } })();
+const PREVIEW = URL_PARAMS.get("preview") === "1"; // ?preview=1 runs the form without saving or sending anything
+const SAVE_KEY = "rmv_eta_case_intake_v1";
+const SAVE_TTL_MS = 12 * 60 * 60 * 1000;
+
+async function callSubmit(payload) {
+  let res;
+  try {
+    res = await fetch(SUBMIT_API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "apikey": SB_PUBLISHABLE },
+      body: JSON.stringify(payload),
+    });
+  } catch (e) { return { ok: false, error: "offline" }; }
+  let data = {};
+  try { data = await res.json(); } catch (e) {}
+  return res.ok && data.ok ? data : { ok: false, error: data.error || "failed" };
+}
+
+const esc = s => String(s == null ? "" : s).replace(/[<>&"]/g, c => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;" }[c]));
+
+// Tells the office a case intake arrived. Names and the headline choices only. No dollar figures.
+function notifyTeam(answers, summaryLines, submissionId) {
+  try {
+    if (typeof emailjs === "undefined") return;
+    emailjs.init(EMAILJS_PUBLIC_KEY);
+    const client = (answers.client_name || "").trim() || "a new case";
+    const byClient = answers.respondent_role === "client";
+    const advisor = byClient ? ((answers.client_name || "").trim() || "A client") : ((answers.advisor_name || "").trim() || "An advisor");
+    const replyTo = (byClient ? answers.client_email : answers.advisor_email) || "";
+    const rows = summaryLines.map(l => '<tr><td style="padding:3px 12px 3px 0;color:#6E8299;font-size:12px;white-space:nowrap;vertical-align:top;">' + esc(l[0]) + '</td><td style="padding:3px 0;color:#F5F2EC;font-size:13px;">' + esc(l[1]) + '</td></tr>').join("");
+    const html = '<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;background:#0E1824;color:#F5F2EC;border-radius:8px;">'
+      + '<p style="margin:0 0 6px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#C8A96E;">New ETA case intake</p>'
+      + '<h2 style="margin:0 0 10px;font-weight:400;font-size:22px;">' + (byClient ? esc(advisor) + ' submitted their own case' : esc(advisor) + ' submitted a case for ' + esc(client)) + '</h2>'
+      + '<table style="border-collapse:collapse;margin:0 0 16px;">' + rows + '</table>'
+      + '<p style="margin:0;font-size:13px;line-height:1.6;color:#C8BFA8;">The full set of answers is saved in the RetainMoreValue database (table eta_case_intakes).</p>'
+      + (submissionId ? '<p style="margin:12px 0 0;font-size:11px;color:#6E8299;">Submission ID: ' + esc(submissionId) + '</p>' : '')
+      + '</div>';
+    emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE, {
+      to_email: NOTIFY_EMAIL, cc_email: "", name: advisor, email: replyTo, reply_to: replyTo || NOTIFY_EMAIL,
+      subject: "ETA case intake: " + (byClient ? advisor + " (client, self-submitted)" : client + " (advisor " + advisor + ")"), html_content: html,
+    }).catch(() => {});
+  } catch (e) {}
+}
+
+const GS = `
+  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400&family=Barlow:wght@300;400;500;600;700&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Barlow', system-ui, sans-serif; }
+  button { cursor: pointer; border: none; background: none; font-family: inherit; }
+  input, select, textarea { font-family: inherit; }
+  @keyframes fadeUp { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:translateY(0); } }
+`;
+
+const NAVY = "#0E1824", NAVY2 = "#162032", GOLD = "#C8A96E", GOLD2 = "#E0C080",
+      OFFWHITE = "#F5F2EC", WARM = "#C8BFA8", GRAY = "#6E8299", BORDER = "rgba(255,255,255,.1)";
+
+const SELECT_ARROW = "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path d='M1 1l5 5 5-5' fill='none' stroke='%23C8A96E' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg>\")";
+const SELECT_STYLE = {
+  width: "100%", padding: "14px 40px 14px 14px", backgroundColor: "#162032", backgroundImage: SELECT_ARROW,
+  backgroundRepeat: "no-repeat", backgroundPosition: "right 14px center", border: `1px solid ${BORDER}`,
+  borderRadius: 10, color: OFFWHITE, fontSize: 15, outline: "none", colorScheme: "dark", appearance: "none", WebkitAppearance: "none",
+};
+
+const LOGO_SVG = `<svg viewBox="875 1789 3260 1462" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto;display:block;">
+  <g fill="${GOLD}">
+    <rect x="914.76" y="2074.65" width="228.09" height="228.09"/>
+    <rect x="1226.07" y="2697.25" width="228.09" height="228.09"/>
+    <path d="M1564.58,2074.65h-338.52v228.09h566.61c0-125.97-102.12-228.09-228.09-228.09Z"/>
+    <path d="M1226.07,2614.05h338.52c125.97,0,228.09-102.12,228.09-228.09h-566.61v228.09Z"/>
+    <rect x="914.76" y="2385.95" width="228.09" height="539.39"/>
+  </g>
+</svg>`;
+
+// ─────────────────────────────────────────────────────────────
+// Helpers and option lists
+// ─────────────────────────────────────────────────────────────
+function fmtCurrency(v) {
+  const n = Number(v);
+  if (v === undefined || v === null || v === "" || isNaN(n)) return null;
+  return "$" + Math.round(n).toLocaleString("en-US");
+}
+function fmtDate(v) {
+  if (!v) return "";
+  const d = new Date(v + "T00:00:00");
+  if (isNaN(d)) return v;
+  return d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+}
+const YN = [{ id: "yes", label: "Yes" }, { id: "no", label: "No" }];
+const YNU = [{ id: "yes", label: "Yes" }, { id: "no", label: "No" }, { id: "unsure", label: "Not sure" }];
+const OTHER = { id: "other", label: "Something else", other: true };
+const mk = arr => arr.map(l => ({ id: l.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, ""), label: l }));
+const US_STATES = "Alabama|AL,Alaska|AK,Arizona|AZ,Arkansas|AR,California|CA,Colorado|CO,Connecticut|CT,Delaware|DE,District of Columbia|DC,Florida|FL,Georgia|GA,Hawaii|HI,Idaho|ID,Illinois|IL,Indiana|IN,Iowa|IA,Kansas|KS,Kentucky|KY,Louisiana|LA,Maine|ME,Maryland|MD,Massachusetts|MA,Michigan|MI,Minnesota|MN,Mississippi|MS,Missouri|MO,Montana|MT,Nebraska|NE,Nevada|NV,New Hampshire|NH,New Jersey|NJ,New Mexico|NM,New York|NY,North Carolina|NC,North Dakota|ND,Ohio|OH,Oklahoma|OK,Oregon|OR,Pennsylvania|PA,Rhode Island|RI,South Carolina|SC,South Dakota|SD,Tennessee|TN,Texas|TX,Utah|UT,Vermont|VT,Virginia|VA,Washington|WA,West Virginia|WV,Wisconsin|WI,Wyoming|WY".split(",").map(s => { const [label, id] = s.split("|"); return { id, label }; });
+
+const GOALS = [...mk(["Tax-free retirement income", "Reduce or manage RMDs and the tax burden on a qualified plan", "Leave a larger legacy to heirs", "Pay the tax on a liquidity event (sale of a business, real estate, or stock)", "Protect against long-term care costs"]), OTHER];
+const SOURCES = [
+  { id: "qp", label: "Qualified plan (IRA, 401(k), 403(b), etc.)" },
+  { id: "nqp", label: "Non-qualified / taxable account" },
+  { id: "liq", label: "Liquidity event (sale of a business, real estate, or stock)" },
+  { id: "iqp", label: "Inherited qualified plan" },
+];
+const QP_TYPES = [...mk(["Traditional IRA", "Rollover IRA", "401(k)", "403(b)", "TSA (tax-sheltered annuity)", "SEP IRA", "SIMPLE IRA", "Profit-sharing or defined benefit plan"]), OTHER];
+const LIQ_TYPES = [...mk(["Sale of a business", "Sale of real estate", "Sale of stock or other securities", "Settlement or inheritance"]), OTHER];
+const MARITAL = mk(["Single", "Married", "Widowed", "Divorced"]);
+const GENDERS = [{ id: "male", label: "Male" }, { id: "female", label: "Female" }];
+const HEALTH_CLASSES = [...mk(["Preferred Plus", "Preferred", "Standard Plus", "Standard", "Tobacco", "Rated or substandard"]), { id: "unsure", label: "Not sure" }];
+const REL_OPTIONS = [...mk(["Spouse / partner", "Child", "Grandchild", "Parent", "Sibling", "Trust", "Business partner"]), OTHER];
+const ALT_WHY = [...mk(["Account holder is over age 70", "Account holder has health issues", "Prefer the policy on a younger family member", "Better pricing on a younger insured"]), OTHER];
+const IQP_TYPES = [...mk(["Inherited traditional IRA", "Inherited 401(k) or other employer plan", "Inherited Roth IRA"]), OTHER];
+const IQP_REL = [...mk(["Parent", "Spouse", "Sibling", "Other relative", "Friend"]), OTHER];
+const COLAS = [{ id: "none", label: "None" }, { id: "2", label: "2% a year" }, { id: "2_5", label: "2.5% a year" }, { id: "3", label: "3% a year" }, { id: "unsure", label: "Not sure" }];
+const AUDIENCE = [
+  { id: "client", label: "Client-facing — it will be shared with the client" },
+  { id: "advisor", label: "Advisor only" },
+];
+
+
+// ─────────────────────────────────────────────────────────────
+// Tax estimate. 2026 federal brackets (IRS Rev. Proc. 2025-32) and 2026 state brackets (Tax Foundation).
+// The state side applies the account holder's taxable income to each state's brackets. It is an estimate, and the
+// person filling this out confirms or overrides it.
+// ─────────────────────────────────────────────────────────────
+const B = str => str.split(",").map(x => { const [t, r] = x.split(":"); return [Number(t), Number(r) / 100]; });
+const FED_ORD = { single: B("0:10,12400:12,50400:22,105700:24,201775:32,256225:35,640600:37"), joint: B("0:10,24800:12,100800:22,211400:24,403550:32,512450:35,768700:37") };
+const FED_LTCG = { single: B("0:0,49450:15,545500:20"), joint: B("0:0,98900:15,613700:20") };
+const ST = (s, j) => ({ single: B(s), joint: B(j || s) });
+const STATE_TAX = {
+  AL: ST("0:2,500:4,3000:5", "0:2,1000:4,6000:5"), AZ: ST("0:2.5"), AR: ST("0:2,4600:3.9"),
+  CA: ST("0:1,11079:2,26264:4,41452:6,57542:8,72724:9.3,371479:10.3,445771:11.3,742953:12.3,1000000:13.3", "0:1,22158:2,52528:4,82904:6,115084:8,145448:9.3,742958:10.3,891542:11.3,1000000:12.3,1485906:13.3"),
+  CO: ST("0:4.4"), CT: ST("0:2,10000:4.5,50000:5.5,100000:6,200000:6.5,250000:6.9,500000:6.99", "0:2,20000:4.5,100000:5.5,200000:6,400000:6.5,500000:6.9,1000000:6.99"),
+  DE: ST("0:0,2000:2.2,5000:3.9,10000:4.8,20000:5.2,25000:5.55,60000:6.6"), DC: ST("0:4,10000:6,40000:6.5,60000:8.5,250000:9.25,500000:9.75,1000000:10.75"),
+  GA: ST("0:5.19"),
+  HI: ST("0:1.4,9600:3.2,14400:5.5,19200:6.4,24000:6.8,36000:7.2,48000:7.6,125000:7.9,175000:8.25,225000:9,275000:10,325000:11", "0:1.4,19200:3.2,28800:5.5,38400:6.4,48000:6.8,72000:7.2,96000:7.6,250000:7.9,350000:8.25,450000:9,550000:10,650000:11"),
+  ID: ST("0:0,4811:5.3", "0:0,9622:5.3"), IL: ST("0:4.95"), IN: ST("0:2.95"), IA: ST("0:3.8"), KS: ST("0:5.2,23000:5.58", "0:5.2,46000:5.58"),
+  KY: ST("0:3.5"), LA: ST("0:3"), ME: ST("0:5.8,27399:6.75,64849:7.15", "0:5.8,54849:6.75,129749:7.15"),
+  MD: ST("0:2,1000:3,2000:4,3000:4.75,100000:5,125000:5.25,150000:5.5,250000:5.75,500000:6.25,1000000:6.5", "0:2,1000:3,2000:4,3000:4.75,150000:5,175000:5.25,225000:5.5,300000:5.75,600000:6.25,1200000:6.5"),
+  MA: ST("0:5,1083150:9"), MI: ST("0:4.25"),
+  MN: ST("0:5.35,33310:6.8,109430:7.85,203150:9.85", "0:5.35,48700:6.8,193480:7.85,337930:9.85"),
+  MS: ST("0:0,10000:4"), MO: ST("0:0,1348:2,2696:2.5,4044:3,5392:3.5,6740:4,8088:4.5,9436:4.7"), MT: ST("0:4.7,47500:5.65", "0:4.7,95000:5.65"),
+  NE: ST("0:2.46,4130:3.51,24760:4.55", "0:2.46,8250:3.51,49530:4.55"),
+  NJ: ST("0:1.4,20000:1.75,35000:3.5,40000:5.53,75000:6.37,500000:8.97,1000000:10.75", "0:1.4,20000:1.75,50000:2.45,70000:3.5,80000:5.53,150000:6.37,500000:8.97,1000000:10.75"),
+  NM: ST("0:1.5,5500:3.2,16500:4.3,33500:4.7,66500:4.9,210000:5.9", "0:1.5,8000:3.2,25000:4.3,50000:4.7,100000:4.9,315000:5.9"),
+  NY: ST("0:3.9,8500:4.4,11700:5.15,13900:5.4,80650:5.9,215400:6.85,1077550:9.65,5000000:10.3,25000000:10.9", "0:3.9,17150:4.4,23600:5.15,27900:5.4,161550:5.9,323200:6.85,2155350:9.65,5000000:10.3,25000000:10.9"),
+  NC: ST("0:3.99"), ND: ST("0:0,48475:1.95,244825:2.5", "0:0,80975:1.95,298075:2.5"), OH: ST("0:0,26050:2.75"),
+  OK: ST("0:0,3750:2.5,4900:3.5,7200:4.5", "0:0,7500:2.5,9800:3.5,14400:4.5"),
+  OR: ST("0:4.75,4550:6.75,11400:8.75,125000:9.9", "0:4.75,9100:6.75,22800:8.75,250000:9.9"),
+  PA: ST("0:3.07"), RI: ST("0:3.75,82050:4.75,186450:5.99"), SC: ST("0:0,3640:3,18230:6"), UT: ST("0:4.5"),
+  VT: ST("0:3.35,49400:6.6,119700:7.6,249700:8.75", "0:3.35,82500:6.6,199450:7.6,304000:8.75"),
+  VA: ST("0:2,3000:3,5000:5,17000:5.75"), WV: ST("0:2.22,10000:2.96,25000:3.33,40000:4.44,60000:4.82"),
+  WI: ST("0:3.5,15110:4.4,51950:5.3,332720:7.65", "0:3.5,20150:4.4,69260:5.3,443630:7.65"),
+};
+const NO_INCOME_TAX = ["AK", "FL", "NV", "NH", "SD", "TN", "TX", "WY"];
+const STATE_NAME = Object.fromEntries(US_STATES.map(x => [x.id, x.label]));
+
+function taxOn(x, br) { let t = 0; for (let i = 0; i < br.length; i++) { const lo = br[i][0], hi = i + 1 < br.length ? br[i + 1][0] : Infinity; if (x > lo) t += (Math.min(x, hi) - lo) * br[i][1]; } return t; }
+function marginalAt(x, br) { let r = br[0][1]; for (let i = 0; i < br.length; i++) if (x > br[i][0]) r = br[i][1]; return r; }
+function effectiveOn(T, D, br) { return D > 0 ? (taxOn(T + D, br) - taxOn(T, br)) / D : marginalAt(T, br); }
+function ageFromDOB(v) {
+  if (!v) return null; const d = new Date(v + "T00:00:00"); if (isNaN(d)) return null;
+  const yrs = (Date.now() - d.getTime()) / (365.2425 * 86400000); return yrs >= 0 && yrs < 120 ? yrs : null;
+}
+const num = v => { const n = Number(v); return v === undefined || v === null || v === "" || isNaN(n) ? 0 : n; };
+const pct = r => (Math.round(r * 1000) / 10).toFixed(1).replace(/\.0$/, "") + "%";
+
+// Returns the estimate, or null when there is not enough to compute one.
+function taxEstimate(a) {
+  const T = num(a.taxable_income); if (!T) return null;
+  const filing = a.filing_status === "joint" || a.filing_status === "single" ? a.filing_status : (a.marital_status === "Married" || a.marital_status === "married" ? "joint" : "single");
+  const assumed = !(a.filing_status === "joint" || a.filing_status === "single");
+  const src = a.source_of_funds; const gains = src === "nqp" || src === "liq";
+  let D = 0;
+  if (src === "qp") D = num(a.qp_amount) / (a.qp_schedule === "years" && num(a.qp_years) > 0 ? num(a.qp_years) : 1);
+  else if (src === "iqp") D = a.iqp_defer === "yes" ? num(a.iqp_balance) : num(a.iqp_balance) / 10;
+  else if (src === "nqp") D = num(a.nqp_amount) * (1 - Math.min(100, num(a.nqp_basis_pct)) / 100);
+  else if (src === "liq") D = num(a.liq_gain);
+  const fedBr = FED_ORD[filing];
+  const fedMarginal = marginalAt(T, fedBr);
+  const fed = gains ? (D > 0 ? effectiveOn(T, D, FED_LTCG[filing]) : marginalAt(T, FED_LTCG[filing])) : effectiveOn(T, D, fedBr);
+  const code = a.client_state; const name = STATE_NAME[code] || ""; const age = ageFromDOB(a.client_dob);
+  let state = 0, stateNote = "Pick a state of residence to estimate this.";
+  if (code) {
+    if (NO_INCOME_TAX.includes(code)) { state = 0; stateNote = name + " has no state income tax."; }
+    else if (code === "WA") {
+      if (gains && a.liq_type !== "sale_of_real_estate" && D > 270000) { state = 0.07; stateNote = "Washington taxes long-term capital gains above about $270,000 at 7% (real estate is excluded). Approximate."; }
+      else { state = 0; stateNote = "Washington has no tax on wages or retirement income, and only taxes large long-term capital gains."; }
+    }
+    else if (!gains && ["IL", "IA", "MS", "PA"].includes(code) && (code === "IL" || age === null || age >= (code === "IA" ? 55 : 59.5))) {
+      state = 0;
+      stateNote = name + " does not tax IRA and 401(k) distributions" + (code === "IL" ? "." : age === null ? " once the age requirement is met (" + (code === "IA" ? "55" : "59½") + ")." : ".");
+    }
+    else if (gains && code === "MO") { state = 0; stateNote = "Missouri does not tax capital gains."; }
+    else if (STATE_TAX[code]) {
+      const br = STATE_TAX[code][filing]; state = effectiveOn(T, D, br);
+      stateNote = name + " income tax, estimated at " + pct(state) + " on this income." + (!gains && ["IA", "MS", "PA"].includes(code) ? " The retirement-income exemption needs age " + (code === "IA" ? "55" : "59½") + "+." : "");
+    }
+  }
+  return { filing, assumed, taxable_income: T, annual_amount: Math.round(D), fed_marginal: fedMarginal, fed, state, combined: fed + state, state_note: stateNote, kind: gains ? "capital gains" : "ordinary income" };
+}
+// What gets saved: the estimate plus any override the person entered after reviewing it.
+function derivedFacts(a) {
+  const out = {}; const yrs = ageFromDOB(a.client_dob);
+  if (yrs !== null) { out.account_holder_age = Math.floor(yrs); out.under_59_5 = yrs < 59.5; }
+  const est = taxEstimate(a);
+  if (est) {
+    const own = a.tax_confirm === "no";
+    const fed = own && String(a.tax_fed_override || "").trim() !== "" ? num(a.tax_fed_override) / 100 : est.fed;
+    const st = own && String(a.tax_state_override || "").trim() !== "" ? num(a.tax_state_override) / 100 : est.state;
+    out.tax = { filing_status: est.filing, taxable_income: est.taxable_income, annual_amount_taxed: est.annual_amount, income_type: est.kind,
+      federal_bracket_today: est.fed_marginal, federal_rate_estimated: est.fed, state_rate_estimated: est.state,
+      confirmed: a.tax_confirm === "yes" ? "yes" : own ? "entered own rates" : "not confirmed",
+      federal_rate_used: fed, state_rate_used: st, combined_rate_used: fed + st };
+  }
+  return out;
+}
+
+const SECTION_LABELS = {
+  identify: "Getting started", advisor: "About you", case: "The case", goals: "Goals", source: "Source of the dollars", taxes: "Taxes",
+  insured: "The insured", income: "Income plan", funding: "Funding and financing", estate: "Estate and legacy", delivery: "Deliverables",
+};
+
+// ─────────────────────────────────────────────────────────────
+// Screens. Each screen groups related questions. A screen or a question can carry a
+// cond(answers) function; it is only shown when that returns true. Everything is skippable.
+// ─────────────────────────────────────────────────────────────
+const isQP = a => a.source_of_funds === "qp";
+const isNQP = a => a.source_of_funds === "nqp";
+const isLIQ = a => a.source_of_funds === "liq";
+const isIQP = a => a.source_of_funds === "iqp";
+const altInsured = a => a.insured_who === "other";
+const isClientRole = a => a.respondent_role === "client";
+const isAdvisorRole = a => a.respondent_role === "advisor";
+
+const SCREEN_DEFS = [
+  { id: "identify", phase: "identify", title: "Who is filling this out?", questions: [
+    { id: "respondent_role", type: "single", required: true, label: "I am", options: [
+      { id: "client", label: "The client — I'm filling this out for myself" },
+      { id: "advisor", label: "An advisor — I'm filling this out for a client" },
+    ], why: "Either one can complete this form. Knowing who you are tells us who to follow up with." },
+  ]},
+  { id: "about_advisor", phase: "advisor", title: "About you", cond: isAdvisorRole, questions: [
+    { id: "advisor_name", type: "text", label: "Your name" },
+    { id: "advisor_firm", type: "text", label: "Firm or agency" },
+    { id: "advisor_email", type: "email", label: "Your email", placeholder: "name@firm.com" },
+    { id: "advisor_phone", type: "phone", label: "Your phone number" },
+  ]},
+  { id: "about_client", phase: "advisor", title: "About you", cond: isClientRole, questions: [
+    { id: "client_name", type: "text", label: "Your name (first and last)" },
+    { id: "client_email", type: "email", label: "Your email", placeholder: "name@email.com" },
+    { id: "client_phone", type: "phone", label: "Your phone number" },
+  ]},
+  { id: "client_advisor", phase: "advisor", title: "Your advisor", cond: isClientRole, questions: [
+    { id: "has_advisor", type: "single", label: "Are you working with a financial advisor?", options: YN, why: "If you are, we'll coordinate with them so you only have to explain things once." },
+    { id: "advisor_name", type: "text", label: "Your advisor's name", cond: a => a.has_advisor === "yes" },
+    { id: "advisor_firm", type: "text", label: "Their firm or agency", cond: a => a.has_advisor === "yes" },
+    { id: "advisor_email", type: "email", label: "Their email", cond: a => a.has_advisor === "yes", placeholder: "name@firm.com" },
+    { id: "advisor_phone", type: "phone", label: "Their phone number", cond: a => a.has_advisor === "yes" },
+  ]},
+  { id: "referral", phase: "identify", title: "How did this reach us?", cond: a => isClientRole(a) || isAdvisorRole(a), questions: [
+    { id: "referred", type: "single", label: "Did someone refer this case to us?", options: YN },
+    { id: "referred_by", type: "text", label: "Who referred it?", placeholder: "Name, and their firm if there is one", cond: a => a.referred === "yes" },
+  ]},
+  { id: "case", phase: "case", title: "About the account holder", questions: [
+    { id: "client_name", type: "text", label: "Account holder's name (first and last)", cond: a => !isClientRole(a), why: "This is the person whose qualified plan, account, or liquidity event the case is built around." },
+    { id: "client_dob", type: "date", label: "Date of birth", why: "A date of birth gives the exact age and, for a qualified plan, the RMD start age under SECURE 2.0. If you only know the age, put it in the notes at the end." },
+    { id: "client_gender", type: "single", label: "Gender", options: GENDERS },
+    { id: "client_state", type: "select", label: "State of residence", options: US_STATES, why: "State income tax is built into the model, and some states also have an estate tax." },
+    { id: "marital_status", type: "select", label: "Marital status", options: MARITAL },
+  ]},
+  { id: "goals", phase: "goals", title: "What are you trying to accomplish?", questions: [
+    { id: "goals", type: "multi", label: "Goals for this case", options: GOALS },
+    { id: "situation", type: "textarea", label: "In a sentence or two, what's the situation?", placeholder: "For example: 66-year-old with a large IRA, no need for the income yet, worried about RMDs and what the kids will owe." },
+  ]},
+  { id: "source", phase: "source", title: "Where are the dollars coming from?", questions: [
+    { id: "source_of_funds", type: "single", label: "Source of the dollars", options: SOURCES, why: "This decides which version of the model we build: a qualified plan, a taxable account, a liquidity event, or an inherited qualified plan." },
+  ]},
+  { id: "qp", phase: "source", title: "The qualified plan", cond: isQP, questions: [
+    { id: "qp_type", type: "select", label: "Type of account", options: QP_TYPES },
+    { id: "qp_balance", type: "currency", label: "Total balance in the plan" },
+    { id: "qp_amount", type: "currency", label: "Amount to reposition (distribute)", why: "The dollars that would leave the plan and be taxed. This can be less than the full balance." },
+    { id: "qp_rmd_now", type: "single", label: "Is the account holder already taking RMDs?", options: YN },
+  ]},
+  { id: "qp_move", phase: "source", title: "How the dollars would move", cond: isQP, questions: [
+    { id: "qp_schedule", type: "single", label: "Distribution schedule", options: [{ id: "lump", label: "One lump sum" }, { id: "years", label: "Spread over several years" }, { id: "unsure", label: "Not sure yet" }] },
+    { id: "qp_years", type: "number", label: "Over how many years?", cond: a => a.qp_schedule === "years" },
+    { id: "qp_start", type: "date", label: "Target first distribution / policy start date" },
+    { id: "pda_open", type: "single", label: "Open to the bank holding back part of each distribution in a PDA?", options: YNU },
+    { id: "roth_compare", type: "single", label: "Show a Roth conversion comparison alongside?", options: YN },
+  ]},
+  { id: "nqp", phase: "source", title: "The taxable account", cond: isNQP, questions: [
+    { id: "nqp_balance", type: "currency", label: "Total value of the account" },
+    { id: "nqp_amount", type: "currency", label: "Amount to use for the case" },
+    { id: "nqp_basis_pct", type: "number", label: "Cost basis (% of the value)" },
+  ]},
+  { id: "liq", phase: "source", title: "The liquidity event", cond: isLIQ, questions: [
+    { id: "liq_type", type: "select", label: "What is being sold or received?", options: LIQ_TYPES },
+    { id: "liq_date", type: "date", label: "Expected closing date" },
+    { id: "liq_proceeds", type: "currency", label: "Gross proceeds" },
+    { id: "liq_gain", type: "currency", label: "Estimated taxable gain" },
+  ]},
+  { id: "iqp", phase: "source", title: "The inherited plan", cond: isIQP, questions: [
+    { id: "iqp_type", type: "select", label: "Type of inherited account", options: IQP_TYPES },
+    { id: "iqp_balance", type: "currency", label: "Current balance" },
+    { id: "iqp_relationship", type: "select", label: "Original owner's relationship to the account holder", options: IQP_REL },
+    { id: "decedent_dob", type: "date", label: "Original owner's date of birth", why: "The original owner's birth and death dates decide whether annual RMDs are required during the 10-year window." },
+    { id: "decedent_dod", type: "date", label: "Original owner's date of death" },
+    { id: "iqp_defer", type: "single", label: "Would you prefer to defer the whole distribution to the last year of the window?", options: YNU },
+  ]},
+  { id: "taxes", phase: "taxes", title: "Taxes", questions: [
+    { id: "taxable_income", type: "currency", label: "Estimated annual taxable income", placeholder: "For example: 150,000", why: "Taxable income is what's left after deductions. It is the last number on page 1 of the tax return before the tax is figured (line 15 of Form 1040). A rough number is fine. We use it, with the state and the amount being repositioned, to estimate the tax rate. Leave out the dollars this strategy would move." },
+    { id: "filing_status", type: "single", label: "Tax filing status", options: [{ id: "single", label: "Single" }, { id: "joint", label: "Married filing jointly" }] },
+    { id: "state_move", type: "text", label: "Any plan to move to another state?", placeholder: "For example: Florida in two years" },
+  ]},
+  { id: "tax_confirm", phase: "taxes", title: "Confirm the tax rate", cond: a => !!taxEstimate(a),
+    blocks: [{ id: "tax_block", render: a => <TaxBlock answers={a} /> }],
+    questions: [
+      { id: "tax_confirm", type: "single", label: "Does this look right?", options: [{ id: "yes", label: "Yes, use these rates" }, { id: "no", label: "No, I'll enter my own" }] },
+      { id: "tax_fed_override", type: "number", label: "Federal rate to use (%)", placeholder: "For example: 24", cond: a => a.tax_confirm === "no" },
+      { id: "tax_state_override", type: "number", label: "State rate to use (%)", placeholder: "For example: 4.95", cond: a => a.tax_confirm === "no" },
+    ]},
+  { id: "insured", phase: "insured", title: "Who will be insured?", questions: [
+    { id: "insured_who", type: "single", label: "The insured is", whyOpen: true,
+      options: [{ id: "self", label: "The account holder" }, { id: "other", label: "Someone else (a spouse, child, grandchild, etc.)" }],
+      why: "Life insurance is priced and approved on the insured's age and health. If the account holder is over age 70, or has health issues, coverage can be costly or hard to get. In that case the policy is usually placed on someone younger and healthier, such as a spouse, child, or grandchild. The income timeline still follows the account holder.",
+      hint: a => { const y = ageFromDOB(a.client_dob); return y !== null && y > 70 ? "Based on the date of birth entered, the account holder is " + Math.floor(y) + ". At this age, putting the policy on a younger insured is usually the better fit." : null; } },
+    { id: "insured_name", type: "text", label: "Insured's name", cond: altInsured },
+    { id: "insured_dob", type: "date", label: "Insured's date of birth", cond: altInsured },
+    { id: "insured_gender", type: "single", label: "Insured's gender", options: GENDERS, cond: altInsured },
+    { id: "insured_relationship", type: "select", label: "Relationship to the account holder", options: REL_OPTIONS, cond: altInsured },
+    { id: "insured_why", type: "multi", label: "Why someone else?", options: ALT_WHY, cond: altInsured },
+  ]},
+  { id: "underwriting", phase: "insured", title: "Underwriting", questions: [
+    { id: "health_class", type: "select", label: "Expected health class of the insured", options: HEALTH_CLASSES },
+    { id: "health_notes", type: "textarea", label: "Anything that could affect underwriting?", placeholder: "Height and weight, conditions, medications, tobacco use. A few words is plenty.", why: "Just enough to set a realistic health class. No detailed medical history is needed here." },
+  ]},
+  { id: "income", phase: "income", title: "Income plan", questions: [
+    { id: "income_start", type: "number", label: "Income start age (account holder)", placeholder: "For example: 70" },
+    { id: "income_end", type: "number", label: "Income end age (account holder)", placeholder: "For example: 90" },
+    { id: "income_target", type: "currency", label: "Desired annual income, if known" },
+    { id: "cola", type: "select", label: "Yearly income increase to keep up with inflation", options: COLAS, why: "A small increase each year so the income keeps its buying power as prices rise." },
+    { id: "phase2", type: "single", label: "Continue income into a second phase on the insured's own age?", options: YNU, cond: altInsured, why: "A second phase keeps tax-free income going for the insured after the account holder's income window ends." },
+    { id: "phase2_start", type: "number", label: "Phase 2 start age (insured)", cond: a => altInsured(a) && a.phase2 === "yes" },
+    { id: "phase2_end", type: "number", label: "Phase 2 end age (insured)", cond: a => altInsured(a) && a.phase2 === "yes" },
+  ]},
+  { id: "lender", phase: "funding", title: "Net worth and income", questions: [
+    { id: "net_worth", type: "currency", label: "Approximate net worth (excluding primary residence)", why: "Lenders look at this to decide how the loan is structured." },
+    { id: "annual_income", type: "currency", label: "Approximate annual income" },
+  ]},
+  { id: "estate", phase: "estate", title: "Estate and legacy", questions: [
+    { id: "estate_size", type: "currency", label: "Approximate total estate value (all assets)" },
+    { id: "estate_tax_concern", type: "single", label: "Is estate tax a concern for this family?", options: YNU },
+    { id: "want_estate", type: "single", label: "Should we also run the estate comparison?", options: YN },
+  ]},
+  { id: "delivery", phase: "delivery", title: "Timing and notes", questions: [
+    { id: "audience", type: "single", label: "Who will see it?", options: AUDIENCE, cond: isAdvisorRole },
+    { id: "needed_by", type: "date", label: "Date you need it by" },
+    { id: "notes", type: "textarea", label: "Anything else we should know?", placeholder: "Existing coverage, other advisors involved, special requests. If you know only the account holder's age and not the date of birth, put it here." },
+  ]},
+];
+
+function buildScreens(answers) {
+  const out = [];
+  SCREEN_DEFS.forEach(def => {
+    if (def.cond && !def.cond(answers)) return;
+    const qs = def.questions.filter(q => !q.cond || q.cond(answers));
+    if (!qs.length) return;
+    out.push({ id: def.id, title: def.title, phase: def.phase, questions: qs, blocks: def.blocks || [] });
+  });
+  return out;
+}
+
+function formatPhone(v) {
+  let d = String(v || "").replace(/\D/g, ""); if (d.length === 11 && d[0] === "1") d = d.slice(1); d = d.slice(0, 10);
+  if (d.length === 0) return ""; if (d.length <= 3) return "(" + d; if (d.length <= 6) return "(" + d.slice(0, 3) + ") " + d.slice(3);
+  return "(" + d.slice(0, 3) + ") " + d.slice(3, 6) + "-" + d.slice(6);
+}
+function hasAnswer(question, answer) {
+  if (answer === undefined || answer === null) return false;
+  if (Array.isArray(answer)) return answer.length > 0;
+  return String(answer).trim() !== "";
+}
+function canContinue(question, answer) {
+  if (!question) return false;
+  if (question.required && !hasAnswer(question, answer)) return false;
+  if (question.type === "email" && hasAnswer(question, answer)) return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(answer).trim());
+  return true;
+}
+function fmtAnswer(q, v, answers) {
+  if (!hasAnswer(q, v)) return "—";
+  const optLabel = id => {
+    const o = (q.options || []).find(x => x.id === id);
+    if (!o) return id;
+    if (o.other) { const t = (answers[q.id + "__other"] || "").trim(); return t ? "Something else: " + t : o.label; }
+    return o.label;
+  };
+  if (q.type === "single" || q.type === "select") return optLabel(v);
+  if (q.type === "multi") return v.map(optLabel).join("; ");
+  if (q.type === "currency") return fmtCurrency(v) || String(v);
+  if (q.type === "date") return fmtDate(v);
+  if (q.type === "number") return String(v);
+  return String(v).trim();
+}
+
+// A readable copy of the answers, grouped the way they were asked.
+function buildSummary(screens, answers) {
+  const sections = [], skipped = [];
+  screens.forEach(s => {
+    const items = s.questions.filter(q => hasAnswer(q, answers[q.id])).map(q => ({ label: q.label, value: fmtAnswer(q, answers[q.id], answers) }));
+    const missing = s.questions.filter(q => !hasAnswer(q, answers[q.id])).map(q => q.label);
+    if (items.length) sections.push({ title: s.title, section: SECTION_LABELS[s.phase] || "", items });
+    if (missing.length) skipped.push({ title: s.title, labels: missing });
+  });
+  const dv = derivedFacts(answers), items = [];
+  if (dv.account_holder_age !== undefined) { items.push({ label: "Account holder's age (from date of birth)", value: String(dv.account_holder_age) }); items.push({ label: "Under age 59½", value: dv.under_59_5 ? "Yes" : "No" }); }
+  if (dv.tax) {
+    const t = dv.tax;
+    items.push({ label: "Tax filing status used", value: t.filing_status === "joint" ? "Married filing jointly" : "Single" });
+    items.push({ label: "Federal bracket today", value: pct(t.federal_bracket_today) });
+    items.push({ label: "Estimated federal rate on the dollars repositioned", value: pct(t.federal_rate_estimated) + " (" + t.income_type + ")" });
+    items.push({ label: "Estimated state rate", value: pct(t.state_rate_estimated) });
+    items.push({ label: "Rates confirmed by the person filling this out", value: t.confirmed === "yes" ? "Yes" : t.confirmed === "entered own rates" ? "No, entered their own" : "Not confirmed" });
+    items.push({ label: "Federal rate used", value: pct(t.federal_rate_used) });
+    items.push({ label: "State rate used", value: pct(t.state_rate_used) });
+    items.push({ label: "Combined rate used", value: pct(t.combined_rate_used) });
+  }
+  if (items.length) sections.push({ title: "Calculated", section: "Calculated", items });
+  return { sections, skipped };
+}
+// Headline lines for the notification email. No dollar figures.
+function headlineLines(screens, answers) {
+  const byId = {};
+  screens.forEach(s => s.questions.forEach(q => { byId[q.id] = q; }));
+  const pick = (id, label) => (byId[id] && hasAnswer(byId[id], answers[id])) ? [label, fmtAnswer(byId[id], answers[id], answers)] : null;
+  return [
+    pick("respondent_role", "Submitted by"), pick("client_email", "Client email"), pick("client_phone", "Client phone"),
+    pick("advisor_name", "Advisor"), pick("advisor_firm", "Firm"), pick("advisor_email", "Advisor email"), pick("advisor_phone", "Advisor phone"),
+    pick("referred_by", "Referred by"),
+    pick("client_state", "State"), pick("goals", "Goals"), pick("source_of_funds", "Source of dollars"),
+    pick("insured_who", "Insured"), pick("audience", "Audience"), pick("needed_by", "Needed by"),
+  ].filter(Boolean).concat(derivedFacts(answers).tax ? [["Combined tax rate used", pct(derivedFacts(answers).tax.combined_rate_used)]] : []);
+}
+
+// ─────────────────────────────────────────────────────────────
+// Components
+// ─────────────────────────────────────────────────────────────
+function Pill({ label, selected, onClick }) {
+  return (
+    <button type="button" onClick={onClick} style={{
+      padding: "9px 16px", borderRadius: 999, fontSize: 14, fontWeight: 500, lineHeight: 1.3, textAlign: "left",
+      border: `1px solid ${selected ? GOLD : BORDER}`, background: selected ? "rgba(200,169,110,.16)" : "rgba(255,255,255,.04)",
+      color: selected ? GOLD2 : OFFWHITE,
+    }}>{label}</button>
+  );
+}
+function CheckItem({ label, selected, onClick }) {
+  return (
+    <button type="button" onClick={onClick} style={{
+      display: "flex", alignItems: "flex-start", gap: 10, width: "100%", textAlign: "left", padding: "10px 12px", marginBottom: 6,
+      borderRadius: 10, fontSize: 14, lineHeight: 1.35,
+      border: `1px solid ${selected ? GOLD : BORDER}`, background: selected ? "rgba(200,169,110,.14)" : "rgba(255,255,255,.03)",
+      color: selected ? GOLD2 : OFFWHITE,
+    }}>
+      <span style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2, borderRadius: 4, border: `1.5px solid ${selected ? GOLD : "#5B7084"}`, background: selected ? GOLD : "transparent", color: NAVY, fontSize: 11, lineHeight: "13px", textAlign: "center", fontWeight: 700 }}>{selected ? "✓" : ""}</span>
+      <span>{label}</span>
+    </button>
+  );
+}
+function CurrencyField({ value, onChange, placeholder, baseInputStyle }) {
+  const format = raw => (raw === "" || raw === undefined ? "" : Number(raw).toLocaleString("en-US"));
+  const [display, setDisplay] = useState(format(value));
+  useEffect(() => { setDisplay(format(value)); }, [value]);
+  const handleChange = e => {
+    const input = e.target;
+    const prevLen = input.value.length;
+    const caret = input.selectionStart;
+    const raw = input.value.replace(/[^0-9]/g, "");
+    const nextDisplay = format(raw);
+    setDisplay(nextDisplay);
+    onChange(raw);
+    requestAnimationFrame(() => {
+      if (!input) return;
+      const pos = Math.max(0, (caret || 0) + (nextDisplay.length - prevLen));
+      try { input.setSelectionRange(pos, pos); } catch (e) {}
+    });
+  };
+  return (
+    <div style={{ position: "relative" }}>
+      <span style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", color: GRAY, fontSize: 15 }}>$</span>
+      <input type="text" inputMode="numeric" value={display} placeholder={placeholder || "0"} onChange={handleChange} style={{ ...baseInputStyle, paddingLeft: 30 }} />
+    </div>
+  );
+}
+
+function TaxBlock({ answers }) {
+  const e = taxEstimate(answers); if (!e) return null;
+  const row = (l, v, strong) => <div style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "7px 0", borderBottom: "1px solid rgba(255,255,255,.06)", fontSize: strong ? 15 : 13.5, fontWeight: strong ? 700 : 400, color: strong ? GOLD2 : OFFWHITE }}><span style={{ color: strong ? GOLD2 : WARM }}>{l}</span><span>{v}</span></div>;
+  return (
+    <div style={{ marginBottom: 22, padding: "14px 16px", borderRadius: 12, background: "rgba(255,255,255,.04)", border: "1px solid rgba(200,169,110,.25)" }}>
+      <p style={{ fontSize: 13, color: GRAY, lineHeight: 1.6, marginBottom: 10 }}>Here is our estimate, using your taxable income of <span style={{ color: OFFWHITE }}>{fmtCurrency(e.taxable_income)}</span>, {STATE_NAME[answers.client_state] || "your state"}, and 2026 federal tax rates, filing as <span style={{ color: OFFWHITE }}>{e.filing === "joint" ? "married filing jointly" : "single"}</span>{e.assumed ? " (based on marital status; go back to change it)" : ""}.</p>
+      {row("Federal bracket today", pct(e.fed_marginal))}
+      {row("Federal rate on these dollars (" + e.kind + ")", pct(e.fed))}
+      {row("State rate", pct(e.state))}
+      {row("Combined effective rate", pct(e.combined), true)}
+      <p style={{ fontSize: 12, color: GRAY, lineHeight: 1.55, marginTop: 10 }}>{e.state_note} State rates are estimates; please confirm yours or enter your own.</p>
+    </div>
+  );
+}
+
+function FieldRow({ q, value, other, onChange, onOther, answers }) {
+  const [open, setOpen] = useState(!!q.whyOpen);
+  const inputStyle = { width: "100%", padding: "12px 14px", background: "rgba(255,255,255,.05)", border: `1px solid ${BORDER}`, borderRadius: 10, color: OFFWHITE, fontSize: 15, outline: "none" };
+  const infoBtn = q.why ? (
+    <button type="button" onClick={() => setOpen(o => !o)} aria-label="Why we ask" style={{ marginLeft: 8, width: 18, height: 18, borderRadius: "50%", border: "1px solid #4A6070", color: GRAY, fontSize: 10, verticalAlign: "middle", lineHeight: "16px", padding: 0 }}>?</button>
+  ) : null;
+  const infoPanel = open && q.why && (
+    <div style={{ margin: "6px 0 10px", padding: "10px 12px", borderRadius: 9, background: "rgba(255,255,255,.04)", fontSize: 12.5, lineHeight: 1.55, color: GRAY }}>
+      <span style={{ color: WARM }}>Why we ask: </span>{q.why}
+    </div>
+  );
+
+  let control = null, showOther = false;
+  const sel = (q.options || []).find(o => o.id === value);
+  if (q.type === "single") {
+    control = <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>{q.options.map(o => <Pill key={o.id} label={o.label} selected={value === o.id} onClick={() => onChange(value === o.id ? "" : o.id)} />)}</div>;
+    showOther = !!(sel && sel.other);
+  } else if (q.type === "select") {
+    control = (
+      <select value={value || ""} onChange={e => onChange(e.target.value)} style={SELECT_STYLE}>
+        <option value="">Select…</option>
+        {q.options.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+      </select>
+    );
+    showOther = !!(sel && sel.other);
+  } else if (q.type === "multi") {
+    const cur = Array.isArray(value) ? value : [];
+    const toggle = id => onChange(cur.includes(id) ? cur.filter(x => x !== id) : [...cur, id]);
+    control = <div>{q.options.map(o => <CheckItem key={o.id} label={o.label} selected={cur.includes(o.id)} onClick={() => toggle(o.id)} />)}</div>;
+    showOther = q.options.some(o => o.other && cur.includes(o.id));
+  } else if (q.type === "phone") {
+    control = <input type="tel" inputMode="tel" autoComplete="tel" value={value || ""} placeholder="(555) 555-5555" onChange={e => onChange(formatPhone(e.target.value))} style={inputStyle} />;
+  } else if (q.type === "text" || q.type === "email") {
+    control = <input type={q.type === "email" ? "email" : "text"} value={value || ""} placeholder={q.placeholder || ""} onChange={e => onChange(e.target.value)} style={inputStyle} />;
+  } else if (q.type === "number") {
+    control = <input type="number" inputMode="decimal" value={value === undefined ? "" : value} placeholder={q.placeholder || ""} onChange={e => onChange(e.target.value)} style={inputStyle} />;
+  } else if (q.type === "currency") {
+    control = <CurrencyField value={value} onChange={onChange} placeholder={q.placeholder} baseInputStyle={inputStyle} />;
+  } else if (q.type === "date") {
+    control = <input type="date" value={value || ""} onChange={e => onChange(e.target.value)} style={{ ...inputStyle, colorScheme: "dark" }} />;
+  } else if (q.type === "textarea") {
+    control = <textarea value={value || ""} placeholder={q.placeholder || ""} rows={3} onChange={e => onChange(e.target.value)} style={{ ...inputStyle, resize: "vertical", lineHeight: 1.5 }} />;
+  }
+
+  return (
+    <div style={{ marginBottom: 22, paddingTop: 4 }}>
+      <div style={{ fontSize: 13.5, fontWeight: 600, color: WARM, marginBottom: 8, lineHeight: 1.4 }}>{q.label}{infoBtn}</div>
+      {infoPanel}
+      {q.hint && (() => { const h = q.hint(answers || {}); return h ? <p style={{ fontSize: 12.5, color: GOLD2, margin: "0 0 10px", lineHeight: 1.5 }}>{h}</p> : null; })()}
+      {control}
+      {showOther && (
+        <input type="text" value={other || ""} placeholder="Please tell us more" onChange={e => onOther(e.target.value)} style={{ ...inputStyle, marginTop: 8 }} />
+      )}
+      {q.type === "email" && hasAnswer(q, value) && !canContinue(q, value) && <p style={{ fontSize: 12, color: GRAY, marginTop: 6 }}>Please enter a valid email address, or clear the field to skip.</p>}
+    </div>
+  );
+}
+
+function WelcomeScreen({ onStart, hasSaved, onResume, onClear }) {
+  const gather = [
+    { h: "The account holder", items: ["Date of birth and state of residence", "Marital status"] },
+    { h: "The dollars", items: ["Plan type and balance, and how much would be repositioned", "For a liquidity event: expected closing date, proceeds, and estimated gain", "For an inherited plan: the original owner's birth and death dates"] },
+    { h: "The insured", items: ["If someone other than the account holder: name, date of birth, and relationship", "A rough health class (preferred, standard, tobacco)"] },
+    { h: "Goals and timing", items: ["When income should start and end", "Rough net worth and income, if the case will be bank-financed", "When you need the numbers back"] },
+  ];
+  return (
+    <div style={{ minHeight: "100dvh", background: NAVY, display: "flex", flexDirection: "column", justifyContent: "center", padding: "40px 24px", position: "relative" }}>
+      <div style={{ position: "absolute", top: -120, right: -120, width: 420, height: 420, borderRadius: "50%", background: "radial-gradient(circle,rgba(200,169,110,.07) 0%,transparent 70%)" }} />
+      <div style={{ maxWidth: 480, margin: "0 auto", width: "100%", position: "relative" }}>
+        <div dangerouslySetInnerHTML={{ __html: LOGO_SVG }} style={{ marginBottom: 22 }} />
+        <div style={{ fontSize: 10, color: GOLD, letterSpacing: ".18em", textTransform: "uppercase", marginBottom: 14 }}>RetainMoreValue · Enhanced Tax Advantage</div>
+        <h1 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 36, fontWeight: 300, lineHeight: 1.2, color: OFFWHITE, marginBottom: 16 }}>ETA Case Intake</h1>
+        <p style={{ fontSize: 14.5, lineHeight: 1.7, color: WARM, fontWeight: 300, marginBottom: 10 }}>
+          Tell us the particulars of the case and we'll design it. Advisors and clients can both fill this out. Plan on about 10 minutes.
+        </p>
+        <p style={{ fontSize: 13, lineHeight: 1.65, color: GRAY, fontWeight: 300, marginBottom: 26 }}>
+          You won't be asked for Social Security numbers, account numbers, or detailed medical history.
+        </p>
+        <div style={{ background: "rgba(200,169,110,.06)", border: "1px solid rgba(200,169,110,.18)", borderRadius: 12, padding: "18px 20px", marginBottom: 26 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: ".14em", textTransform: "uppercase", color: GOLD, marginBottom: 12 }}>Helpful to have on hand</div>
+          {gather.map((g, gi) => (
+            <div key={gi} style={{ marginBottom: gi === gather.length - 1 ? 0 : 14 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".04em", color: GOLD2, marginBottom: 6 }}>{g.h}</div>
+              {g.items.map((item, i) => (
+                <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 5 }}>
+                  <span style={{ color: GOLD, fontSize: 13, lineHeight: "20px", flexShrink: 0 }}>✓</span>
+                  <span style={{ fontSize: 13, lineHeight: 1.5, color: WARM }}>{item}</span>
+                </div>
+              ))}
+            </div>
+          ))}
+          <p style={{ fontSize: 11.5, lineHeight: 1.55, color: GRAY, marginTop: 14, fontStyle: "italic" }}>
+            Don't know an answer? Skip it and we'll follow up. Your answers are saved on this device as you go, so you can pick up where you left off.
+          </p>
+        </div>
+        <p style={{ fontSize: 13, lineHeight: 1.65, color: WARM, marginBottom: 20 }}>
+          Questions? Call <strong style={{ color: OFFWHITE }}>773-318-9608</strong> or email <strong style={{ color: OFFWHITE }}>support@integratedplanningpartners.com</strong>.
+        </p>
+        {hasSaved && (
+          <button onClick={onResume} style={{ display: "block", width: "100%", marginBottom: 12, padding: 15, borderRadius: 11, background: "rgba(255,255,255,.05)", border: `1px solid ${BORDER}`, color: OFFWHITE, fontSize: 14, fontWeight: 600 }}>Resume where you left off</button>
+        )}
+        <button onClick={onStart} style={{ display: "block", width: "100%", padding: 16, borderRadius: 11, background: GOLD, color: NAVY, fontSize: 15, fontWeight: 700, letterSpacing: ".03em" }}>{hasSaved ? "Start over" : "Begin →"}</button>
+        {hasSaved && (
+          <button onClick={onClear} style={{ display: "block", margin: "16px auto 0", color: GRAY, fontSize: 12, textDecoration: "underline" }}>Clear saved answers</button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ScreenView({ screen, answers, onAnswer, onOther, onNext, onBack, stepNum, totalSteps, editing }) {
+  useEffect(() => { try { window.scrollTo(0, 0); } catch (e) {} }, [screen.id]);
+  const qs = screen.questions;
+  const pct = totalSteps > 0 ? Math.round((stepNum / totalSteps) * 100) : 0;
+  const ok = qs.every(q => canContinue(q, answers[q.id]));
+  const answered = qs.some(q => hasAnswer(q, answers[q.id]));
+  const isLast = stepNum === totalSteps;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", minHeight: "100dvh", background: NAVY, position: "relative" }}>
+      <div style={{ position: "absolute", top: -100, right: -100, width: 380, height: 380, borderRadius: "50%", background: "radial-gradient(circle,rgba(200,169,110,.06) 0%,transparent 70%)", pointerEvents: "none" }} />
+      <div style={{ padding: "18px 20px 0", flexShrink: 0, maxWidth: 640, margin: "0 auto", width: "100%" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+            <div dangerouslySetInnerHTML={{ __html: LOGO_SVG }} />
+            <div style={{ fontSize: 9, color: GOLD, letterSpacing: ".1em", textTransform: "uppercase" }}>{editing ? "Editing your answer" : (SECTION_LABELS[screen.phase] || "ETA Case Intake")}</div>
+          </div>
+          {!editing && <span style={{ fontSize: 10, color: GRAY }}>{pct}%</span>}
+        </div>
+        {!editing && (
+          <div style={{ height: 3, background: "rgba(255,255,255,.07)", borderRadius: 2, marginBottom: 6 }}>
+            <div style={{ height: "100%", width: pct + "%", background: `linear-gradient(90deg,${GOLD},${GOLD2})`, borderRadius: 2, transition: "width .35s ease" }} />
+          </div>
+        )}
+      </div>
+      <div style={{ flex: 1, padding: "22px 20px 0", maxWidth: 640, margin: "0 auto", width: "100%" }}>
+        <h2 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 26, fontWeight: 400, lineHeight: 1.3, color: OFFWHITE, marginBottom: 18, animation: "fadeUp .3s ease both" }}>{screen.title}</h2>
+        {qs.some(q => q.required && !hasAnswer(q, answers[q.id])) && <p style={{ fontSize: 12, color: GRAY, marginBottom: 14 }}>Please choose one so we know how to follow up.</p>}
+        {(screen.blocks || []).map(b => <div key={b.id}>{b.render(answers)}</div>)}
+        {qs.map(q => (
+          <FieldRow key={q.id} q={q} answers={answers} value={answers[q.id]} other={answers[q.id + "__other"]}
+            onChange={val => onAnswer(q.id, val)} onOther={text => onOther(q.id, text)} />
+        ))}
+      </div>
+      <div style={{ padding: "18px 20px 30px", flexShrink: 0, maxWidth: 640, margin: "0 auto", width: "100%" }}>
+        <div style={{ display: "flex", gap: 10 }}>
+          {stepNum > 1 && !editing && (
+            <button onClick={onBack} style={{ padding: "15px 20px", borderRadius: 11, fontSize: 14, fontWeight: 600, background: "rgba(255,255,255,.05)", border: `1px solid ${BORDER}`, color: GRAY, flexShrink: 0 }}>← Back</button>
+          )}
+          <button onClick={onNext} disabled={!ok} style={{
+            flex: 1, padding: 15, borderRadius: 11, fontSize: 14, fontWeight: 700, letterSpacing: ".03em",
+            background: !ok ? "rgba(255,255,255,.06)" : (editing || answered || isLast) ? GOLD : "rgba(255,255,255,.05)",
+            color: !ok ? "#3A5268" : (editing || answered || isLast) ? NAVY : GOLD2,
+            border: ok && !editing && !answered && !isLast ? "1px solid rgba(200,169,110,.35)" : "none",
+          }}>{editing ? "Back to review →" : isLast ? "Review your answers →" : answered ? "Continue →" : "Skip for now →"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ReviewScreen({ screens, answers, onEdit, onSubmit, busy, error }) {
+  useEffect(() => { try { window.scrollTo(0, 0); } catch (e) {} }, []);
+  const missing = screens.flatMap(s => s.questions).filter(q => !hasAnswer(q, answers[q.id])).length;
+  return (
+    <div style={{ minHeight: "100dvh", background: NAVY, display: "flex", flexDirection: "column" }}>
+      <div style={{ flex: 1, padding: "26px 20px 24px", maxWidth: 720, margin: "0 auto", width: "100%" }}>
+        <div dangerouslySetInnerHTML={{ __html: LOGO_SVG }} style={{ marginBottom: 18 }} />
+        <h1 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 32, fontWeight: 300, color: OFFWHITE, marginBottom: 8 }}>Review your answers</h1>
+        <p style={{ fontSize: 14, color: WARM, lineHeight: 1.65, marginBottom: 8 }}>Look everything over. Tap <strong style={{ color: OFFWHITE }}>Edit</strong> next to anything you'd like to change, then submit at the bottom.</p>
+        {missing > 0 && <p style={{ fontSize: 13, color: GOLD2, lineHeight: 1.6, marginBottom: 6 }}>{missing} question{missing === 1 ? " is" : "s are"} not answered. You can answer {missing === 1 ? "it" : "them"} now, or leave {missing === 1 ? "it" : "them"} and we'll follow up.</p>}
+        <div style={{ marginTop: 22 }}>
+          {screens.map(screen => (
+            <div key={screen.id} style={{ marginBottom: 24 }}>
+              <h2 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 20, fontWeight: 600, color: OFFWHITE, marginBottom: 6, borderBottom: `1px solid ${BORDER}`, paddingBottom: 6 }}>{screen.title}</h2>
+              {screen.questions.map(q => {
+                const has = hasAnswer(q, answers[q.id]);
+                return (
+                  <div key={q.id} style={{ display: "flex", gap: 12, alignItems: "flex-start", padding: "9px 0", borderBottom: "1px solid rgba(255,255,255,.06)" }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 12, color: GRAY, lineHeight: 1.4 }}>{q.label}</div>
+                      <div style={{ fontSize: 14, color: has ? OFFWHITE : GRAY, fontStyle: has ? "normal" : "italic", lineHeight: 1.45, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{has ? fmtAnswer(q, answers[q.id], answers) : "Not answered"}</div>
+                    </div>
+                    <button onClick={() => onEdit(q.id)} aria-label={(has ? "Edit " : "Answer ") + q.label} style={{ flexShrink: 0, padding: "7px 14px", borderRadius: 8, fontSize: 13, fontWeight: 600, background: has ? "rgba(255,255,255,.05)" : "rgba(200,169,110,.14)", border: `1px solid ${has ? BORDER : GOLD}`, color: has ? OFFWHITE : GOLD2 }}>{has ? "Edit" : "Answer"}</button>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      </div>
+      <div style={{ position: "sticky", bottom: 0, background: NAVY, borderTop: `1px solid ${BORDER}`, padding: "14px 20px calc(14px + env(safe-area-inset-bottom, 0px))" }}>
+        <div style={{ maxWidth: 720, margin: "0 auto" }}>
+          {error && <p role="alert" style={{ fontSize: 13, color: "#E8A0A0", lineHeight: 1.5, marginBottom: 10 }}>{error}</p>}
+          <button onClick={onSubmit} disabled={busy} style={{ display: "block", width: "100%", padding: 16, borderRadius: 11, background: busy ? "rgba(200,169,110,.5)" : GOLD, color: NAVY, fontSize: 15, fontWeight: 700, letterSpacing: ".03em" }}>{busy ? "Submitting…" : error ? "Try again →" : "Submit →"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ThanksScreen({ answers, screens, onStartOver }) {
+  useEffect(() => { try { window.scrollTo(0, 0); } catch (e) {} }, []);
+  const [copied, setCopied] = useState(false);
+  const sum = buildSummary(screens, answers);
+  const skippedCount = sum.skipped.reduce((n, g) => n + g.labels.length, 0);
+  const buildText = () => {
+    let out = `ETA CASE INTAKE SUMMARY\nRetainMoreValue / Integrated Planning Partners\nSubmitted ${new Date().toLocaleString()}\n`;
+    sum.sections.forEach(s => {
+      out += `\n\n${s.title.toUpperCase()}\n${"-".repeat(s.title.length)}\n`;
+      s.items.forEach(i => { out += `${i.label}: ${i.value}\n`; });
+    });
+    if (sum.skipped.length) {
+      out += "\n\nNOT ANSWERED — TO FOLLOW UP\n---------------------------\n";
+      sum.skipped.forEach(g => { out += `\n${g.title}\n`; g.labels.forEach(l => { out += `  - ${l}\n`; }); });
+    }
+    return out;
+  };
+  const copy = () => { try { navigator.clipboard.writeText(buildText()).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2200); }); } catch (e) {} };
+  const download = () => {
+    const blob = new Blob([buildText()], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = ((answers.client_name || "case").trim().replace(/\s+/g, "_")) + "_eta_case_intake.txt";
+    document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+  };
+  const btn = { padding: "12px 18px", borderRadius: 10, background: "rgba(255,255,255,.06)", border: `1px solid ${BORDER}`, color: OFFWHITE, fontSize: 13, fontWeight: 600 };
+  return (
+    <div style={{ minHeight: "100dvh", background: NAVY, padding: "28px 20px 60px" }}>
+      <div style={{ maxWidth: 720, margin: "0 auto" }}>
+        <div dangerouslySetInnerHTML={{ __html: LOGO_SVG }} style={{ marginBottom: 18 }} />
+        <h1 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 30, fontWeight: 300, color: OFFWHITE, marginBottom: 6 }}>Thank you. Your case has been submitted.</h1>
+        {PREVIEW && <p style={{ fontSize: 13, color: GOLD2, marginBottom: 10 }}>Preview mode: nothing was saved or sent.</p>}
+        <p style={{ fontSize: 13.5, color: WARM, lineHeight: 1.65, marginBottom: 14 }}>We'll review the details and follow up with anything we need. A copy of your answers is below for your records.</p>
+        {skippedCount > 0 && <p style={{ fontSize: 13, color: GOLD2, lineHeight: 1.6, marginBottom: 14 }}>{skippedCount} question{skippedCount === 1 ? " was" : "s were"} left unanswered. No problem, we'll follow up on those.</p>}
+        <div className="no-print" style={{ display: "flex", gap: 10, margin: "18px 0 28px", flexWrap: "wrap" }}>
+          <button onClick={() => window.print()} style={{ ...btn, background: GOLD, color: NAVY, border: "none", fontWeight: 700 }}>Print / Save as PDF</button>
+          <button onClick={download} style={btn}>Download as text file</button>
+          <button onClick={copy} style={btn}>{copied ? "Copied ✓" : "Copy"}</button>
+        </div>
+        {sum.sections.map(s => (
+          <div key={s.title} style={{ marginBottom: 20 }}>
+            <h2 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 18, fontWeight: 600, color: OFFWHITE, marginBottom: 8, borderBottom: `1px solid ${BORDER}`, paddingBottom: 6 }}>{s.title}</h2>
+            {s.items.map(i => (
+              <div key={i.label} style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 12, padding: "6px 0", borderBottom: "1px solid rgba(255,255,255,.05)" }}>
+                <span style={{ fontSize: 12, color: GRAY, lineHeight: 1.5 }}>{i.label}</span>
+                <span style={{ fontSize: 12.5, color: OFFWHITE, fontWeight: 500, lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{i.value}</span>
+              </div>
+            ))}
+          </div>
+        ))}
+        {sum.skipped.length > 0 && (
+          <div style={{ marginBottom: 22 }}>
+            <h2 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 18, fontWeight: 600, color: OFFWHITE, marginBottom: 10, borderBottom: `1px solid ${BORDER}`, paddingBottom: 6 }}>Not answered, to follow up ({skippedCount})</h2>
+            {sum.skipped.map(g => (
+              <div key={g.title} style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: OFFWHITE, marginBottom: 4 }}>{g.title}</div>
+                {g.labels.map(l => <div key={l} style={{ fontSize: 12.5, color: GRAY, lineHeight: 1.5, padding: "3px 0 3px 12px", borderLeft: "2px solid rgba(255,255,255,.1)" }}>{l}</div>)}
+              </div>
+            ))}
+          </div>
+        )}
+        {PREVIEW && <button className="no-print" onClick={onStartOver} style={{ display: "block", margin: "26px auto 0", color: GRAY, fontSize: 12, textDecoration: "underline" }}>Start a new response</button>}
+      </div>
+    </div>
+  );
+}
+
+function readSaved() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return null;
+    const saved = JSON.parse(raw);
+    if (!saved || !saved.savedAt || Date.now() - saved.savedAt > SAVE_TTL_MS) { localStorage.removeItem(SAVE_KEY); return null; }
+    return saved;
+  } catch (e) { return null; }
+}
+function clearSaved() { try { localStorage.removeItem(SAVE_KEY); } catch (e) {} }
+
+function App() {
+  const [view, setView] = useState("welcome"); // welcome, flow, review, thanks
+  const [answers, setAnswers] = useState({});
+  const [step, setStep] = useState(0);
+  const [editing, setEditing] = useState(false);
+  const [hasSaved, setHasSaved] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+  const [honeypot, setHoneypot] = useState("");
+
+  useEffect(() => {
+    const s = document.createElement("style"); s.textContent = GS; document.head.appendChild(s);
+    setHasSaved(!!readSaved());
+    return () => document.head.removeChild(s);
+  }, []);
+  useEffect(() => {
+    if (view === "flow" || view === "review") {
+      try { localStorage.setItem(SAVE_KEY, JSON.stringify({ answers, step, savedAt: Date.now() })); } catch (e) {}
+    }
+  }, [answers, step, view]);
+
+  const screens = buildScreens(answers);
+  const idx = Math.min(step, Math.max(screens.length - 1, 0));
+  const current = screens[idx];
+
+  const start = () => { clearSaved(); setAnswers({}); setStep(0); setEditing(false); setView("flow"); };
+  const resume = () => {
+    const saved = readSaved();
+    if (!saved) { start(); return; }
+    setAnswers(saved.answers || {}); setStep(saved.step || 0); setEditing(false); setView("flow");
+  };
+  const discardSaved = () => { clearSaved(); setHasSaved(false); };
+  const setAnswer = (qid, val) => setAnswers(prev => ({ ...prev, [qid]: val }));
+  const setOther = (qid, text) => setAnswers(prev => ({ ...prev, [qid + "__other"]: text }));
+  const next = () => {
+    if (editing) { setEditing(false); setView("review"); return; }
+    if (idx >= screens.length - 1) { setView("review"); return; }
+    setStep(idx + 1);
+  };
+  const back = () => {
+    if (editing) { setEditing(false); setView("review"); return; }
+    if (idx > 0) setStep(idx - 1);
+  };
+  const editQuestion = qid => {
+    const i = screens.findIndex(s => s.questions.some(q => q.id === qid));
+    if (i >= 0) { setStep(i); setEditing(true); setView("flow"); }
+  };
+
+  const submit = async () => {
+    if (busy) return;
+    setBusy(true); setSubmitError("");
+    // Only answers to questions that are currently shown are sent.
+    const shownIds = new Set(screens.flatMap(s => s.questions.map(q => q.id)));
+    const clean = {};
+    Object.keys(answers).forEach(k => {
+      const base = k.replace(/__other$/, "");
+      if (shownIds.has(base) && hasAnswer({}, answers[k])) clean[k] = answers[k];
+    });
+    if (!PREVIEW) {
+      const all = screens.flatMap(s => s.questions);
+      const res = await callSubmit({
+        answers: { ...clean, __derived: derivedFacts(answers) }, website: honeypot,
+        summary: buildSummary(screens, answers),
+        meta: { form: "eta-case-intake", version: 1, question_count: all.length, skipped_count: all.filter(q => !hasAnswer(q, answers[q.id])).length },
+      });
+      if (!res.ok) {
+        setBusy(false);
+        setSubmitError(res.error === "offline"
+          ? "We couldn't reach our server. Check your connection and tap Try again. Your answers are saved on this device."
+          : "Something went wrong sending your answers. Please tap Try again, or call 773-318-9608 if it keeps happening.");
+        return;
+      }
+      notifyTeam(answers, headlineLines(screens, answers), res.submission_id);
+    }
+    clearSaved();
+    setBusy(false);
+    setView("thanks");
+  };
+
+  // Hidden honeypot field: people never see it; form-filling bots do.
+  const trap = <input tabIndex={-1} autoComplete="off" aria-hidden="true" value={honeypot} onChange={e => setHoneypot(e.target.value)} name="website" style={{ position: "absolute", left: "-9999px", width: 1, height: 1, opacity: 0 }} />;
+
+  let body = null;
+  if (view === "welcome") body = <WelcomeScreen onStart={start} hasSaved={hasSaved} onResume={resume} onClear={discardSaved} />;
+  else if (view === "review") body = <ReviewScreen screens={screens} answers={answers} onEdit={editQuestion} onSubmit={submit} busy={busy} error={submitError} />;
+  else if (view === "thanks") body = <ThanksScreen answers={answers} screens={screens} onStartOver={start} />;
+  else if (view === "flow" && current) body = <ScreenView screen={current} answers={answers} onAnswer={setAnswer} onOther={setOther} onNext={next} onBack={back} stepNum={idx + 1} totalSteps={screens.length || 1} editing={editing} />;
+  return <>{body}{trap}</>;
+}
+
+ReactDOM.render(<App />, document.getElementById("root"));
+</script>
+</body>
+</html>
