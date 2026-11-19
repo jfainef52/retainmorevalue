@@ -35,6 +35,8 @@ const SUBMIT_API = "https://fcuveztmmefgntoekqze.supabase.co/functions/v1/submit
 const SB_PUBLISHABLE = "sb_publishable_TACe4ULWiMWdz8NhkF1gNA_0PSjITAz";
 const EMAILJS_SERVICE_ID = "IPP Support";
 const EMAILJS_TEMPLATE = "template_qxximsu";
+// Own template for this form: subject is {{subject}} and it carries the PDF as the dynamic attachment report_attachment.
+const EMAILJS_TEMPLATE_ETA = "template_0s5pg6p";
 const EMAILJS_PUBLIC_KEY = "XyWTKKWFoeYOhfFbV";
 const NOTIFY_EMAIL = "support@integratedplanningpartners.com";
 const URL_PARAMS = (() => { try { return new URLSearchParams(window.location.search); } catch (e) { return new URLSearchParams(""); } })();
@@ -118,8 +120,8 @@ function notifyTeam(answers, summaryLines, submissionId, fullSummary) {
       + (submissionId ? '<p style="margin:12px 0 0;font-size:11px;color:#6E8299;">Submission ID: ' + esc(submissionId) + '</p>' : '')
       + '</div>';
     const pdf = fullSummary ? buildAnswersPdf(fullSummary, answers, submissionId) : null;
-    emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE, {
-      pdf_attachment: pdf ? pdf.dataUri : "", pdf_name: "ETA-Design-Request" + ((answers.client_name || "").trim() ? "-" + answers.client_name.trim().replace(/[^A-Za-z0-9]+/g, "-") : "") + ".pdf",
+    emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ETA, {
+      report_attachment: pdf ? pdf.dataUri : "", report_filename: "ETA-Design-Request" + ((answers.client_name || "").trim() ? "-" + answers.client_name.trim().replace(/[^A-Za-z0-9]+/g, "-") : "") + ".pdf",
       to_email: NOTIFY_EMAIL, cc_email: "", name: advisor, email: replyTo, reply_to: replyTo || NOTIFY_EMAIL,
       subject: "ETA Design Request: " + (byClient ? advisor + " (client, self-submitted)" : client + " (advisor " + advisor + ")"), html_content: html,
     }).catch(() => {});
