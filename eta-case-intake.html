@@ -21,6 +21,7 @@
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone@7.27.6/babel.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 
 <script type="text/babel" data-cfasync="false">
 const { useState, useEffect, useRef } = React;
@@ -57,8 +58,50 @@ async function callSubmit(payload) {
 
 const esc = s => String(s == null ? "" : s).replace(/[<>&"]/g, c => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;" }[c]));
 
+
+// Builds a plain, text-only PDF of every answer so the email carries the full intake. Small on purpose (email attachment limits).
+function buildAnswersPdf(summary, answers, submissionId) {
+  try {
+    const J = window.jspdf && window.jspdf.jsPDF; if (!J) return null;
+    const doc = new J({ unit: "pt", format: "letter" });
+    const W = 612, M = 54, maxW = W - M * 2; let y = M;
+    const clean = t => String(t == null ? "" : t).replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/[–—]/g, "-").replace(/½/g, " 1/2").replace(/[^\x20-\x7E\n]/g, "");
+    const room = h => { if (y + h > 792 - M) { doc.addPage(); y = M; } };
+    const line = (txt, size, bold, color, gap) => {
+      doc.setFont("helvetica", bold ? "bold" : "normal"); doc.setFontSize(size); doc.setTextColor(color[0], color[1], color[2]);
+      doc.splitTextToSize(clean(txt), maxW).forEach(l => { room(size + 3); doc.text(l, M, y); y += size + 3; }); y += gap || 0;
+    };
+    const byClient = answers.respondent_role === "client";
+    const who = byClient ? (answers.client_name || "Client") : (answers.advisor_name || "Advisor");
+    line("ETA Design Request", 20, true, [14, 24, 36], 2);
+    line("Submitted " + new Date().toLocaleString("en-US", { dateStyle: "long", timeStyle: "short" }), 10, false, [90, 100, 112], 0);
+    line("Submitted by: " + (byClient ? who + " (the client, self-submitted)" : who + " (advisor)"), 10, false, [90, 100, 112], 0);
+    if (submissionId) line("Submission ID: " + submissionId, 8, false, [130, 138, 148], 6); else y += 6;
+    (summary.sections || []).forEach(sec => {
+      room(40); y += 6; doc.setDrawColor(200, 169, 110); doc.setLineWidth(0.8); doc.line(M, y, W - M, y); y += 14;
+      line(sec.title, 13, true, [14, 24, 36], 3);
+      sec.items.forEach(it => {
+        const lab = clean(it.label), val = clean(Array.isArray(it.value) ? it.value.join("; ") : it.value);
+        doc.setFont("helvetica", "bold"); doc.setFontSize(9.5); const lw = doc.splitTextToSize(lab, 170);
+        doc.setFont("helvetica", "normal"); const vw = doc.splitTextToSize(val || "-", maxW - 185);
+        const h = Math.max(lw.length, vw.length) * 12.5 + 3; room(h);
+        doc.setFont("helvetica", "bold"); doc.setTextColor(90, 100, 112); lw.forEach((l, i) => doc.text(l, M, y + i * 12.5));
+        doc.setFont("helvetica", "normal"); doc.setTextColor(20, 24, 32); vw.forEach((l, i) => doc.text(l, M + 185, y + i * 12.5));
+        y += h;
+      });
+    });
+    if ((summary.skipped || []).length) {
+      room(40); y += 10; line("Left blank", 11, true, [90, 100, 112], 2);
+      summary.skipped.forEach(sk => line(sk.title + ": " + sk.labels.join(", "), 8.5, false, [120, 128, 138], 1));
+    }
+    const buf = doc.output("arraybuffer"); const bytes = new Uint8Array(buf); let bin = "";
+    for (let i = 0; i < bytes.length; i += 8192) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
+    return { dataUri: "data:application/pdf;base64," + btoa(bin), size: bytes.length };
+  } catch (e) { return null; }
+}
+
 // Tells the office a case intake arrived. Names and the headline choices only. No dollar figures.
-function notifyTeam(answers, summaryLines, submissionId) {
+function notifyTeam(answers, summaryLines, submissionId, fullSummary) {
   try {
     if (typeof emailjs === "undefined") return;
     emailjs.init(EMAILJS_PUBLIC_KEY);
@@ -68,15 +111,17 @@ function notifyTeam(answers, summaryLines, submissionId) {
     const replyTo = (byClient ? answers.client_email : answers.advisor_email) || "";
     const rows = summaryLines.map(l => '<tr><td style="padding:3px 12px 3px 0;color:#6E8299;font-size:12px;white-space:nowrap;vertical-align:top;">' + esc(l[0]) + '</td><td style="padding:3px 0;color:#F5F2EC;font-size:13px;">' + esc(l[1]) + '</td></tr>').join("");
     const html = '<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;background:#0E1824;color:#F5F2EC;border-radius:8px;">'
-      + '<p style="margin:0 0 6px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#C8A96E;">New ETA case intake</p>'
+      + '<p style="margin:0 0 6px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#C8A96E;">ETA Design Request</p>'
       + '<h2 style="margin:0 0 10px;font-weight:400;font-size:22px;">' + (byClient ? esc(advisor) + ' submitted their own case' : esc(advisor) + ' submitted a case for ' + esc(client)) + '</h2>'
       + '<table style="border-collapse:collapse;margin:0 0 16px;">' + rows + '</table>'
-      + '<p style="margin:0;font-size:13px;line-height:1.6;color:#C8BFA8;">The full set of answers is saved in the RetainMoreValue database (table eta_case_intakes).</p>'
+      + '<p style="margin:0;font-size:13px;line-height:1.6;color:#C8BFA8;">The full set of answers is attached as a PDF.</p>'
       + (submissionId ? '<p style="margin:12px 0 0;font-size:11px;color:#6E8299;">Submission ID: ' + esc(submissionId) + '</p>' : '')
       + '</div>';
+    const pdf = fullSummary ? buildAnswersPdf(fullSummary, answers, submissionId) : null;
     emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE, {
+      pdf_attachment: pdf ? pdf.dataUri : "", pdf_name: "ETA-Design-Request" + ((answers.client_name || "").trim() ? "-" + answers.client_name.trim().replace(/[^A-Za-z0-9]+/g, "-") : "") + ".pdf",
       to_email: NOTIFY_EMAIL, cc_email: "", name: advisor, email: replyTo, reply_to: replyTo || NOTIFY_EMAIL,
-      subject: "ETA case intake: " + (byClient ? advisor + " (client, self-submitted)" : client + " (advisor " + advisor + ")"), html_content: html,
+      subject: "ETA Design Request: " + (byClient ? advisor + " (client, self-submitted)" : client + " (advisor " + advisor + ")"), html_content: html,
     }).catch(() => {});
   } catch (e) {}
 }
@@ -883,7 +928,7 @@ function App() {
           : "Something went wrong sending your answers. Please tap Try again, or call 773-318-9608 if it keeps happening.");
         return;
       }
-      notifyTeam(answers, headlineLines(screens, answers), res.submission_id);
+      notifyTeam(answers, headlineLines(screens, answers), res.submission_id, buildSummary(screens, answers));
     }
     clearSaved();
     setBusy(false);
